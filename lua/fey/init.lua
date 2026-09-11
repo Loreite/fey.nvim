@@ -6,24 +6,24 @@ local function get_heading_depth(node, buf)
   if not node then
     return 0
   end
-  local prefix_node = node:field('prefix')[1]
-  if not prefix_node then
+  local signature_node = node:field('signature')[1]
+  if not signature_node then
     return 0
   end
 
-  local text = vim.treesitter.get_node_text(prefix_node, buf)
+  local text = vim.treesitter.get_node_text(signature_node, buf)
   local _, count = text:gsub('[.,:;/\\!?\'"%-+*=@&#$%%]', '')
   return count
 end
 
----@param prefix_str string
+---@param signature_str string
 ---@return string leading_space, table tokens
-local function parse_prefix_tokens(prefix_str)
-  local leading_space = prefix_str:match('^(%s*)') or ''
-  local body = prefix_str:match('^%s*(.-)%s*$') or ''
+local function parse_signature_tokens(signature_str)
+  local leading_space = signature_str:match('^(%s*)') or ''
+  local body = signature_str:match('^%s*(.-)%s*$') or ''
 
   local tokens = {}
-  for symbol, delim in body:gmatch('([%w_<>{}()%[%]]*)([.:;/\\!?%-+*=@&#$%%])') do
+  for symbol, delim in body:gmatch('([%w_]*)([.:;/\\!?%-+*=@&#$%%])') do
     table.insert(tokens, { symbol = symbol, delim = delim })
   end
   return leading_space, tokens
@@ -32,7 +32,7 @@ end
 ---@param leading_space string
 ---@param tokens table
 ---@return string
-local function assemble_prefix(leading_space, tokens)
+local function assemble_signature(leading_space, tokens)
   local result = leading_space
   for _, item in ipairs(tokens) do
     result = result .. item.symbol .. item.delim
@@ -42,7 +42,7 @@ end
 
 ---@param buf integer
 ---@param line integer 0-indexed line number
----@return TSNode|nil heading_node, string|nil prefix_text, table|nil prefix_range
+---@return TSNode|nil heading_node, string|nil signature_text, table|nil signature_range
 local function get_heading_at_line(buf, line)
   local parser = vim.treesitter.get_parser(buf, 'fey')
   if not parser then
@@ -57,8 +57,7 @@ local function get_heading_at_line(buf, line)
   local query = vim.treesitter.query.parse(
     'fey',
     [[
-    (heading
-      prefix: (heading_prefix) @prefix) @heading
+    (heading signature: (signature) @signature) @heading
   ]]
   )
 
@@ -68,7 +67,7 @@ local function get_heading_at_line(buf, line)
       local start_row, _, end_row, _ = node:range()
       if start_row <= line and line <= end_row then
         for child in node:iter_children() do
-          if child:type() == 'heading_prefix' then
+          if child:type() == 'signature' then
             local p_srow, p_scol, p_erow, p_ecol = child:range()
             local text = vim.api.nvim_buf_get_text(buf, p_srow, p_scol, p_erow, p_ecol, {})[1]
             return node, text, { srow = p_srow, scol = p_scol, erow = p_erow, ecol = p_ecol }
@@ -118,12 +117,12 @@ local function find_heading_style_at_depth(buf, target_depth)
   end
 
   local root = parser:parse()[1]:root()
-  local query = vim.treesitter.query.parse('fey', [[ (heading_prefix) @prefix ]])
+  local query = vim.treesitter.query.parse('fey', [[ (signature) @signature ]])
 
   for _, node, _ in query:iter_captures(root, buf, 0, -1) do
     local srow, scol, erow, ecol = node:range()
     local text = vim.api.nvim_buf_get_text(buf, srow, scol, erow, ecol, {})[1]
-    local _, tokens = parse_prefix_tokens(text)
+    local _, tokens = parse_signature_tokens(text)
     if #tokens >= target_depth and tokens[target_depth].symbol ~= '' then
       return tokens[target_depth]
     end
@@ -144,7 +143,7 @@ function M.reindex_buffer(buf, start_line, end_line)
 
   parser:parse(true)
   local root = parser:parse()[1]:root()
-  local query = vim.treesitter.query.parse('fey', [[ (heading_prefix) @prefix ]])
+  local query = vim.treesitter.query.parse('fey', [[ (signature) @signature ]])
 
   local counters = {}
   local edits = {}
@@ -153,8 +152,8 @@ function M.reindex_buffer(buf, start_line, end_line)
   for _, node, _ in query:iter_captures(root, buf, 0, -1) do
     local srow, scol, erow, ecol = node:range()
     if not (start_line and srow < start_line) and not (end_line and srow > end_line) then
-      local prefix_text = vim.api.nvim_buf_get_text(buf, srow, scol, erow, ecol, {})[1]
-      local leading_space, tokens = parse_prefix_tokens(prefix_text)
+      local signature_text = vim.api.nvim_buf_get_text(buf, srow, scol, erow, ecol, {})[1]
+      local leading_space, tokens = parse_signature_tokens(signature_text)
       local depth = #tokens
 
       if depth > 0 then
@@ -186,9 +185,9 @@ function M.reindex_buffer(buf, start_line, end_line)
           end
         end
 
-        local new_prefix = assemble_prefix(leading_space, tokens)
-        if new_prefix ~= prefix_text then
-          table.insert(edits, { srow = srow, scol = scol, erow = erow, ecol = ecol, text = new_prefix })
+        local new_signature = assemble_signature(leading_space, tokens)
+        if new_signature ~= signature_text then
+          table.insert(edits, { srow = srow, scol = scol, erow = erow, ecol = ecol, text = new_signature })
         end
       end
     end
@@ -207,12 +206,12 @@ function M.change_depth(direction)
   local cursor = vim.api.nvim_win_get_cursor(0)
   local line = cursor[1] - 1
 
-  local node, prefix_text, range = get_heading_at_line(buf, line)
-  if not node or not range or not prefix_text then
+  local node, signature_text, range = get_heading_at_line(buf, line)
+  if not node or not range or not signature_text then
     return
   end
 
-  local leading_space, tokens = parse_prefix_tokens(prefix_text)
+  local leading_space, tokens = parse_signature_tokens(signature_text)
   local current_depth = #tokens
 
   if direction == 'demote' then
@@ -233,8 +232,8 @@ function M.change_depth(direction)
     table.remove(tokens)
   end
 
-  local new_prefix = assemble_prefix(leading_space, tokens)
-  vim.api.nvim_buf_set_text(buf, range.srow, range.scol, range.erow, range.ecol, { new_prefix })
+  local new_signature = assemble_signature(leading_space, tokens)
+  vim.api.nvim_buf_set_text(buf, range.srow, range.scol, range.erow, range.ecol, { new_signature })
 
   M.reindex_buffer(buf)
 end
@@ -338,13 +337,13 @@ function M.change_subtree_depth(direction)
     return
   end
   local root = parser:parse()[1]:root()
-  local query = vim.treesitter.query.parse('fey', [[ (heading_prefix) @prefix ]])
+  local query = vim.treesitter.query.parse('fey', [[ (signature) @signature ]])
 
   local edits = {}
   for _, p_node, _ in query:iter_captures(root, buf, start_row, end_row + 1) do
     local srow, scol, erow, ecol = p_node:range()
-    local prefix_text = vim.api.nvim_buf_get_text(buf, srow, scol, erow, ecol, {})[1]
-    local leading_space, tokens = parse_prefix_tokens(prefix_text)
+    local signature_text = vim.api.nvim_buf_get_text(buf, srow, scol, erow, ecol, {})[1]
+    local leading_space, tokens = parse_signature_tokens(signature_text)
 
     if direction == 'demote' then
       local style = find_heading_style_at_depth(buf, #tokens + 1)
@@ -358,9 +357,9 @@ function M.change_subtree_depth(direction)
       end
     end
 
-    local new_prefix = assemble_prefix(leading_space, tokens)
-    if new_prefix ~= prefix_text then
-      table.insert(edits, { srow = srow, scol = scol, erow = erow, ecol = ecol, text = new_prefix })
+    local new_signature = assemble_signature(leading_space, tokens)
+    if new_signature ~= signature_text then
+      table.insert(edits, { srow = srow, scol = scol, erow = erow, ecol = ecol, text = new_signature })
     end
   end
 
