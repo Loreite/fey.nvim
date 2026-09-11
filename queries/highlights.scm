@@ -1,1 +1,0 @@
-/home/qaptor/Projects/tree-sitter/tree-sitter-fey/queries/highlights.scm

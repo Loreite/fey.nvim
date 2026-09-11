@@ -78,6 +78,12 @@ Source: https://github.com/Fey.nvim/Fey.nvim
     [Copyright] 2026-present, Aldo Zeroun
 
 [File]
+    [Pattern]   *
+    [Comment]   nvim-orgmode/orgmode plugin framwork
+    [License]   MIT/Expat
+    [Copyright] 2021 Kristijan Husak
+
+[File]
     !This item is only here for template purposes for use in future!
     [Pattern]   <logo-file>
     [Comment]   Fey.nvim logo

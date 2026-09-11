@@ -180,9 +180,9 @@ function M.reindex_buffer(buf, start_line, end_line)
               local idx = (d == depth) and counters[depth] or (counters[d] or 1)
               item.symbol = pattern.to_symbol(idx)
             end
-          else
-            -- Blank at this depth resets what "first" means for it
-            firsts[d] = nil
+            -- else
+            --   -- Blank at this depth resets what "first" means for it
+            --   firsts[d] = nil
           end
         end
 
