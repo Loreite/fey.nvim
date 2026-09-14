@@ -1,0 +1,187 @@
+local config = require('fey.config')
+
+---@class FeyMenuOption
+---@field label string Description of the action
+---@field key string Key that will be processed when the keys are pressed in the menu
+---@field action? function Handler that will be called when the `key` is pressed in the menu.
+---@field hl? string Highlight group for the label, for handlers that render it
+
+---@class FeyMenuSeparator
+---@field icon string? Character used as separator. The default character is `-`
+---@field length number? Number of repetitions of the separator character. The default length is 80
+
+---@alias FeyMenuItem FeyMenuOption | FeyMenuSeparator
+
+---@alias FeyMenuGroup FeyMenuOption[]
+
+---@class FeyMenuOpts
+---@field title string Menu title
+---@field items FeyMenuItem[]? Menu items, may include options and separators
+---@field prompt string Prompt text used to prompt a keystroke
+---@field separator FeyMenuSeparator? Default separator
+---@field kind string? Stable identifier of the menu type, for handlers that branch on it
+
+--- Menu for selecting an action by pressing a key by the user
+---@class FeyMenu:FeyMenuOpts
+---@field groups FeyMenuGroup[]
+local Menu = {}
+
+---@param data FeyMenuOpts
+---@return FeyMenu
+function Menu:new(data)
+  self:_validate_data(data)
+
+  local opts = {}
+  opts.title = data.title
+  opts.prompt = data.prompt
+  opts.items = data.items or {}
+  opts.groups = {}
+  opts.kind = data.kind
+  opts.separator = vim.tbl_deep_extend('force', { icon = '-', length = 80 }, data.separator or {})
+
+  setmetatable(opts, self)
+  self.__index = self
+  return opts
+end
+
+---@param option FeyMenuOption
+function Menu:_validate_option(option)
+  vim.validate('label', option.label, 'string')
+  vim.validate('key', option.key, 'string')
+  vim.validate('action', option.action, 'function', true)
+  vim.validate('hl', option.hl, 'string', true)
+end
+
+---@param items FeyMenuItem[]?
+function Menu:_validate_items(items)
+  vim.validate('items', items, 'table', true)
+  if not items then
+    return
+  end
+
+  for _, item in ipairs(items) do
+    if item.icon then
+      ---@cast item FeyMenuSeparator
+      self:_validate_separator(item)
+    else
+      ---@cast item FeyMenuOption
+      self:_validate_option(item)
+    end
+  end
+end
+
+---@param separator FeyMenuSeparator?
+function Menu:_validate_separator(separator)
+  vim.validate('separator', separator, 'table', true)
+  if separator then
+    vim.validate('icon', separator.icon, 'string', true)
+    vim.validate('length', separator.length, 'number', true)
+  end
+end
+
+---@param data FeyMenuOpts
+function Menu:_validate_data(data)
+  vim.validate('title', data.title, 'string')
+  vim.validate('prompt', data.prompt, 'string')
+  vim.validate('kind', data.kind, 'string', true)
+  self:_validate_items(data.items)
+  self:_validate_separator(data.separator)
+end
+
+---@param option FeyMenuOption
+function Menu:add_option(option)
+  self:_validate_option(option)
+  table.insert(self.items, option)
+end
+
+---@param separator? FeyMenuSeparator
+function Menu:add_separator(separator)
+  self:_validate_separator(separator)
+  table.insert(self.items, vim.tbl_deep_extend('force', self.separator, separator or {}))
+end
+
+--- Adds a group of options. Groups carry structure (e.g. one todo sequence per
+--- group) for handlers that lay them out; the options are also appended to the
+--- flat `items` list so handlers that ignore groups keep working.
+---@param options FeyMenuGroup
+function Menu:add_group(options)
+  vim.validate('options', options, 'table')
+  for _, option in ipairs(options) do
+    self:_validate_option(option)
+  end
+  table.insert(self.groups, options)
+  for _, option in ipairs(options) do
+    table.insert(self.items, option)
+  end
+end
+
+---@class FeyMenuData
+---@field title string Menu title
+---@field items FeyMenuItem[] Menu items, may include options and separators
+---@field prompt string Prompt text used to prompt a keystroke
+---@field groups? FeyMenuGroup[] Options grouped by structure; `items` is the flat view
+---@field kind? string Stable identifier of the menu type
+
+---@param data FeyMenuData
+function Menu._default_menu(data)
+  local content = { data.title, string.rep('-', #data.title) }
+  local valid_keys = {}
+
+  for _, item in ipairs(data.items) do
+    if item.icon then
+      ---@cast item FeyMenuSeparator
+      table.insert(content, string.rep(item.icon, item.length))
+    else
+      ---@cast item FeyMenuOption
+      valid_keys[item.key] = item
+      table.insert(content, string.format('%s %s', item.key, item.label))
+    end
+  end
+
+  table.insert(content, data.prompt .. ': ')
+
+  vim.cmd(string.format('echon "%s"', table.concat(content, '\\n')))
+  local char = vim.fn.nr2char(vim.fn.getchar())
+  vim.cmd('redraw!')
+
+  local entry = valid_keys[char]
+  if not entry or not entry.action then
+    return
+  end
+  return entry.action()
+end
+
+---@return table<string, FeyMenuOption | FeyMenuSeparator>
+function Menu:get_valid_keys()
+  local valid_keys = {}
+  for _, item in ipairs(self.items) do
+    if item.key then
+      valid_keys[item.key] = item
+    end
+  end
+  return valid_keys
+end
+
+function Menu:get_entry_by_key(key)
+  return self:get_valid_keys()[key]
+end
+
+function Menu:open()
+  local menu_data = {
+    title = self.title,
+    items = self.items,
+    prompt = self.prompt,
+    kind = self.kind,
+  }
+  if #self.groups > 0 then
+    menu_data.groups = self.groups
+  end
+  local custom_handler = config.ui.menu.handler
+  if custom_handler then
+    return custom_handler(menu_data)
+  else
+    return Menu._default_menu(menu_data)
+  end
+end
+
+return Menu

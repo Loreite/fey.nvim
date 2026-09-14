@@ -1,0 +1,74 @@
+#+OPTIONS: H:9 ^:nil
+* Installation
+
+** Installation methods
+Fey can be installed with any package manager.
+Here are few examples:
+
+1. [[https://github.com/folke/lazy.nvim][lazy.nvim]] (Recommended)
+   #+begin_src lua
+   return {
+     'loreite/fey.nvim',
+     event = 'VeryLazy',
+     config = function()
+       require('fey').setup({
+         fey_agenda_files = '~/feyfiles/**/*',
+         fey_default_notes_file = '~/feyfiles/refile.fey',
+       })
+      -- Experimental LSP support
+      vim.lsp.enable('fey')
+     end,
+   }
+   #+end_src
+2. vim.pack (Available only in Neovim 0.12+)
+   #+begin_src lua
+   vim.pack.add({
+     { src = 'https://github.com/loreite/fey.nvim'}
+   })
+   require('fey').setup({
+     fey_agenda_files = '~/feyfiles/**/*',
+     fey_default_notes_file = '~/feyfiles/refile.fey',
+   })
+   -- Experimental LSP support
+   vim.lsp.enable('fey')
+   #+end_src
+3. [[https://github.com/lewis6991/pckr.nvim][pckr.nvim]]
+   #+begin_src lua
+   require('pckr').add({
+     {
+      'loreite/fey.nvim',
+        config = function()
+          require('fey').setup({
+            fey_agenda_files = '~/feyfiles/**/*',
+            fey_default_notes_file = '~/feyfiles/refile.fey',
+          })
+        end
+     }
+   })
+   #+end_src
+4. [[https://github.com/junegunn/vim-plug][vim-plug]]
+   #+begin_src vim
+   Plug 'loreite/fey.nvim'
+
+   lua << EOF
+   require('fey').setup({
+     fey_agenda_files = '~/feyfiles/**/*',
+     fey_default_notes_file = '~/feyfiles/refile.fey',
+   })
+   EOF
+   #+end_src
+5. [[https://github.com/Shougo/dein.vim][dein.vim]]
+   #+begin_src vim
+   call dein#add('loreite/fey.nvim')
+
+    lua << EOF
+    require('fey').setup({
+      fey_agenda_files = '~/feyfiles/**/*',
+      fey_default_notes_file = '~/feyfiles/refile.fey',
+    })
+    EOF
+   #+end_src
+
+** Useful links
+- [[file:./configuration.fey][Configuration]]
+- [[file:./plugins.fey][Plugins]]

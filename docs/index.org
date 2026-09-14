@@ -1,0 +1,83 @@
+#+OPTIONS: H:9 ^:nil
+* Nvim Fey
+
+Nvim fey is a clone of Emacs Fey for Neovim 0.11.0+.
+It aims to be a feature-complete implementation of Fey features in Neovim.
+
+Online version of this documentation is available at [[https://fey.github.io]].
+
+To view this documentation offline in Neovim, run =:Fey help=. More info in [[#globals-and-commands][Globals and commands]] section.
+
+** Quick start
+:PROPERTIES:
+:CUSTOM_ID: quick-start
+:END:
+- Install with [[https://github.com/folke/lazy.nvim][lazy.nvim]]:
+  #+begin_src lua
+  {
+    'loreite/fey.nvim',
+    event = 'VeryLazy',
+    config = function()
+      -- Setup fey
+      require('fey').setup({
+        fey_agenda_files = '~/feyfiles/**/*',
+        fey_default_notes_file = '~/feyfiles/refile.fey',
+      })
+      -- Experimental LSP support
+      vim.lsp.enable('fey')
+    end,
+  }
+  #+end_src
+- Capture your first note with =<leader>oc=
+- Open up the prompt for agenda with =<leader>oa=
+
+For more details about the installation and usage, check [[./installation.fey][Installation page]].
+
+To see all configuration options, check [[file:./configuration.fey][Configuration page]].
+
+** Getting started with fey
+:PROPERTIES:
+:CUSTOM_ID: getting-started
+:END:
+To get a basic idea how Fey works, check our hands-on [[file:./tutorial.fey][tutorial]].
+
+You can also check this screencast from [[https://github.com/dhruvasagar][@dhruvasagar]]
+that demonstrates how the similar Fey clone [[https://github.com/dhruvasagar/vim-dotoo][vim-dotoo]] works.
+
+[[https://www.youtube.com/watch?v=nsv33iOnH34]]
+
+** API docs
+:PROPERTIES:
+:CUSTOM_ID: api-docs
+:END:
+Nvim-fey exposes a Lua API that can be used to interact with the fey. To view it, check [[file:../doc/fey_api.txt][fey_api.txt]]
+or do =:h FeyApi= in Neovim.
+
+** Globals and commands
+:PROPERTIES:
+:CUSTOM_ID: globals-and-commands
+:END:
+There are 2 additional ways to interact with Fey:
+1. Through the =:Fey= command
+2. Through =Fey= Lua global variable
+
+List of available actions:
+- =:Fey help= - Open this documentation in new tab, set working directory to the docs folder for the tab to allow browsing
+- =:Fey helpgrep= - Open search agenda view that allows searching through the documentation
+- =:Fey agenda {type?}= - Open agenda view by the shortcut, for example =:Fey agenda M= will open =tags_todo= view. When =type= is omitted, it opens up Agenda view.
+- =:Fey capture {type?}= - Open capture template by the shortcut, for example =:Fey capture t=. When =type= is omitted, it opens up Capture prompt.
+- =:Fey install_treesitter_grammar= - Install the treesitter grammar for Fey. If installed, prompt to reinstall. Grammar is installed automatically
+  on first run, but this is useful in case when there are issues with the grammar.
+- =:Fey store_link= - [[file:./configuration.fey::#fey_store_link][Store link]] to the heading under cursor. Works in both agenda and fey files.
+- =:Fey indent_mode= - Toggle virtual indent mode in the current buffer. See [[file:./configuration.fey::#fey_startup_indented][osg_startup_indented]] for additional info.
+
+All of the commands above can be executed through the global Lua =Fey= variable. Examples:
+- =Fey.help()=
+- =Fey.helpgrep()=
+- =Fey.install_treesitter_grammar()=
+- =Fey.store_link()=
+- =Fey.indent_mode()=
+- =Fey.agenda()= - Opens =agenda= prompt
+- =Fey.agenda.m()= - Opens =tags= view
+- =Fey.capture()= - Opens capture prompt
+- =Fey.capture.t()= - Opens capture template for =t= shortcut

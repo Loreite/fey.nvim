@@ -19,15 +19,15 @@
   II. About
 
 Fey.nvim is a plugin that aims to be for the Fey markup language what
-nvim-orgmode is for the org-mode markup language.
+fey.nvim is for the fey-mode markup language.
 
-I use that particular comparison because just like org-mode, Fey has a tree-like
+I use that particular comparison because just like fey-mode, Fey has a tree-like
 heading hierarchy, and the first features that have been implemented are related
 to moving subtrees up/down or promoting/demoting them (or individual headings).
 
 We started here because it's incredible how powerful taking notes feels even when
-all you have as a super-power is organizing the sections/subsections of your
-ideas. 95% of what we have found that we use org-mode for was just organizing
+all you have as a super-power is feyanizing the sections/subsections of your
+ideas. 95% of what we have found that we use fey-mode for was just feyanizing
 text content with headings.
 
 
@@ -61,13 +61,13 @@ per-subtree).
 It is possible to have an 'anonymous' depth-token at any given depth which will
 not contribute to the count. Eg. 'II..' has an anonymous depth-token at depth
 two. This allows users to define their headings with markdown style hashes '###'
-or org-mode stars '***' such as below.
+or fey-mode signature '***' such as below.
 
 You can read the Fey specification for a full description of what characters are
 available to be used as either a depth- token or delimiter.
 
   ### Markdown anonymous hash example
-  *** Org-mode anonymous star example
+  *** Fey anonymous star example
 
 
   III. Disclaimer

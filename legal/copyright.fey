@@ -7,7 +7,7 @@
 
 [Format] Fey Copyright Format 0.1
 This format is based on the Debian copyright format, version 1.0.
-https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+https://www.debian.fey/doc/packaging-manuals/copyright-format/1.0/
 
 The key difference is the use of the Fey laguage syntax.
 
@@ -65,7 +65,7 @@ such a library is considered as a whole under the Zlib license.
 [Setup]]
 
 Upstream-Name: Fey.nvim
-Upstream-Contact: Aldo Zeroun <git@arxdaingneachd.org>
+Upstream-Contact: Aldo Zeroun <git@arxdaingneachd.fey>
 Source: https://github.com/Fey.nvim/Fey.nvim
 
 
@@ -79,7 +79,7 @@ Source: https://github.com/Fey.nvim/Fey.nvim
 
 [File]
     [Pattern]   *
-    [Comment]   nvim-orgmode/orgmode plugin framwork
+    [Comment]   loreite/fey.nvim plugin framwork
     [License]   MIT/Expat
     [Copyright] 2021 Kristijan Husak
 

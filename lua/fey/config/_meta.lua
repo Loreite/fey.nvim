@@ -1,0 +1,263 @@
+---@meta
+---@alias FeyAgendaSpan 'day' | 'week' | 'month' | 'year' | number
+---@alias FeyMappingValue string | string[]
+
+---@class FeyAgendaCustomCommandTypeInterface
+---@field type? 'agenda' | 'tags' | 'tags_todo'
+---@field fey_agenda_overriding_header? string
+---@field fey_agenda_files? string[]
+---@field fey_agenda_tag_filter_preset? string
+---@field fey_agenda_category_filter_preset? string
+---@field fey_agenda_sorting_strategy? FeyAgendaSortingStrategy[]
+---@field fey_agenda_remove_tags? boolean
+
+---@class FeyAgendaCustomCommandAgenda:FeyAgendaCustomCommandTypeInterface
+---@field fey_agenda_span? FeyAgendaSpan Default: 'week'
+---@field fey_agenda_start_day? string Modifier from today, example '+1d'
+---@field fey_agenda_start_on_weekday? number | false
+
+---@class FeyAgendaCustomCommandTags:FeyAgendaCustomCommandTypeInterface
+---@field match? string
+---@field fey_agenda_todo_ignore_scheduled? FeyAgendaTodoIgnoreScheduledTypes
+---@field fey_agenda_todo_ignore_deadlines? FeyAgendaTodoIgnoreDeadlinesTypes
+
+---@class FeyAgendaTimeGridOpts
+---@field type? ('daily' | 'weekly' | 'today' | 'require-timed' | 'remove-match')[]
+---@field times? number[]
+---@field time_separator? string
+---@field time_label? string
+
+---@alias FeyAgendaCustomCommandType (FeyAgendaCustomCommandAgenda | FeyAgendaCustomCommandTags)
+
+---@class FeyAgendaCustomCommand
+---@field description string Description in prompt
+---@field types? FeyAgendaCustomCommandType[]
+
+---@class FeyCustomExport
+---@field label string
+---@field action function(fun(cmd: string[], target: string, on_success: function, on_error: function))
+
+---@class FeyCalendarSettings
+---@field round_min_with_hours? boolean Should minutes be rounded to hour when changing hour. Default: true
+---@field min_small_step? number Step size for changing the minutes while cursor is on the second digit. Default: value of `fey_time_stamp_rounding_minutes` = 5
+---@field min_big_step? number Step size for changing the minutes while cursor is on the first digit. Default: 15
+
+---@class FeyNotificationsConfig
+---@field enabled? boolean Enable notifications. Default: false
+---@field cron_enabled? boolean Enable cron notifications. Default: true
+---@field repeater_reminder_time? boolean | number | number[] Number of minutes before the repeater time to send the notifiaction. Default: false
+---@field deadline_warning_reminder_time? boolean | number | number[] Number of minutes before the deadline wrning time to send the notifiaction. Default: 0
+---@field reminder_time? boolean | number | number[] Number of minutes before the time to send the notifiaction. Default: 10
+---@field deadline_reminder? boolean Enable notifiactions for DEADLINE dates. Default: true
+---@field scheduled_reminder? boolean Enable notifiactions for DEADLINE dates. Default: true
+
+---@class FeyMappingsGlobal
+---@field fey_agenda? FeyMappingValue Mappings used to open agenda prompt. Default: '<prefix>a'
+---@field fey_capture? FeyMappingValue Mappings used to open capture prompt. Default: '<prefix>c'
+
+---@class FeyHyperlinksConfig
+---@field sources FeyLinkType[]
+
+---@class FeyMappingsAgenda
+---@field fey_agenda_later? FeyMappingValue Default: 'f'
+---@field fey_agenda_earlier? FeyMappingValue Default: 'b'
+---@field fey_agenda_goto_today? FeyMappingValue Default: '.'
+---@field fey_agenda_day_view? FeyMappingValue Default: 'vd'
+---@field fey_agenda_week_view? FeyMappingValue Default: 'vw'
+---@field fey_agenda_month_view? FeyMappingValue Default: 'vm'
+---@field fey_agenda_year_view? FeyMappingValue Default: 'vy'
+---@field fey_agenda_quit? FeyMappingValue Default: 'q'
+---@field fey_agenda_switch_to? FeyMappingValue Default: '<CR>'
+---@field fey_agenda_goto? FeyMappingValue Default: '<TAB>'
+---@field fey_agenda_goto_date? FeyMappingValue Default: 'J'
+---@field fey_agenda_redo? FeyMappingValue Default: 'r'
+---@field fey_agenda_todo? FeyMappingValue Default: 't'
+---@field fey_agenda_clock_goto? FeyMappingValue Default: '<prefix>xj'
+---@field fey_agenda_set_effort? FeyMappingValue Default: '<prefix>xe'
+---@field fey_agenda_clock_in? FeyMappingValue Default: 'I'
+---@field fey_agenda_clock_out? FeyMappingValue Default: 'O'
+---@field fey_agenda_clock_cancel? FeyMappingValue Default: 'X'
+---@field fey_agenda_clockreport_mode? FeyMappingValue Default: 'R'
+---@field fey_agenda_priority? FeyMappingValue Default: '<prefix>,'
+---@field fey_agenda_priority_up? FeyMappingValue Default: '+'
+---@field fey_agenda_priority_down? FeyMappingValue Default: '-'
+---@field fey_agenda_archive? FeyMappingValue Default: '<prefix>$'
+---@field fey_agenda_toggle_archive_tag? FeyMappingValue Default: '<prefix>A'
+---@field fey_agenda_set_tags? FeyMappingValue Default: '<prefix>t'
+---@field fey_agenda_deadline? FeyMappingValue Default: '<prefix>id'
+---@field fey_agenda_schedule? FeyMappingValue Default: '<prefix>is'
+---@field fey_agenda_filter? FeyMappingValue Default: '/'
+---@field fey_agenda_refile? FeyMappingValue Default: '<prefix>r'
+---@field fey_agenda_add_note? FeyMappingValue Default: '<prefix>na'
+---@field fey_agenda_open_at_point? FeyMappingValue Default: '<prefix>o'
+---@field fey_agenda_show_help? FeyMappingValue Default: 'g?'
+---
+---@class FeyMappingsCapture
+---@field fey_capture_finalize? FeyMappingValue Default: '<C-c>'
+---@field fey_capture_refile? FeyMappingValue Default: '<prefix>r'
+---@field fey_capture_kill? FeyMappingValue Default: '<prefix>k'
+---@field fey_capture_show_help? FeyMappingValue Default: 'g?'
+---
+---@class FeyMappingsNote
+---@field fey_note_finalize? FeyMappingValue Default: '<C-c>'
+---@field fey_note_kill? FeyMappingValue Default: '<prefix>k'
+---
+---@class FeyMappingsFey
+---@field fey_refile? FeyMappingValue Default: '<prefix>r'
+---@field fey_timestamp_up_day? FeyMappingValue Default: '<S-UP>'
+---@field fey_timestamp_down_day? FeyMappingValue Default: '<S-DOWN>'
+---@field fey_timestamp_up? FeyMappingValue Default: '<C-a>'
+---@field fey_timestamp_down? FeyMappingValue Default: '<C-x>'
+---@field fey_change_date? FeyMappingValue Default: 'cid'
+---@field fey_priority? FeyMappingValue Default: '<prefix>,'
+---@field fey_priority_up? FeyMappingValue Default: 'ciR'
+---@field fey_priority_down? FeyMappingValue Default: 'cir'
+---@field fey_todo? FeyMappingValue Default: 'cit'
+---@field fey_todo_prev? FeyMappingValue Default: 'ciT'
+---@field fey_toggle_checkbox? FeyMappingValue Default: '<C-Space>'
+---@field fey_toggle_heading? FeyMappingValue Default: '<prefix>*'
+---@field fey_open_at_point? FeyMappingValue Default: '<prefix>o'
+---@field fey_edit_special? FeyMappingValue Default: "<prefix>'"
+---@field fey_add_note? FeyMappingValue Default: '<prefix>na'
+---@field fey_cycle? FeyMappingValue Default: '<TAB>'
+---@field fey_global_cycle? FeyMappingValue Default: '<S-TAB>'
+---@field fey_archive_subtree? FeyMappingValue Default: '<prefix>$'
+---@field fey_set_tags_command? FeyMappingValue Default: '<prefix>t'
+---@field fey_toggle_archive_tag? FeyMappingValue Default: '<prefix>A'
+---@field fey_do_promote? FeyMappingValue Default: '<<'
+---@field fey_do_demote? FeyMappingValue Default: '>>'
+---@field fey_promote_subtree? FeyMappingValue Default: '<s'
+---@field fey_demote_subtree? FeyMappingValue Default: '>s'
+---@field fey_meta_return? FeyMappingValue Add heading, item or row (context-dependent) Default: '<Leader><CR>'
+---@field fey_return? FeyMappingValue Default: '<CR>'
+---@field fey_insert_heading_respect_content? FeyMappingValue Add new heading after current heading block (same level) Default: '<prefix>ih'
+---@field fey_insert_todo_heading? FeyMappingValue Add new todo heading right after current heading (same level) Default: '<prefix>iT'
+---@field fey_insert_todo_heading_respect_content? FeyMappingValue Add new todo heading after current heading block (same level). Default: '<prefix>it'
+---@field fey_move_subtree_up? FeyMappingValue Default: '<prefix>K'
+---@field fey_move_subtree_down? FeyMappingValue Default: '<prefix>J'
+---@field fey_export? FeyMappingValue Default: '<prefix>e'
+---@field fey_next_visible_heading? FeyMappingValue Default: '}'
+---@field fey_previous_visible_heading? FeyMappingValue Default: '{'
+---@field fey_forward_heading_same_level? FeyMappingValue Default: ']]'
+---@field fey_backward_heading_same_level? FeyMappingValue Default: '[['
+---@field outline_up_heading? FeyMappingValue Default: 'g{'
+---@field fey_deadline? FeyMappingValue Default: '<prefix>id'
+---@field fey_schedule? FeyMappingValue Default: '<prefix>is'
+---@field fey_time_stamp? FeyMappingValue Default: '<prefix>i.'
+---@field fey_time_stamp_inactive? FeyMappingValue Default: '<prefix>i!'
+---@field fey_toggle_timestamp_type? FeyMappingValue Default: '<prefix>d!'
+---@field fey_insert_link? FeyMappingValue Default: '<prefix>li'
+---@field fey_store_link? FeyMappingValue Default: '<prefix>ls'
+---@field fey_clock_in? FeyMappingValue Default: '<prefix>xi'
+---@field fey_clock_out? FeyMappingValue Default: '<prefix>xo'
+---@field fey_clock_cancel? FeyMappingValue Default: '<prefix>xq'
+---@field fey_clock_goto? FeyMappingValue Default: '<prefix>xj'
+---@field fey_set_effort? FeyMappingValue Default: '<prefix>xe'
+---@field fey_show_help? FeyMappingValue Default: 'g?'
+---@field fey_babel_tangle? FeyMappingValue Default: '<prefix>bt'
+
+---@class FeyMappingsTextObjects
+---@field inner_heading? FeyMappingValue Default: 'ih'
+---@field around_heading? FeyMappingValue Default: 'ah'
+---@field inner_subtree? FeyMappingValue Default: 'ir'
+---@field around_subtree? FeyMappingValue Default: 'ar'
+---@field inner_heading_from_root? FeyMappingValue Default: 'Oh'
+---@field around_heading_from_root? FeyMappingValue Default: 'OH'
+---@field inner_subtree_from_root? FeyMappingValue Default: 'Or'
+---@field around_subtree_from_root? FeyMappingValue Default: 'OR'
+---
+---@class FeyMappingsEditSrc
+---@field fey_edit_src_abort? FeyMappingValue Default: '<prefix>k'
+---@field fey_edit_src_save? FeyMappingValue Default: '<prefix>w'
+---@field fey_edit_src_save_exit? FeyMappingValue Default: "<prefix>'"
+---@field fey_edit_src_show_help? FeyMappingValue Default: 'g?'
+---
+---@class FeyEmacsConfig
+---@field executable_path? string path to emacs executable. Default: 'emacs'
+---@field config_path? string | nil path to emacs config file. If nil, attempts to find the config automatically. Default: nil
+---
+
+---@class FeyUiConfig
+---@field folds? { colored: boolean } Should folds be colored or use the default folding highlight. Default: { colored: true }
+---@field menu? { handler: fun() | nil } Menu configuration
+---@field input? { use_vim_ui: boolean } Input configuration
+---@field agenda? { preview_window?: vim.lsp.util.open_floating_preview.Opts } Agenda preview window option
+
+---@class FeyMappingsConfig
+---@field disable_all? boolean Disable all mappings. Default: false
+---@field fey_return_uses_meta_return? boolean When true, `<CR>` will act as `<Leader><CR>` when applicable. Default: false
+---@field prefix? string Default prefix for mappings. Default: '<Leader>o'
+---@field global? FeyMappingsGlobal
+---@field agenda? FeyMappingsAgenda
+---@field capture? FeyMappingsCapture
+---@field note? FeyMappingsNote
+---@field edit_src? FeyMappingsEditSrc
+---@field fey? FeyMappingsFey
+---@field text_objects? FeyMappingsTextObjects
+
+---@class FeyConfigOpts
+---@field fey_agenda_files? string | string[] Path(s) to fey files. Can be a glob pattern (example: `~/fey/**/*`). Default: {}
+---@field fey_default_notes_file? string Path to default file for captures. Default: ''
+---@field fey_todo_keywords? string[] List of todo/done states, separated by `|`. Default: { 'TODO', '|', 'DONE' }
+---@field fey_todo_repeat_to_state? string | nil An `fey_todo_keywords` todo entry to use as a "starting" state for repeatable todos. Defaults to first todo state
+---@field fey_todo_keyword_faces? table<string, string> Custom faces (colors) for todo keywords. Default: {}
+---@field fey_deadline_warning_days? number Number of days during which deadline becomes visible in today's agenda. Default: 14
+---@field fey_agenda_min_height? number Minimum height of the agenda window. Default: 16
+---@field fey_agenda_span? FeyAgendaSpan Default time span for the agenda view. Default: 'week'
+---@field fey_agenda_start_on_weekday? number | false From which day in week (ISO weekday, 1 is Monday) to show the agenda. Applies only to `week` span. Default: 1
+---@field fey_agenda_start_day? string | nil Offset applied to the `fey_agenda_start_on_weekday` in format `+1d`, `+2w`, etc. Default: nil
+---@field calendar_week_start_day? 0 | 1 From which day to start the week in the Calendar. 0 is Sunday, 1 is Monday. Default: 1
+---@field calendar? FeyCalendarSettings Calendar settings
+---@field fey_capture_templates? table<string, FeyCaptureTemplateOpts> Templates for capture. Default: { t = { description = 'Task', template = '* TODO %?\n  %u' } }
+---@field fey_startup_folded? 'overview' | 'content' | 'showeverything' |'inherit' How many levels of headings to show when opening a file. Default: 'overview'
+---@field fey_agenda_skip_scheduled_if_done? boolean If true, scheduled entries marked as done will not be shown in the agenda. Default: false
+---@field fey_agenda_skip_deadline_if_done? boolean If true, deadline entries marked as done will not be shown in the agenda. Default: false
+---@field fey_agenda_text_search_extra_files? ('agenda-archives')[] Additional files to earch from agenda search prompt. Default: {}
+---@field fey_agenda_hide_empty_blocks? boolean Hide empty custom agenda commands in agenda view. Default: false
+---@field fey_agenda_custom_commands? table<string, FeyAgendaCustomCommand> Custom commands for the agenda view. Default: {}
+---@field fey_agenda_block_separator? string Separator for blocks in the agenda view. Default: '-'
+---@field fey_agenda_sorting_strategy? table<'agenda' | 'todo' | 'tags', FeyAgendaSortingStrategy[]> Sorting strategy for the agenda view. See docs for default value
+---@field fey_agenda_remove_tags? boolean If true, tags will be removed from the all agenda views. Default: false
+---@field fey_agenda_use_time_grid? boolean If true, Render time grid in agenda as set by fey_agenda_time_grid. Default: true
+---@field fey_agenda_show_future_repeats? boolean | 'next' If true, show all future repeats. If `next`, show only next repeat. If false, do hnot show any repeats. Default: true
+---@field fey_agenda_time_grid? FeyAgendaTimeGridOpts Agenda time grid configuration. Default: { type = { 'daily', 'today', 'require-timed' }, times = { 800, 1000, 1200, 1400, 1600, 1800, 2000 }, time_separator = '┄┄┄┄┄', time_label = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄' }
+---@field fey_agenda_current_time_string? string String to indicate current time on the time grid. Default: '<- now -----------------------------------------------'
+---@field fey_priority_highest? string | number Highest priority level. Default: 'A'
+---@field fey_priority_default? string | number Default priority level. Default: 'B'
+---@field fey_priority_lowest? string | number Lowest priority level. Default: 'C'
+---@field fey_priority_start_cycle_with_default? boolean If true, cycling priorities will start with the default priority. Default: true
+---@field fey_archive_location? string Location where to archive subtrees. `%s` indicates the file name from where archiving is done. Default: '%s_archive::'
+---@field fey_tags_column? number Padding for tags column. Negative indicates how many columns to pad from heading. Positive indicates specific column. Default: -80
+---@field fey_use_tag_inheritance? boolean If true, tags will be inherited from parent headings. Default: true
+---@field fey_tags_exclude_from_inheritance? string[] List of tags that should be excluded from tag inheritance. Default: {}
+---@field fey_hide_leading_signature? boolean If true, leading signature on the headings with level > 1 will be hidden. Default: false
+---@field fey_hide_emphasis_markers? boolean If true, emphasis markers will be hidden with conceal feature. Default: false
+---@field fey_ellipsis? string Ellipsis character to use when folding text. Default: '...'
+---@field fey_log_done? 'time' | 'note' How to log done tasks. `time` indicates adding CLOSED date. `note` prompts for closing note. Default: 'time'
+---@field fey_log_repeat? 'time' | 'note' | false How to log repeated tasks. `time` just logs the time of repeat. `note` prompts for closing note alongside the time. `false` disables. Default: 'time'
+---@field fey_log_into_drawer? string | nil Drawer name where to log notes. Default: nil
+---@field fey_highlight_latex_and_related? 'native' | 'entities' | nil What level of latex highlighting to use. This option is experimental. Default: nil
+---@field fey_custom_exports? table<string, FeyCustomExport> List of custom exports. Default: {}
+---@field fey_adapt_indentation? boolean Add spaces as indents to the content. Default: true
+---@field fey_startup_indented? boolean If true, apply virtual indents to the content. Default: false
+---@field fey_indent_mode_turns_off_fey_adapt_indentation? boolean If true, turning on indent mode will turn off `fey_adapt_indentation`. Default: true
+---@field fey_indent_mode_turns_on_hiding_signature? boolean If true, turning on indent mode will hide leading signature. Default: true
+---@field fey_time_stamp_rounding_minutes? number Rounding minutes for time stamps. Default: 5
+---@field fey_cycle_separator_lines? number Min number of spaces are needed at the end of heading to show empty line between folds. Default: 2
+---@field fey_blank_before_new_entry? { heading: boolean, plain_list_item: boolean } Should blank line be prepended. Default: { heading = true, plain_list_item = false }
+---@field fey_src_window_setup? string | fun() How to open "special edit" buffer window. Default: 'top 16new'
+---@field fey_edit_src_content_indentation? number Addditional ndentation number applied when editing a SRC block through special edit. Default: 0
+---@field fey_id_uuid_program? string External proram to generate UUIDs. Default: 'uuidgen'
+---@field fey_id_ts_format? string  Format of the id generated when `fey_id_method = 'ts'`. Default: '%Y%m%d%H%M%S'
+---@field fey_id_method? 'uuid' | 'ts' | 'fey' What method to use to generate ids via fey.id module. Default: 'uuid'
+---@field fey_id_prefix? string | nil Prefix to apply to id when `fey_id_method = 'fey'`. Default: nil
+---@field fey_id_link_to_fey_use_id? boolean If true, Storing a link to the heading will automatically generate ID for that heading. Default: false
+---@field fey_use_property_inheritance? boolean | string | string[] If true, properties are inherited by sub-headings; may also be a regex or list of property names. Default: false
+---@field fey_babel_default_header_args? table<string, string> Default header args for fey-babel blocks: Default: { [':tangle'] = 'no', [':noweb'] = 'no' }
+---@field win_split_mode? 'horizontal' | 'vertical' | 'auto' | 'float' | 'edit' | 'tabnew' | string[] How to open agenda and capture windows. Default: 'horizontal'
+---@field win_border? 'none' | 'single' | 'double' | 'rounded' | 'solid' | 'shadow' | string[] Border configuration for `win_split_mode = 'float'`. Default: 'single'
+---@field notifications? FeyNotificationsConfig Notification settings
+---@field mappings? FeyMappingsConfig Mappings configuration
+---@field emacs_config? FeyEmacsConfig Emacs cnfiguration
+---@field ui? FeyUiConfig UI configuration
+---@field hyperlinks? FeyHyperlinksConfig  Custom sources for hyperlinks
