@@ -1,3 +1,8 @@
+local EventManager = require('fey.events')
+local events = EventManager.event
+local FeyFile = require('fey.files.file')
+local undotree = require('fey.utils.undotree')
+
 _G.fey = _G.fey or {}
 _G.Fey = _G.Fey or {}
 ---@type Fey | nil
@@ -143,6 +148,64 @@ function Fey:setup_autocmds()
       if self.buffers then
         self.buffers.remove(event.buf)
       end
+    end,
+  })
+
+  vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'fey',
+    group = fey_augroup,
+    callback = function(event)
+      local reindexing = {}
+      local reindex_pending = {}
+
+      local function do_reindex(buf)
+        if not vim.api.nvim_buf_is_valid(buf) then
+          return
+        end
+        if undotree.was_undo_or_redo(buf) then
+          return
+        end
+        reindexing[buf] = true
+        pcall(function()
+          vim.cmd('undojoin')
+        end)
+        local feyfile = FeyFile:new({ filename = event.file, buf = event.buf })
+        local buff_changed_event = events.BufferChanged:new(feyfile)
+        pcall(EventManager.dispatch, buff_changed_event)
+
+        reindexing[buf] = nil
+      end
+
+      local function schedule_reindex(buf)
+        if reindex_pending[buf] then
+          return
+        end
+        reindex_pending[buf] = true
+        vim.schedule(function()
+          reindex_pending[buf] = nil
+          do_reindex(buf)
+        end)
+      end
+
+      vim.api.nvim_create_autocmd({ 'InsertLeave', 'TextChanged' }, {
+        group = fey_augroup,
+        buffer = event.buf,
+        callback = function()
+          if reindexing[event.buf] then
+            return
+          end
+          schedule_reindex(event.buf)
+        end,
+      })
+
+      vim.api.nvim_create_autocmd('BufWritePre', {
+        group = fey_augroup,
+        buffer = event.buf,
+        callback = function()
+          reindex_pending[event.buf] = nil
+          do_reindex(event.buf)
+        end,
+      })
     end,
   })
 end

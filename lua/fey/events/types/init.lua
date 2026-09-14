@@ -10,4 +10,5 @@ return {
   NoteAdded = require('fey.events.types.note_added_event'),
   ClockedIn = require('fey.events.types.clocked_in'),
   ClockedOut = require('fey.events.types.clocked_out'),
+  BufferChanged = require('fey.events.types.buffer_changed_event'),
 }

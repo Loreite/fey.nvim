@@ -10,6 +10,8 @@ local Range = require('fey.files.elements.range')
 local Footnote = require('fey.objects.footnote')
 local Memoize = require('fey.utils.memoize')
 local Buffers = require('fey.state.buffers')
+local sequences = require('fey.utils.sequences')
+local constants = require('fey.utils.constants')
 
 local clean_empty_line = vim.fn.has('nvim-0.13') == 1 or vim.fn.has('nvim-0.12.3') == 1
 
@@ -89,6 +91,86 @@ function FeyFile.load(filename)
   end)
 end
 
+function FeyFile:reindex_headings()
+  local buf = self:get_valid_bufnr()
+  self:parse(true)
+
+  local root_data = {
+    edits = {},
+    firsts = {},
+    counters = {},
+  }
+
+  local function assemble_signature(tokens)
+    local result = constants.heading_leading_indentation
+    for _, item in ipairs(tokens) do
+      result = result .. item.symbol .. item.delim
+    end
+    return result
+  end
+
+  local function update_index_rec(node, data)
+    local signature = node:field('heading')[1]:field('signature')[1]
+    local signature_text = vim.treesitter.get_node_text(signature, buf)
+    local range = { signature:range() }
+    local tokens = {}
+    for i, segment in ipairs(signature:named_children()) do
+      local count = segment:child_count()
+      tokens[i] = {}
+      tokens[i]['symbol'] = count == 1 and '' or vim.treesitter.get_node_text(segment:child(0), buf)
+      tokens[i]['delim'] = vim.treesitter.get_node_text(segment:child(count == 1 and 0 or 1), buf)
+    end
+    local depth = #tokens
+
+    for d = depth + 1, #data.counters do
+      data.counters[d] = nil
+    end
+
+    if tokens[depth].symbol ~= '' then
+      data.counters[depth] = (data.counters[depth] or 0) + 1
+    end
+
+    for d = 1, depth do
+      local item = tokens[d]
+      if item.symbol ~= '' then
+        local pattern_key = data.firsts[d]
+        if not pattern_key then
+          pattern_key = sequences.detect_pattern(item.symbol)
+          data.firsts[d] = pattern_key
+        end
+
+        local pattern = sequences.patterns[pattern_key]
+        local idx = (d == depth) and data.counters[depth] or (data.counters[d] or 1)
+        item.symbol = pattern.to_symbol(idx)
+      end
+    end
+
+    local new_signature = assemble_signature(tokens)
+    if new_signature ~= signature_text then
+      table.insert(data.edits, { r = range, text = new_signature })
+    end
+
+    for _, child in ipairs(node:field('subsection')) do
+      update_index_rec(child, data)
+    end
+
+    if config.fey_subheadings_unique_segments_for_subtree then
+      for d = depth + 1, #data.counters do
+        data.firsts[d] = nil
+      end
+    end
+  end
+
+  for _, node in ipairs(self.root:field('subsection')) do
+    update_index_rec(node, root_data)
+  end
+
+  for i = #root_data.edits, 1, -1 do
+    local e = root_data.edits[i]
+    vim.api.nvim_buf_set_text(buf, e.r[1], e.r[2], e.r[3], e.r[4], { e.text })
+  end
+end
+
 ---Reload the file if it has been modified
 ---@return FeyPromise<FeyFile>
 function FeyFile:reload()
@@ -112,8 +194,7 @@ function FeyFile:reload()
   if stat then
     local new_mtime_nsec = stat.mtime.nsec
     local new_mtime_sec = stat.mtime.sec
-    file_changed = (new_mtime_nsec > 0 and self.metadata.mtime ~= new_mtime_nsec)
-      or self.metadata.mtime_sec ~= new_mtime_sec
+    file_changed = (new_mtime_nsec > 0 and self.metadata.mtime ~= new_mtime_nsec) or self.metadata.mtime_sec ~= new_mtime_sec
   end
 
   if file_changed and not buf_changed then
@@ -597,10 +678,7 @@ function FeyFile:get_valid_bufnr()
   -- Do not consider unloaded buffers as valid
   -- Treesitter is not working in them
   if not vim.api.nvim_buf_is_loaded(bufnr) then
-    error(
-      '[fey] Cannot edit buffer ' .. tostring(bufnr) .. ' for file ' .. self.filename .. ', it is not loaded',
-      0
-    )
+    error('[fey] Cannot edit buffer ' .. tostring(bufnr) .. ' for file ' .. self.filename .. ', it is not loaded', 0)
   end
   return bufnr
 end

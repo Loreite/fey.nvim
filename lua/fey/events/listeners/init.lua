@@ -19,4 +19,7 @@ return {
   [Events.HeadingMoved] = {
     Reindex,
   },
+  [Events.BufferChanged] = {
+    Reindex,
+  },
 }

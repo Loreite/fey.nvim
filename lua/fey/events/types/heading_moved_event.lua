@@ -1,5 +1,6 @@
 ---@class FeyHeadingMovedEvent: FeyEvent
 ---@field heading FeyHeading
+---@field file FeyFile
 ---@field old_level number
 local HeadingMovedEvent = {
   type = 'fey.heading_moved',
@@ -11,6 +12,7 @@ function HeadingMovedEvent:new(heading, old_level)
   local obj = setmetatable({}, self)
   self.__index = self
   obj.heading = heading
+  obj.file = heading.file
   obj.old_level = old_level
   return obj
 end

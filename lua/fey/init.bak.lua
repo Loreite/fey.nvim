@@ -36,46 +36,6 @@ function M.setup()
       end, opts)
 
       local augroup = vim.api.nvim_create_augroup('FeyAutoReindex_' .. args.buf, { clear = true })
-      local reindex_pending = {}
-
-      local function do_reindex(buf)
-        if not vim.api.nvim_buf_is_valid(buf) then
-          return
-        end
-        local save_ei = vim.o.eventignore
-        vim.o.eventignore = 'TextChanged,TextChangedI'
-        pcall(vim.cmd, 'undojoin')
-        pcall(M.reindex_buffer, buf)
-        vim.o.eventignore = save_ei
-      end
-
-      local function schedule_reindex(buf)
-        if reindex_pending[buf] then
-          return
-        end
-        reindex_pending[buf] = true
-        vim.schedule(function()
-          reindex_pending[buf] = nil
-          do_reindex(buf)
-        end)
-      end
-
-      vim.api.nvim_create_autocmd({ 'InsertLeave', 'TextChanged' }, {
-        group = augroup,
-        buffer = args.buf,
-        callback = function()
-          schedule_reindex(args.buf)
-        end,
-      })
-
-      vim.api.nvim_create_autocmd('BufWritePre', {
-        group = augroup,
-        buffer = args.buf,
-        callback = function()
-          reindex_pending[args.buf] = nil
-          do_reindex(args.buf)
-        end,
-      })
     end,
   })
 end
