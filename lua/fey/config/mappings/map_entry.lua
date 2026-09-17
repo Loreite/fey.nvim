@@ -14,16 +14,21 @@ local MapEntry = {}
 ---@param opts? table
 function MapEntry.action(handler, opts)
   opts = opts or {}
-  local action = { ('"%s"'):format(handler) }
+  local serialized_args = {}
 
   if opts.args then
+    -- print(vim.inspect(opts.args))
     for _, arg in ipairs(opts.args) do
-      table.insert(action, ('"%s"'):format(arg))
+      table.insert(serialized_args, ('"%s"'):format(arg))
     end
     opts.args = nil
   end
+  -- print('serialized: ' .. vim.inspect(serialized_args))
 
-  local formatted_action = ('<cmd>lua require("fey").action(%s)<CR>'):format(table.concat(action, ','))
+  local action = ('"%s"'):format(handler)
+  local args_str = table.concat(serialized_args, ', ')
+  -- print(action .. ': ' .. args_str)
+  local formatted_action = ('<cmd>lua require("fey").action(%s, { args = { %s } })<CR>'):format(action, args_str)
 
   return MapEntry:new(formatted_action, opts)
 end
@@ -92,10 +97,7 @@ function MapEntry:attach(default_mapping, user_mapping, opts)
   end
 
   if type(mapping) ~= 'table' then
-    error(
-      'Invalid mapping provided for ' .. tostring(self.handler) .. '. Only string and array of strings can be provided',
-      0
-    )
+    error('Invalid mapping provided for ' .. tostring(self.handler) .. '. Only string and array of strings can be provided', 0)
   end
 
   local map_opts = vim.tbl_extend('force', self.opts, opts or {})

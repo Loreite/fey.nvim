@@ -667,18 +667,27 @@ function FeyMappings:handle_return(suffix)
   return self:meta_return(suffix)
 end
 
-function FeyMappings:meta_return(suffix)
+---@param subheading boolean?
+function FeyMappings:meta_return(suffix, subheading)
   suffix = suffix or ''
   local item = ts_utils.closest_item_or_heading_node()
 
-  if not item then
-    return
-  end
+  local preamble = not item
 
-  if item:type() == 'heading' then
+  if preamble or (item and item:type() == 'heading') then
     local linenr = vim.fn.line('.') or 0
-    local _, level = item:field('signature')[1]:end_()
-    local content = config:respect_blank_before_new_entry({ ('*'):rep(level) .. ' ' .. suffix })
+    local level = preamble and 1 or (item and item:field('signature')[1]:named_child_count())
+    local count = subheading and (level + vim.v.count1) or (vim.v.count > 0 and vim.v.count or level)
+
+    local signature = '  '
+    for i = 1, count do
+      local idx = ((i - 1) % #config.fey_default_subheading_index_order) + 1
+      local pattern = config.fey_default_subheading_index_order[idx]
+      local segment_index = sequences.patterns[pattern].to_symbol(1)
+      local segment = segment_index .. config.fey_default_subheading_delimiter
+      signature = signature .. segment
+    end
+    local content = config:respect_blank_before_new_entry({ signature .. ' ' .. suffix })
     vim.fn.append(linenr, content)
     vim.fn.cursor(linenr + #content, 1)
     vim.cmd([[startinsert!]])
@@ -686,11 +695,14 @@ function FeyMappings:meta_return(suffix)
   end
 
   -- item is a listitem here
+  if not item then
+    return
+  end
   return self:_insert_item_below(item)
 end
 
 ---@private
----@param listitem FeyListitem
+---@param listitem TSNode
 function FeyMappings:_insert_item_below(listitem)
   local line = vim.fn.getline(listitem:start() + 1)
   local srow, _, end_row, end_col = listitem:range()
@@ -725,6 +737,7 @@ function FeyMappings:_insert_item_below(listitem)
       newText = plain_list .. ' \n',
     })
   elseif number_in_list then
+    ---@type TSNode?
     local next_sibling = listitem
     local counter = 1
     while next_sibling do

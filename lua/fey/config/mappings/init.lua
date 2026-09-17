@@ -251,7 +251,7 @@ return {
       { opts = { desc = 'fey toggle archive tag', help_desc = 'Toggle "ARCHIVE" tag on current heading' } }
     ),
 
-    -- First Mappings
+    -- BEGIN: First Mappings
     fey_do_promote = m.action(
       'fey_mappings.do_promote',
       { opts = { desc = 'fey promote heading', help_desc = 'Promote heading' } }
@@ -276,15 +276,26 @@ return {
       'fey_mappings.move_subtree_down',
       { opts = { desc = 'fey move subtree down', help_desc = 'Move subtree down' } }
     ),
-    --
-
     fey_meta_return = m.action(
       'fey_mappings.meta_return',
-      { opts = { desc = 'fey meta return', help_desc = 'Add heading, list item or checkbox (context aware)' } }
+      { opts = { desc = 'fey meta return', help_desc = 'Add heading at {count} level, list item or checkbox (context aware)' } }
     ),
+    fey_meta_sub_return = m.action('fey_mappings.meta_return', {
+      args = { '', true },
+      opts = {
+        desc = 'fey meta sub-return',
+        help_desc = 'Add subheading at curr+{1 or count} level, list item or checkbox (context aware)',
+      },
+    }),
     fey_insert_heading_respect_content = m.action('fey_mappings.insert_heading_respect_content', {
       opts = { desc = 'fey insert heading (respect content)', help_desc = 'Add new heading after current subtree' },
     }),
+    fey_insert_subheading_respect_content = m.action('fey_mappings.insert_heading_respect_content', {
+      args = { true },
+      opts = { desc = 'fey insert heading (respect content)', help_desc = 'Add new heading after current subtree' },
+    }),
+    -- END:
+
     fey_insert_todo_heading = m.action(
       'fey_mappings.insert_todo_heading',
       { opts = { desc = 'fey insert todo', help_desc = 'Add new TODO heading on line right after current line' } }

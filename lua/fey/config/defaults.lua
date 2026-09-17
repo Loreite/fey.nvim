@@ -1,9 +1,14 @@
 ---@class FeyConfigOpts
 local DefaultConfig = {
   -- MY NEW OPTIONS
-  fey_default_subheading_token = 'a',
+  -- TODO: Document these!
+  -- TODO: verify list is no empty
+  fey_default_subheading_index_order = { 'roman_upper', 'alpha_upper', 'roman_lower', 'alpha_lower' },
   fey_default_subheading_delimiter = '.',
   fey_subheadings_unique_segments_for_subtree = false,
+  fey_use_uppercase_for_binary_marker = false,
+  fey_use_uppercase_for_hex_marker = false,
+  fey_use_uppercase_for_hex_index = false,
   -- --
 
   fey_agenda_files = '',
@@ -65,7 +70,7 @@ local DefaultConfig = {
   fey_log_into_drawer = nil,
   fey_highlight_latex_and_related = nil,
   fey_custom_exports = {},
-  fey_adapt_indentation = true,
+  fey_adapt_indentation = false,
   fey_startup_indented = false,
   fey_indent_mode_turns_off_fey_adapt_indentation = true,
   fey_indent_mode_turns_on_hiding_signature = true,
@@ -179,11 +184,12 @@ local DefaultConfig = {
       -- fey_toggle_archive_tag = '<prefix>A',
       fey_do_promote = '<>',
       fey_do_demote = '><',
-      fey_promote_subtree = '<prefix>h', -- **
-      fey_demote_subtree = '<prefix>l', -- **
+      fey_promote_subtree = '<prefix>h',
+      fey_demote_subtree = '<prefix>l',
       fey_move_subtree_up = '<prefix>k',
       fey_move_subtree_down = '<prefix>j',
-      -- fey_meta_return = '<Leader><CR>', -- Add heading, item or row (context-dependent)
+      fey_meta_return = '<Leader><CR>', -- Add heading, item or row (context-dependent)
+      fey_meta_sub_return = '<Leader><S-CR>', -- Add subheading, item or row (context-dependent)
       -- fey_return = '<CR>',
       -- fey_insert_heading_respect_content = '<prefix>ih', -- Add new heading after current heading block (same level)
       -- fey_insert_todo_heading = '<prefix>iT', -- Add new todo heading right after current heading (same level)

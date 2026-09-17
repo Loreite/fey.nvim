@@ -99,12 +99,13 @@ function FeyFile:reindex_headings()
     edits = {},
     firsts = {},
     counters = {},
+    last_depth = 0,
   }
 
-  local function assemble_signature(tokens)
+  local function assemble_signature(segments)
     local result = constants.heading_leading_indentation
-    for _, item in ipairs(tokens) do
-      result = result .. item.symbol .. item.delim
+    for _, segment in ipairs(segments) do
+      result = result .. segment.index .. segment.delim
     end
     return result
   end
@@ -113,42 +114,51 @@ function FeyFile:reindex_headings()
     local signature = node:field('heading')[1]:field('signature')[1]
     local signature_text = vim.treesitter.get_node_text(signature, buf)
     local range = { signature:range() }
-    local tokens = {}
+    local segments = {}
     for i, segment in ipairs(signature:named_children()) do
       local count = segment:child_count()
-      tokens[i] = {}
-      tokens[i]['symbol'] = count == 1 and '' or vim.treesitter.get_node_text(segment:child(0), buf)
-      tokens[i]['delim'] = vim.treesitter.get_node_text(segment:child(count == 1 and 0 or 1), buf)
+      segments[i] = {}
+      segments[i]['index'] = count == 1 and '' or vim.treesitter.get_node_text(segment:child(0), buf)
+      segments[i]['delim'] = vim.treesitter.get_node_text(segment:child(count == 1 and 0 or 1), buf)
     end
-    local depth = #tokens
+    local depth = #segments
 
     for d = depth + 1, #data.counters do
       data.counters[d] = nil
     end
 
-    if tokens[depth].symbol ~= '' then
-      data.counters[depth] = (data.counters[depth] or 0) + 1
+    -- skipping headings at intermediary depths implies their existence in the hierarchy
+    local depth_start = depth
+    if data.last_depth < depth and (depth - data.last_depth) > 1 then
+      depth_start = data.last_depth + 1
+    end
+    for i = depth_start, depth do
+      if segments[i].index ~= '' then
+        data.counters[i] = (data.counters[i] or 0) + 1
+      end
     end
 
     for d = 1, depth do
-      local item = tokens[d]
-      if item.symbol ~= '' then
+      local segment = segments[d]
+      if segment.index ~= '' then
         local pattern_key = data.firsts[d]
         if not pattern_key then
-          pattern_key = sequences.detect_pattern(item.symbol)
+          pattern_key = sequences.detect_pattern(segment.index)
           data.firsts[d] = pattern_key
         end
 
         local pattern = sequences.patterns[pattern_key]
         local idx = (d == depth) and data.counters[depth] or (data.counters[d] or 1)
-        item.symbol = pattern.to_symbol(idx)
+        segment.index = pattern.to_symbol(idx)
       end
     end
 
-    local new_signature = assemble_signature(tokens)
+    local new_signature = assemble_signature(segments)
     if new_signature ~= signature_text then
       table.insert(data.edits, { r = range, text = new_signature })
     end
+
+    data.last_depth = depth
 
     for _, child in ipairs(node:field('subsection')) do
       update_index_rec(child, data)

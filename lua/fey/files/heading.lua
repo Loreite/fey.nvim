@@ -10,6 +10,7 @@ local FeyId = require('fey.fey.id')
 local Memoize = require('fey.utils.memoize')
 local EventManager = require('fey.events')
 local events = EventManager.event
+local sequences = require('fey.utils.sequences')
 
 ---@alias FeyPlanDateTypes 'DEADLINE' | 'SCHEDULED' | 'CLOSED'
 
@@ -127,9 +128,11 @@ function Heading:promote(amount, recursive, dryRun)
         if config:should_indent(heading.file:bufnr()) then
           lines[i] = line:sub(1 + indent_width)
         else
-          line, _ = line:gsub('^%s+', '')
+          local existing_indent
+          existing_indent, line = line:match('(%s*)(.*)')
+          existing_indent = existing_indent and existing_indent or ''
           local indent_amount = indent.indentexpr(start_line + i, heading.file:bufnr())
-          lines[i] = string.rep(' ', indent_amount) .. line
+          lines[i] = existing_indent .. string.rep(' ', indent_amount) .. line
         end
       end
     end
@@ -148,11 +151,18 @@ function Heading:demote(amount, recursive, dryRun)
 
   return self:_handle_promote_demote(recursive, function(start_line, lines, heading)
     local signature_node = heading:_get_child_node('signature')
+    local level = heading:get_level()
     local _, sig_start, _, sig_end = signature_node:range()
 
     local signature_text = vim.treesitter.get_node_text(signature_node, heading.file:bufnr())
-    local demote_segment = config.fey_default_subheading_token .. config.fey_default_subheading_delimiter
-    local new_segments = string.rep(demote_segment, amount)
+    local new_segments = ''
+    for i = 1, amount do
+      local idx = ((level + i - 1) % #config.fey_default_subheading_index_order) + 1
+      local pattern = config.fey_default_subheading_index_order[idx]
+      local segment_index = sequences.patterns[pattern].to_symbol(1)
+      local demote_segment = segment_index .. config.fey_default_subheading_delimiter
+      new_segments = new_segments .. demote_segment
+    end
     local new_signature = signature_text .. new_segments
 
     lines[1] = lines[1]:sub(1, sig_start) .. new_signature .. lines[1]:sub(sig_end + 1)
@@ -162,9 +172,11 @@ function Heading:demote(amount, recursive, dryRun)
       if config:should_indent(heading.file:bufnr()) then
         lines[i] = heading:_apply_indent(line, #new_segments)
       else
-        line, _ = line:gsub('^%s+', '')
+        local existing_indent
+        existing_indent, line = line:match('(%s*)(.*)')
+        existing_indent = existing_indent and existing_indent or ''
         local indent_amount = indent.indentexpr(start_line + i, heading.file:bufnr())
-        lines[i] = string.rep(' ', indent_amount) .. line
+        lines[i] = existing_indent .. string.rep(' ', indent_amount) .. line
       end
     end
 

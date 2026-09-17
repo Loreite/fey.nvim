@@ -236,20 +236,32 @@ end
 
 ---@private
 ---@param cmd string
----@param opts string
-function Fey._set_dot_repeat(cmd, opts)
-  local repeat_action = { string.format("'%s'", cmd) }
-  if opts then
-    table.insert(repeat_action, string.format("'%s'", opts))
+---@param args table
+function Fey._set_dot_repeat(cmd, args)
+  local repeat_action = ("'%s'"):format(cmd)
+  local serialized_args = {}
+  print(vim.inspect(args))
+  for _, arg in ipairs(args or {}) do
+    table.insert(serialized_args, ("'%s'"):format(arg))
   end
+
+  print(vim.inspect(serialized_args))
+  local args_str = table.concat(serialized_args, ', ')
+  print(args_str)
   vim.cmd(
-    string.format([[silent! call repeat#set("\<cmd>lua require('fey').action(%s)\<CR>")]], table.concat(repeat_action, ','))
+    string.format(
+      [[silent! call repeat#set("\<cmd>lua require('fey').action(%s, { args = { %s } })\<CR>")]],
+      repeat_action,
+      args_str
+    )
   )
 end
 
 ---@param cmd string
----@param opts? any
+---@param opts? table
 function Fey.action(cmd, opts)
+  opts = opts or {}
+  print('action_top: ' .. vim.inspect(opts.args))
   local parts = vim.split(cmd, '.', { plain = true })
   if #parts < 2 then
     return
@@ -258,15 +270,12 @@ function Fey.action(cmd, opts)
   local item = nil
   for i = 1, #parts - 1 do
     local part = parts[i]
-    if not item then
-      item = fey[part]
-    else
-      item = item[part]
-    end
+    item = item and item[part] or fey[part]
   end
   if item and item[parts[#parts]] then
     local method = item[parts[#parts]]
-    local success, result = pcall(method, item, opts)
+    local args = opts.args or {}
+    local success, result = pcall(method, item, unpack(args))
     if not success then
       if result.message then
         return require('fey.utils').echo_error(result.message)
@@ -275,7 +284,7 @@ function Fey.action(cmd, opts)
         return require('fey.utils').echo_error(result)
       end
     end
-    Fey._set_dot_repeat(cmd, opts)
+    Fey._set_dot_repeat(cmd, args)
     return result
   end
 end

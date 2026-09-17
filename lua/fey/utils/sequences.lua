@@ -1,4 +1,5 @@
--- lua/fey/sequences.lua
+local config = require('fey.config')
+
 local M = {}
 
 local function to_roman(num)
@@ -116,7 +117,9 @@ M.patterns = {
   -- Hexadecimal Numbers (0x1, 0x2 ... 0xA...)
   hex = {
     to_symbol = function(index)
-      return string.format('0x%X', index)
+      local marker = config.fey_use_uppercase_for_hex_marker and '0X' or '0x'
+      local index_fmt = config.fey_use_uppercase_for_hex_index and '%X' or '%x'
+      return string.format(marker .. index_fmt, index)
     end,
     to_index = function(symbol)
       return tonumber(symbol) or 1
@@ -132,7 +135,8 @@ M.patterns = {
         table.insert(bits, 1, n % 2)
         n = math.floor(n / 2)
       end
-      return '0b' .. (#bits > 0 and table.concat(bits, '') or '0')
+      local marker = config.fey_use_uppercase_for_binary_marker and '0B' or '0b'
+      return marker .. (#bits > 0 and table.concat(bits, '') or '0')
     end,
     to_index = function(symbol)
       local clean = symbol:gsub('^0[bB]', '')

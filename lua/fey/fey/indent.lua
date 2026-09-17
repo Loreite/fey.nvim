@@ -114,7 +114,6 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
 
     if type == 'heading' then
       local _, end_col = node:field('signature')[1]:end_()
-      -- local level = node:field('signature')[1]:named_child_count()
       opts.signature = end_col
       opts.indent = opts.indent + end_col + 1
       matches[range.start.line + 1] = opts
