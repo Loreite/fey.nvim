@@ -489,7 +489,7 @@ Cannot be negative.
 :CUSTOM_ID: fey_blank_before_new_entry
 :END:
 - Type: =table<string, boolean>=
-- Default: ~{ heading = true, plain_list_item = false }~
+- Default: ~{ heading = true, list_item = false }~
 Determine if blank line should be prepended when:
 
 - Adding heading via =fey_meta_return= and =fey_insert_*= mappings

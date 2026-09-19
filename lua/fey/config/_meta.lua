@@ -244,7 +244,7 @@
 ---@field fey_indent_mode_turns_on_hiding_signature? boolean If true, turning on indent mode will hide leading signature. Default: true
 ---@field fey_time_stamp_rounding_minutes? number Rounding minutes for time stamps. Default: 5
 ---@field fey_cycle_separator_lines? number Min number of spaces are needed at the end of heading to show empty line between folds. Default: 2
----@field fey_blank_before_new_entry? { heading: boolean, plain_list_item: boolean } Should blank line be prepended. Default: { heading = true, plain_list_item = false }
+---@field fey_blank_before_new_entry? { heading: boolean, list_item: boolean } Should blank line be prepended. Default: { heading = true, plain_list_item = false }
 ---@field fey_src_window_setup? string | fun() How to open "special edit" buffer window. Default: 'top 16new'
 ---@field fey_edit_src_content_indentation? number Addditional ndentation number applied when editing a SRC block through special edit. Default: 0
 ---@field fey_id_uuid_program? string External proram to generate UUIDs. Default: 'uuidgen'

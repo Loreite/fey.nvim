@@ -66,52 +66,32 @@ end
 M.patterns = {
   -- Uppercase Roman Numerals (I, II, III, IV, V...)
   roman_upper = {
-    to_symbol = function(index)
-      return to_roman(index)
-    end,
-    to_index = function(symbol)
-      return from_roman(symbol)
-    end,
+    to_symbol = function(index) return to_roman(index) end,
+    to_index = function(symbol) return from_roman(symbol) end,
   },
 
   -- Lowercase Roman Numerals (i, ii, iii, iv, v...)
   roman_lower = {
-    to_symbol = function(index)
-      return to_roman(index):lower()
-    end,
-    to_index = function(symbol)
-      return from_roman(symbol)
-    end,
+    to_symbol = function(index) return to_roman(index):lower() end,
+    to_index = function(symbol) return from_roman(symbol) end,
   },
 
   -- Uppercase Alphabet (A, B ... Z, AA, AB...)
   alpha_upper = {
-    to_symbol = function(index)
-      return to_alpha(index)
-    end,
-    to_index = function(symbol)
-      return from_alpha(symbol)
-    end,
+    to_symbol = function(index) return to_alpha(index) end,
+    to_index = function(symbol) return from_alpha(symbol) end,
   },
 
   -- Lowercase Alphabet (a, b ... z, aa, ab...)
   alpha_lower = {
-    to_symbol = function(index)
-      return to_alpha(index):lower()
-    end,
-    to_index = function(symbol)
-      return from_alpha(symbol)
-    end,
+    to_symbol = function(index) return to_alpha(index):lower() end,
+    to_index = function(symbol) return from_alpha(symbol) end,
   },
 
   -- Decimal Numbers (1, 2, 3...)
   decimal = {
-    to_symbol = function(index)
-      return tostring(index)
-    end,
-    to_index = function(symbol)
-      return tonumber(symbol) or 1
-    end,
+    to_symbol = function(index) return tostring(index) end,
+    to_index = function(symbol) return tonumber(symbol) or 1 end,
   },
 
   -- Hexadecimal Numbers (0x1, 0x2 ... 0xA...)
@@ -121,9 +101,7 @@ M.patterns = {
       local index_fmt = config.fey_use_uppercase_for_hex_index and '%X' or '%x'
       return string.format(marker .. index_fmt, index)
     end,
-    to_index = function(symbol)
-      return tonumber(symbol) or 1
-    end,
+    to_index = function(symbol) return tonumber(symbol) or 1 end,
   },
 
   -- Binary Numbers (0b1, 0b10, 0b11...)
@@ -148,27 +126,13 @@ M.patterns = {
 ---@param symbol string
 ---@return string pattern_key
 function M.detect_pattern(symbol)
-  if symbol:match('^0[bB][01]+$') then
-    return 'binary'
-  end
-  if symbol:match('^0[xX]%x+$') then
-    return 'hex'
-  end
-  if symbol:match('^%d+$') then
-    return 'decimal'
-  end
-  if symbol:match('^[IVXLCDM]+$') then
-    return 'roman_upper'
-  end
-  if symbol:match('^[ivxlcdm]+$') then
-    return 'roman_lower'
-  end
-  if symbol:match('^[A-Z]+$') then
-    return 'alpha_upper'
-  end
-  if symbol:match('^[a-z]+$') then
-    return 'alpha_lower'
-  end
+  if symbol:match('^0[bB][01]+$') then return 'binary' end
+  if symbol:match('^0[xX]%x+$') then return 'hex' end
+  if symbol:match('^%d+$') then return 'decimal' end
+  if symbol:match('^[IVXLCDM]+$') then return 'roman_upper' end
+  if symbol:match('^[ivxlcdm]+$') then return 'roman_lower' end
+  if symbol:match('^[A-Z]+$') then return 'alpha_upper' end
+  if symbol:match('^[a-z]+$') then return 'alpha_lower' end
   return 'alpha_lower'
 end
 

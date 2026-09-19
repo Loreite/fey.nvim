@@ -24,15 +24,11 @@ local sequences = require('fey.utils.sequences')
 local function schedule_fold_update(range)
   local bufnr = vim.api.nvim_get_current_buf()
   vim.schedule(function()
-    if not vim.api.nvim_buf_is_valid(bufnr) then
-      return
-    end
+    if not vim.api.nvim_buf_is_valid(bufnr) then return end
     local start_line = range.start_line - 1
     local end_line = math.min(range.end_line, vim.api.nvim_buf_line_count(bufnr))
     for _, win in ipairs(vim.fn.win_findbuf(bufnr)) do
-      if vim.wo[win].foldmethod == 'expr' then
-        vim._foldupdate(win, start_line, end_line)
-      end
+      if vim.wo[win].foldmethod == 'expr' then vim._foldupdate(win, start_line, end_line) end
     end
   end)
 end
@@ -61,9 +57,7 @@ end
 
 -- TODO:
 -- Support archiving to heading
-function FeyMappings:archive()
-  return self.capture:refile_file_heading_to_archive(self.files:get_closest_heading())
-end
+function FeyMappings:archive() return self.capture:refile_file_heading_to_archive(self.files:get_closest_heading()) end
 
 ---@param tags? string|string[]
 function FeyMappings:set_tags(tags)
@@ -76,20 +70,18 @@ function FeyMappings:set_tags(tags)
   return Promise.resolve()
     :next(function()
       if not tags then
-        return Input.open('Tags: ', current_tags, function(arg_lead)
-          return utils.prompt_autocomplete(arg_lead, self.files:get_tags())
-        end)
+        return Input.open(
+          'Tags: ',
+          current_tags,
+          function(arg_lead) return utils.prompt_autocomplete(arg_lead, self.files:get_tags()) end
+        )
       end
-      if type(tags) == 'table' then
-        tags = utils.tags_to_string(tags)
-      end
+      if type(tags) == 'table' then tags = utils.tags_to_string(tags) end
 
       return tags
     end)
     :next(function(new_tags)
-      if not new_tags then
-        return
-      end
+      if not new_tags then return end
 
       heading:set_tags(new_tags)
       schedule_fold_update(range)
@@ -106,40 +98,28 @@ end
 
 function FeyMappings:cycle()
   local file = self.files:get_current_file()
-  if not file then
-    return
-  end
+  if not file then return end
   local line = vim.fn.line('.') or 0
   if not vim.wo.foldenable then
     vim.wo.foldenable = true
     vim.cmd([[silent! norm!zx]])
   end
   local level = vim.fn.foldlevel(line)
-  if level == 0 then
-    return utils.echo_info('No fold')
-  end
+  if level == 0 then return utils.echo_info('No fold') end
   local is_fold_closed = vim.fn.foldclosed(line) ~= -1
-  if is_fold_closed then
-    return vim.cmd([[silent! norm!zo]])
-  end
+  if is_fold_closed then return vim.cmd([[silent! norm!zo]]) end
   local section = file:get_closest_heading_or_nil({ line, 0 })
 
   if not section then
     -- Toggle drawers
-    if vim.fn.getline(line):match('^%s*:[^:]*:%s*$') then
-      vim.cmd([[silent! norm!za]])
-    end
+    if vim.fn.getline(line):match('^%s*:[^:]*:%s*$') then vim.cmd([[silent! norm!za]]) end
     return
   end
 
-  local is_expandable = function(heading)
-    return heading:has_child_headings() or not heading:is_one_line()
-  end
+  local is_expandable = function(heading) return heading:has_child_headings() or not heading:is_one_line() end
 
   -- Skip one liner
-  if not is_expandable(section) then
-    return
-  end
+  if not is_expandable(section) then return end
 
   local children = section:get_child_headings()
   local close = #children == 0
@@ -148,9 +128,7 @@ function FeyMappings:cycle()
     local has_nested_children = false
     for _, child in ipairs(children) do
       local is_child_expandable = is_expandable(child)
-      if not has_nested_children and is_child_expandable then
-        has_nested_children = true
-      end
+      if not has_nested_children and is_child_expandable then has_nested_children = true end
       local child_range = child:get_range()
       if is_child_expandable and vim.fn.foldclosed(child_range.start_line) == -1 then
         vim.cmd(string.format('silent! keepjumps norm!%dggzc', child_range.start_line))
@@ -158,14 +136,10 @@ function FeyMappings:cycle()
       end
     end
     vim.cmd(string.format('silent! keepjumps norm!%dgg', line))
-    if not close and not has_nested_children then
-      close = true
-    end
+    if not close and not has_nested_children then close = true end
   end
 
-  if close then
-    return vim.cmd([[silent! norm!zc]])
-  end
+  if close then return vim.cmd([[silent! norm!zc]]) end
   return vim.cmd([[silent! norm!zczO]])
 end
 
@@ -186,9 +160,7 @@ function FeyMappings:global_cycle()
   return vim.cmd([[silent! norm!zx]])
 end
 
-function FeyMappings:fey_babel_tangle()
-  return Babel.tangle(self.files:get_current_file())
-end
+function FeyMappings:fey_babel_tangle() return Babel.tangle(self.files:get_current_file()) end
 
 function FeyMappings:toggle_checkbox()
   local win_view = vim.fn.winsaveview() or {}
@@ -196,9 +168,7 @@ function FeyMappings:toggle_checkbox()
   vim.cmd([[normal! _]])
 
   local listitem = self.files:get_closest_listitem()
-  if listitem then
-    listitem:update_checkbox('toggle')
-  end
+  if listitem then listitem:update_checkbox('toggle') end
 
   vim.fn.winrestview(win_view)
 end
@@ -221,9 +191,7 @@ end
 
 function FeyMappings:_adjust_date_part(direction, amount, fallback)
   local date_on_cursor = self:_get_date_under_cursor()
-  local get_adj = function(span, count)
-    return string.format('%d%s', count or amount, span)
-  end
+  local get_adj = function(span, count) return string.format('%d%s', count or amount, span) end
   local minute_adj = get_adj('M', tonumber(config.fey_time_stamp_rounding_minutes) * amount)
   ---@param date FeyDate
   local do_replacement = function(date)
@@ -246,9 +214,7 @@ function FeyMappings:_adjust_date_part(direction, amount, fallback)
       end
     end
 
-    if not part then
-      return
-    end
+    if not part then return end
 
     local offset = col_from_start - part.from
 
@@ -262,9 +228,7 @@ function FeyMappings:_adjust_date_part(direction, amount, fallback)
       end
     end
 
-    if part.type == 'dayname' then
-      adj = get_adj('d')
-    end
+    if part.type == 'dayname' then adj = get_adj('d') end
 
     if part.type == 'time' then
       if offset <= 2 then
@@ -290,15 +254,11 @@ function FeyMappings:_adjust_date_part(direction, amount, fallback)
 
     if part.type == 'adjustment' then
       local map = { h = 'd', d = 'w', w = 'm', m = 'y', y = 'h' }
-      if map[char] then
-        vim.cmd(string.format('norm!r%s', map[char]))
-      end
+      if map[char] then vim.cmd(string.format('norm!r%s', map[char])) end
       return true
     end
 
-    if not adj then
-      return false
-    end
+    if not adj then return false end
 
     local new_date = nil
     if modify_end_time then
@@ -313,9 +273,7 @@ function FeyMappings:_adjust_date_part(direction, amount, fallback)
       local item = self.files:get_closest_heading_or_nil()
       if item then
         local logbook = item:get_logbook()
-        if logbook then
-          logbook:recalculate_estimate(new_date.range.start_line)
-        end
+        if logbook then logbook:recalculate_estimate(new_date.range.start_line) end
       end
     end
     return true
@@ -323,9 +281,7 @@ function FeyMappings:_adjust_date_part(direction, amount, fallback)
 
   if date_on_cursor then
     local replaced = do_replacement(date_on_cursor)
-    if replaced then
-      return true
-    end
+    if replaced then return true end
   end
 
   return vim.api.nvim_feedkeys(utils.esc(fallback), 'n', true)
@@ -333,23 +289,15 @@ end
 
 function FeyMappings:change_date()
   local date = self:_get_date_under_cursor()
-  if not date then
-    return
-  end
+  if not date then return end
   return Calendar.new({ date = date, title = 'Change date' }):open():next(function(new_date)
-    if new_date then
-      self:_replace_date(new_date)
-    end
+    if new_date then self:_replace_date(new_date) end
   end)
 end
 
-function FeyMappings:priority_up()
-  self:set_priority('up')
-end
+function FeyMappings:priority_up() self:set_priority('up') end
 
-function FeyMappings:priority_down()
-  self:set_priority('down')
-end
+function FeyMappings:priority_down() self:set_priority('down') end
 
 function FeyMappings:set_priority(direction)
   local heading = self.files:get_closest_heading()
@@ -364,9 +312,7 @@ function FeyMappings:set_priority(direction)
     new_priority = priority_state:decrease()
   elseif direction == nil then
     new_priority = priority_state:prompt_user()
-    if new_priority == nil then
-      return
-    end
+    if new_priority == nil then return end
   end
 
   local range = heading:get_range()
@@ -374,13 +320,9 @@ function FeyMappings:set_priority(direction)
   schedule_fold_update(range)
 end
 
-function FeyMappings:todo_next_state()
-  return self:_todo_change_state('next')
-end
+function FeyMappings:todo_next_state() return self:_todo_change_state('next') end
 
-function FeyMappings:todo_prev_state()
-  return self:_todo_change_state('prev')
-end
+function FeyMappings:todo_prev_state() return self:_todo_change_state('prev') end
 
 function FeyMappings:toggle_heading()
   local line_number = vim.fn.line('.')
@@ -394,9 +336,7 @@ function FeyMappings:toggle_heading()
     )
   end
   -- Convert to heading
-  if not parent then
-    return set_line_and_dispatch_event('* ' .. line, 'line_to_heading')
-  end
+  if not parent then return set_line_and_dispatch_event('* ' .. line, 'line_to_heading') end
 
   -- Convert heading to plain text
   if parent:get_range().start_line == vim.api.nvim_win_get_cursor(0)[1] then
@@ -430,9 +370,7 @@ end
 ---@return FeyPromise<string[]>
 function FeyMappings:_get_note(template, indent, title)
   return self.capture:build_note_capture(title):open():next(function(closing_note)
-    if closing_note == nil then
-      return
-    end
+    if closing_note == nil then return end
 
     for i, line in ipairs(closing_note) do
       closing_note[i] = indent .. '  ' .. line
@@ -451,9 +389,7 @@ function FeyMappings:_todo_change_state(direction)
 
   local changed = self:_change_todo_state(direction, true)
 
-  if not changed then
-    return
-  end
+  if not changed then return end
 
   local item = self.files:get_closest_heading()
   EventManager.dispatch(events.TodoChanged:new(item, old_state, was_done))
@@ -465,9 +401,7 @@ function FeyMappings:_todo_change_state(direction)
 
   -- State was changed in the same group (TODO NEXT | DONE)
   -- For example: Changed from TODO to NEXT
-  if not is_done and not is_undone then
-    return item
-  end
+  if not is_done and not is_undone then return item end
 
   local prompt_done_note = config.fey_log_done == 'note'
   local log_closed_time = config.fey_log_done == 'time'
@@ -490,13 +424,11 @@ function FeyMappings:_todo_change_state(direction)
       item = self.files:get_closest_heading()
     end
 
-    if is_undone or not prompt_done_note then
-      return item
-    end
+    if is_undone or not prompt_done_note then return item end
 
-    return self:_get_note(closing_note_text, indent, closed_title):next(function(closing_note)
-      return item:add_note(closing_note)
-    end)
+    return self
+      :_get_note(closing_note_text, indent, closed_title)
+      :next(function(closing_note) return item:add_note(closing_note) end)
   end
 
   for _, date in ipairs(repeater_dates) do
@@ -522,28 +454,24 @@ function FeyMappings:_todo_change_state(direction)
   )
   local repeat_note_title = ('Insert note for state change from "%s" to "%s"'):format(old_state or '', new_todo)
 
-  if log_repeat_enabled then
-    item:set_property('LAST_REPEAT', Date.now():to_wrapped_string(false))
-  end
+  if log_repeat_enabled then item:set_property('LAST_REPEAT', Date.now():to_wrapped_string(false)) end
 
   if not prompt_repeat_note and not prompt_done_note then
     -- If user is not prompted for a note, use a default repeat note
-    if log_repeat_enabled then
-      return item:add_note({ repeat_note_template })
-    end
+    if log_repeat_enabled then return item:add_note({ repeat_note_template }) end
     return item
   end
 
   -- Done note has precedence over repeat note
   if prompt_done_note then
-    return self:_get_note(closing_note_text, indent, closed_title):next(function(closing_note)
-      return item:add_note(closing_note)
-    end)
+    return self
+      :_get_note(closing_note_text, indent, closed_title)
+      :next(function(closing_note) return item:add_note(closing_note) end)
   end
 
-  return self:_get_note(repeat_note_template .. ' \\\\', indent, repeat_note_title):next(function(closing_note)
-    return item:add_note(closing_note)
-  end)
+  return self
+    :_get_note(repeat_note_template .. ' \\\\', indent, repeat_note_title)
+    :next(function(closing_note) return item:add_note(closing_note) end)
 end
 
 function FeyMappings:do_promote(whole_subtree)
@@ -566,9 +494,7 @@ function FeyMappings:do_promote(whole_subtree)
   local old_level = heading:get_level()
   local foldclosed = vim.fn.foldclosed('.')
   heading:promote(count, whole_subtree)
-  if foldclosed > -1 and vim.fn.foldclosed('.') == -1 then
-    vim.cmd([[norm!zc]])
-  end
+  if foldclosed > -1 and vim.fn.foldclosed('.') == -1 then vim.cmd([[norm!zc]]) end
   EventManager.dispatch(events.HeadingPromoted:new(self.files:get_closest_heading(), old_level))
   vim.fn.winrestview(win_view)
 end
@@ -594,9 +520,7 @@ function FeyMappings:do_demote(whole_subtree)
   local old_level = heading:get_level()
   local foldclosed = vim.fn.foldclosed('.')
   heading:demote(count, whole_subtree)
-  if foldclosed > -1 and vim.fn.foldclosed('.') == -1 then
-    vim.cmd([[norm!zc]])
-  end
+  if foldclosed > -1 and vim.fn.foldclosed('.') == -1 then vim.cmd([[norm!zc]]) end
   EventManager.dispatch(events.HeadingDemoted:new(self.files:get_closest_heading(), old_level))
   vim.fn.winrestview(win_view)
 end
@@ -608,13 +532,9 @@ function FeyMappings:fey_return()
       return tbl and tbl:handle_cr() or false
     end,
     function()
-      if not config.mappings.fey_return_uses_meta_return then
-        return false
-      end
+      if not config.mappings.fey_return_uses_meta_return then return false end
 
-      if vim.trim(vim.fn.getline('.'):sub(vim.fn.col('.'), vim.fn.col('$'))) ~= '' then
-        return false
-      end
+      if vim.trim(vim.fn.getline('.'):sub(vim.fn.col('.'), vim.fn.col('$'))) ~= '' then return false end
 
       return self:meta_return()
     end,
@@ -622,9 +542,7 @@ function FeyMappings:fey_return()
 
   for _, action in ipairs(actions) do
     local handled = action()
-    if handled then
-      return
-    end
+    if handled then return end
   end
 
   local global_cr_keymap = utils.get_keymap({
@@ -639,27 +557,21 @@ function FeyMappings:fey_return()
   local function get_rhs()
     if global_cr_keymap.callback then
       local result = global_cr_keymap.callback()
-      if global_cr_keymap.expr == 0 or not result then
-        return
-      end
+      if global_cr_keymap.expr == 0 or not result then return end
       return vim.api.nvim_replace_termcodes(result, true, true, true)
     end
 
     if global_cr_keymap.expr > 0 then
       -- expr rhs: the string is a Vimscript expression, eval it first
       local ok, result = pcall(vim.api.nvim_eval, global_cr_keymap.rhs)
-      if ok then
-        return vim.api.nvim_replace_termcodes(result, true, true, true)
-      end
+      if ok then return vim.api.nvim_replace_termcodes(result, true, true, true) end
     end
 
     return vim.api.nvim_replace_termcodes(global_cr_keymap.rhs, true, true, true)
   end
 
   local rhs = get_rhs()
-  if rhs then
-    return vim.api.nvim_feedkeys(rhs, 'n', true)
-  end
+  if rhs then return vim.api.nvim_feedkeys(rhs, 'n', true) end
 end
 
 function FeyMappings:handle_return(suffix)
@@ -672,22 +584,28 @@ function FeyMappings:meta_return(suffix, subheading)
   suffix = suffix or ''
   local item = ts_utils.closest_item_or_heading_node()
 
-  local preamble = not item
-
-  if preamble or (item and item:type() == 'heading') then
+  if not item or item:type() == 'heading' then
     local linenr = vim.fn.line('.') or 0
-    local level = preamble and 1 or (item and item:field('signature')[1]:named_child_count())
+    local signature = item and item:field('signature')[1]
+    local level = not item and 1 or (signature and signature:named_child_count())
     local count = subheading and (level + vim.v.count1) or (vim.v.count > 0 and vim.v.count or level)
 
-    local signature = '  '
+    local new_signature = '  '
     for i = 1, count do
-      local idx = ((i - 1) % #config.fey_default_subheading_index_order) + 1
-      local pattern = config.fey_default_subheading_index_order[idx]
+      local pattern_idx = ((i - 1) % #config.fey_default_subheading_index_order) + 1
+      local pattern = config.fey_default_subheading_index_order[pattern_idx]
       local segment_index = sequences.patterns[pattern].to_symbol(1)
-      local segment = segment_index .. config.fey_default_subheading_delimiter
-      signature = signature .. segment
+      local delim_idx = ((i - 1) % #config.fey_default_subheading_delimiter_order) + 1
+      local delimiter = config.fey_default_subheading_delimiter_order[delim_idx]
+      delimiter = delimiter and delimiter
+        or (
+          signature and vim.treesitter.get_node_text(assert(signature:named_children()[level]:child(1)), 0)
+          or config.fey_default_subheading_delimiter
+        )
+      local segment = segment_index .. delimiter
+      new_signature = new_signature .. segment
     end
-    local content = config:respect_blank_before_new_entry({ signature .. ' ' .. suffix })
+    local content = config:respect_blank_before_new_entry({ new_signature .. ' ' .. suffix })
     vim.fn.append(linenr, content)
     vim.fn.cursor(linenr + #content, 1)
     vim.cmd([[startinsert!]])
@@ -695,85 +613,82 @@ function FeyMappings:meta_return(suffix, subheading)
   end
 
   -- item is a listitem here
-  if not item then
-    return
-  end
-  return self:_insert_item_below(item)
+  if not item then return end
+  return self:_insert_item_below(item, subheading)
 end
 
 ---@private
 ---@param listitem TSNode
-function FeyMappings:_insert_item_below(listitem)
-  local line = vim.fn.getline(listitem:start() + 1)
+---@param subheading boolean?
+function FeyMappings:_insert_item_below(listitem, subheading)
   local srow, _, end_row, end_col = listitem:range()
   local is_multiline = (end_row - srow) > 1 or end_col == 0
+
   -- For last item in file, ts grammar is not parsing the end column as 0
   -- while in other cases end column is always 0
   local is_last_item_in_file = end_col ~= 0
-  if not is_multiline or is_last_item_in_file then
-    end_row = end_row + 1
-  end
+  if not is_multiline or is_last_item_in_file then end_row = end_row + 1 end
+
   local range = {
     start = { line = end_row, character = 0 },
     ['end'] = { line = end_row, character = 0 },
   }
 
-  local checkbox = line:match('^(%s*[%+%-%*])%s*%[[%sXx%-]?%]')
-  local plain_list = line:match('^%s*[%+%-%*]')
-  local indent, number_in_list, closer = line:match('^(%s*)(%d+)([%)%.])%s?')
-  local text_edits = config:respect_blank_before_new_entry({}, 'plain_list_item', {
+  local bullet_node = listitem:field('bullet')[1]
+  local segment = bullet_node:named_child(0)
+  if not segment then return end
+  local token_node = segment:child(0)
+  local delim_node = segment:child(1)
+  if not (token_node and delim_node) then return end
+
+  local token_text = vim.treesitter.get_node_text(token_node, 0) or ''
+  local delim_text = vim.treesitter.get_node_text(delim_node, 0) or ''
+  local is_ordered = token_text ~= ''
+
+  local _, indent_len = segment:start()
+  if subheading then indent_len = indent_len + vim.fn.shiftwidth() end
+  local indent_str = string.rep(' ', indent_len)
+
+  local spacing = '  '
+
+  local text_edits = config:respect_blank_before_new_entry({}, 'list_item', {
     range = range,
     newText = '\n',
   })
   local add_empty_line = #text_edits > 0
-  if checkbox then
+
+  if not is_ordered then
     table.insert(text_edits, {
       range = range,
-      newText = checkbox .. ' [ ] \n',
+      newText = indent_str .. delim_text .. spacing .. '\n',
     })
-  elseif plain_list then
+  else
+    local pattern = sequences.detect_pattern(token_text)
+    local next_index = subheading and 1 or sequences.patterns[pattern].to_index(token_text) + 1
+    local next_symbol = sequences.patterns[pattern].to_symbol(next_index)
+
+    -- If creating a subheading, reset the counter to 1 for the new sub-list
+
     table.insert(text_edits, {
       range = range,
-      newText = plain_list .. ' \n',
+      newText = indent_str .. next_symbol .. delim_text .. spacing .. '\n',
     })
-  elseif number_in_list then
-    ---@type TSNode?
-    local next_sibling = listitem
-    local counter = 1
-    while next_sibling do
-      local bullet = next_sibling:child(0)
-      local text = bullet and vim.treesitter.get_node_text(bullet, 0) or ''
-      local new_text = tostring(tonumber(text:match('%d+')) + 1) .. closer
 
-      if counter == 1 then
-        table.insert(text_edits, {
-          range = range,
-          newText = indent .. new_text .. ' ' .. '\n',
-        })
-      else
-        table.insert(text_edits, {
-          range = ts_utils.node_to_lsp_range(bullet),
-          newText = new_text,
-        })
-      end
-
-      counter = counter + 1
-      next_sibling = next_sibling:next_sibling()
-    end
+    -- TODO: Re-number subsequent siblings (only if NOT creating a new subheading level)
   end
 
   if #text_edits > 0 then
     vim.lsp.util.apply_text_edits(text_edits, vim.api.nvim_get_current_buf(), constants.default_offset_encoding)
 
-    vim.fn.cursor(end_row + 1 + (add_empty_line and 1 or 0), 99999) -- +1 for next line, go to end of line with arbitrary big column number
+    -- if checkbox then
+    --   local new_listitem = self.files:get_closest_listitem()
+    --   if new_listitem then
+    --     new_listitem:update_checkbox('off')
+    --   end
+    -- end
 
-    -- update all parents when we insert a new checkbox
-    if checkbox then
-      local new_listitem = self.files:get_closest_listitem()
-      if new_listitem then
-        new_listitem:update_checkbox('off')
-      end
-    end
+    -- +1 for next line, go to end of line with arbitrary big column number
+    vim.fn.cursor(end_row + 1 + (add_empty_line and 1 or 0), 99999)
 
     vim.cmd([[startinsert!]])
     return true
@@ -844,12 +759,12 @@ end
 -- currently on
 function FeyMappings:insert_link()
   local link = FeyHyperlink.at_cursor()
-  return Input.open('Links: ', link and link.url:to_string() or '', function(arg_lead)
-    return self.completion:complete_links_from_input(arg_lead)
-  end):next(function(link_location)
-    if not link_location then
-      return false
-    end
+  return Input.open(
+    'Links: ',
+    link and link.url:to_string() or '',
+    function(arg_lead) return self.completion:complete_links_from_input(arg_lead) end
+  ):next(function(link_location)
+    if not link_location then return false end
 
     if vim.trim(link_location) == '' then
       utils.echo_warning('No Link selected')
@@ -869,42 +784,32 @@ end
 function FeyMappings:move_subtree_up()
   local item = self.files:get_closest_heading()
   local prev_heading = item:get_prev_heading_same_level()
-  if not prev_heading then
-    return utils.echo_warning('Cannot move past superior level.')
-  end
+  if not prev_heading then return utils.echo_warning('Cannot move past superior level.') end
   local range = item:get_range()
   local target_line = prev_heading:get_range().start_line - 1
   local foldclosed = vim.fn.foldclosed('.')
   vim.cmd(string.format(':%d,%dmove %d', range.start_line, range.end_line, target_line))
   local pos = vim.fn.getcurpos()
   vim.fn.cursor(target_line + 1, pos[3])
-  if foldclosed > -1 and vim.fn.foldlevel('.') > 0 and vim.fn.foldclosed('.') == -1 then
-    vim.cmd([[norm!zc]])
-  end
+  if foldclosed > -1 and vim.fn.foldlevel('.') > 0 and vim.fn.foldclosed('.') == -1 then vim.cmd([[norm!zc]]) end
   EventManager.dispatch(events.HeadingPromoted:new(self.files:get_closest_heading(), item:get_level()))
 end
 
 function FeyMappings:move_subtree_down()
   local item = self.files:get_closest_heading()
   local next_heading = item:get_next_heading_same_level()
-  if not next_heading then
-    return utils.echo_warning('Cannot move past superior level.')
-  end
+  if not next_heading then return utils.echo_warning('Cannot move past superior level.') end
   local range = item:get_range()
   local target_line = next_heading:get_range().end_line
   local foldclosed = vim.fn.foldclosed('.')
   vim.cmd(string.format(':%d,%dmove %d', range.start_line, range.end_line, target_line))
   local pos = vim.fn.getcurpos()
   vim.fn.cursor(target_line + range.start_line - range.end_line, pos[3])
-  if foldclosed > -1 and vim.fn.foldlevel('.') > 0 and vim.fn.foldclosed('.') == -1 then
-    vim.cmd([[norm!zc]])
-  end
+  if foldclosed > -1 and vim.fn.foldlevel('.') > 0 and vim.fn.foldclosed('.') == -1 then vim.cmd([[norm!zc]]) end
   EventManager.dispatch(events.HeadingPromoted:new(self.files:get_closest_heading(), item:get_level()))
 end
 
-function FeyMappings:show_help(type)
-  return Help.show(type)
-end
+function FeyMappings:show_help(type) return Help.show(type) end
 
 function FeyMappings:edit_special()
   local edit_special = EditSpecial:new()
@@ -912,18 +817,14 @@ function FeyMappings:edit_special()
   edit_special:init()
 end
 
-function FeyMappings:_edit_special_callback()
-  EditSpecial:new():done()
-end
+function FeyMappings:_edit_special_callback() EditSpecial:new():done() end
 
 function FeyMappings:add_note()
   local heading = self.files:get_closest_heading()
   local indent = heading:get_indent()
   local text = ('%s- Note taken on %s \\\\'):format(indent, Date.now():to_wrapped_string(false))
   return self:_get_note(text, indent, string.format('Insert note for %s.', heading:get_title() or 'entry')):next(function(note)
-    if not note then
-      return false
-    end
+    if not note then return false end
     return heading:add_note(note)
   end)
 end
@@ -931,20 +832,14 @@ end
 function FeyMappings:open_at_point()
   local link = FeyHyperlink.at_cursor()
 
-  if link then
-    return self.links:follow(link.url:to_string())
-  end
+  if link then return self.links:follow(link.url:to_string()) end
 
   local date = self:_get_date_under_cursor()
-  if date then
-    return self.agenda:open_day(date)
-  end
+  if date then return self.agenda:open_day(date) end
 
   local footnote = Footnote.at_cursor()
   if footnote then
-    if footnote.is_reference then
-      return self:_jump_to_footnote_definition(footnote)
-    end
+    if footnote.is_reference then return self:_jump_to_footnote_definition(footnote) end
     return self:_jump_to_footnote_reference(footnote)
   end
 end
@@ -967,9 +862,7 @@ function FeyMappings:_jump_to_footnote_definition(footnote_reference)
 
   if not footnote then
     local choice = vim.fn.confirm('No footnote found. Create one?', '&Yes\n&No')
-    if choice ~= 1 then
-      return
-    end
+    if choice ~= 1 then return end
 
     local footnotes_heading = file:find_heading_by_title('footnotes')
     local fndef = ('[fn:%s] '):format(footnote_reference.label)
@@ -988,56 +881,42 @@ function FeyMappings:_jump_to_footnote_definition(footnote_reference)
   return vim.fn.cursor({ footnote.range.start_line, footnote.range.start_col })
 end
 
-function FeyMappings:export()
-  return require('fey.export').prompt()
-end
+function FeyMappings:export() return require('fey.export').prompt() end
 
 ---Find and move cursor to next visible heading.
 ---@return integer
-function FeyMappings:next_visible_heading()
-  return vim.fn.search([[^\*\+\s\+]], 'W', 0, 0, self._skip_invisible_heading)
-end
+function FeyMappings:next_visible_heading() return vim.fn.search([[^\*\+\s\+]], 'W', 0, 0, self._skip_invisible_heading) end
 
 ---Find and move cursor to previous visible heading.
 ---@return integer
-function FeyMappings:previous_visible_heading()
-  return vim.fn.search([[^\*\+\s\+]], 'bW', 0, 0, self._skip_invisible_heading)
-end
+function FeyMappings:previous_visible_heading() return vim.fn.search([[^\*\+\s\+]], 'bW', 0, 0, self._skip_invisible_heading) end
 
 ---Check if heading is visible. If not, skip it.
 ---@return integer
 function FeyMappings:_skip_invisible_heading()
   local fold = vim.fn.foldclosed('.')
-  if fold == -1 or vim.fn.line('.') == fold then
-    return 0
-  end
+  if fold == -1 or vim.fn.line('.') == fold then return 0 end
   return 1
 end
 
 function FeyMappings:forward_heading_same_level()
   local item = self.files:get_closest_heading()
   local next_heading_same_level = item:get_next_heading_same_level()
-  if not next_heading_same_level then
-    return
-  end
+  if not next_heading_same_level then return end
   return vim.fn.cursor(next_heading_same_level:get_range().start_line, 1)
 end
 
 function FeyMappings:backward_heading_same_level()
   local item = self.files:get_closest_heading()
   local prev_heading_same_level = item:get_prev_heading_same_level()
-  if not prev_heading_same_level then
-    return
-  end
+  if not prev_heading_same_level then return end
   return vim.fn.cursor(prev_heading_same_level:get_range().start_line, 1)
 end
 
 function FeyMappings:outline_up_heading()
   local item = self.files:get_closest_heading()
   local parent = item:get_parent_heading()
-  if not parent then
-    return utils.echo_info('Already at top level of the outline')
-  end
+  if not parent then return utils.echo_info('Already at top level of the outline') end
   return vim.fn.cursor(parent:get_range().start_line, 1)
 end
 
@@ -1047,12 +926,8 @@ function FeyMappings:fey_deadline()
   return Calendar.new({ date = deadline_date or Date.today(), clearable = true, title = 'Set deadline' })
     :open()
     :next(function(new_date, cleared)
-      if cleared then
-        return heading:remove_deadline_date()
-      end
-      if not new_date then
-        return nil
-      end
+      if cleared then return heading:remove_deadline_date() end
+      if not new_date then return nil end
       heading:remove_closed_date()
       heading:set_deadline_date(new_date)
     end)
@@ -1064,12 +939,8 @@ function FeyMappings:fey_schedule()
   return Calendar.new({ date = scheduled_date or Date.today(), clearable = true, title = 'Set schedule' })
     :open()
     :next(function(new_date, cleared)
-      if cleared then
-        return heading:remove_scheduled_date()
-      end
-      if not new_date then
-        return nil
-      end
+      if cleared then return heading:remove_scheduled_date() end
+      if not new_date then return nil end
       heading:remove_closed_date()
       heading:set_scheduled_date(new_date)
     end)
@@ -1081,9 +952,7 @@ function FeyMappings:fey_time_stamp(inactive)
 
   if date then
     return Calendar.new({ date = date, title = 'Replace date' }):open():next(function(new_date)
-      if not new_date then
-        return
-      end
+      if not new_date then return end
       self:_replace_date(new_date)
     end)
   end
@@ -1091,9 +960,7 @@ function FeyMappings:fey_time_stamp(inactive)
   local date_start = self:_get_date_under_cursor(-1)
 
   return Calendar.new({ date = Date.today() }):open():next(function(new_date)
-    if not new_date then
-      return nil
-    end
+    if not new_date then return nil end
     local date_string = new_date:to_wrapped_string(not inactive)
     if date_start then
       date_string = '--' .. date_string
@@ -1105,9 +972,7 @@ end
 
 function FeyMappings:fey_toggle_timestamp_type()
   local date = self:_get_date_under_cursor()
-  if not date then
-    return
-  end
+  if not date then return end
 
   date.active = not date.active
   self:_replace_date(date)
@@ -1135,9 +1000,7 @@ function FeyMappings:_change_todo_state(direction, use_fast_access)
     end
   end
 
-  if not next_state then
-    return false
-  end
+  if not next_state then return false end
 
   if next_state.value == current_keyword then
     if current_keyword ~= '' then
@@ -1178,9 +1041,7 @@ function FeyMappings:_get_date_under_cursor(col_offset)
     dates = Date.from_node(ts_utils.closest_node(ts_utils.get_node(), 'timestamp'))
   end
 
-  local valid_dates = vim.tbl_filter(function(date)
-    return date.range:is_in_range(line, col)
-  end, dates)
+  local valid_dates = vim.tbl_filter(function(date) return date.range:is_in_range(line, col) end, dates)
   return valid_dates[1]
 end
 
@@ -1196,14 +1057,10 @@ function FeyMappings:_adjust_date(amount, span, fallback)
   end
 
   local is_count_mapping = vim.tbl_contains({ '<c-a>', '<c-x>' }, fallback:lower())
-  if not is_count_mapping then
-    return vim.api.nvim_feedkeys(utils.esc(fallback), 'n', true)
-  end
+  if not is_count_mapping then return vim.api.nvim_feedkeys(utils.esc(fallback), 'n', true) end
 
   local num = vim.fn.search([[\d]], 'c', vim.fn.line('.'))
-  if num == 0 then
-    return vim.api.nvim_feedkeys(utils.esc(fallback), 'n', true)
-  end
+  if num == 0 then return vim.api.nvim_feedkeys(utils.esc(fallback), 'n', true) end
 
   date = self:_get_date_under_cursor()
   if date then

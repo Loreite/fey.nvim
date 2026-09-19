@@ -35,9 +35,7 @@ local auto_instance_keys = {
 local Fey = {}
 setmetatable(Fey, {
   __index = function(tbl, key)
-    if auto_instance_keys[key] then
-      Fey.instance()
-    end
+    if auto_instance_keys[key] then Fey.instance() end
     return rawget(tbl, key)
   end,
 })
@@ -52,9 +50,7 @@ function Fey:new()
 end
 
 function Fey:init()
-  if self.initialized then
-    return
-  end
+  if self.initialized then return end
   self.buffers = require('fey.state.buffers').init()
   require('fey.events').init()
   self.highlighter = require('fey.colors.highlighter'):new()
@@ -84,9 +80,11 @@ function Fey:init()
   self.clock = require('fey.clock'):new({
     files = self.files,
   })
-  self.statusline_debounced = require('fey.utils').debounce('statusline', function()
-    return self.clock:get_statusline()
-  end, 300)
+  self.statusline_debounced = require('fey.utils').debounce(
+    'statusline',
+    function() return self.clock:get_statusline() end,
+    300
+  )
   self.initialized = true
 end
 
@@ -102,32 +100,24 @@ function Fey:setup_autocmds()
     pattern = { '*.fey', '*.fey_archive' },
     group = fey_augroup,
     callback = function(event)
-      if not vim.bo[event.buf].filetype or vim.bo[event.buf].filetype == '' then
-        vim.bo[event.buf].filetype = 'fey'
-      end
+      if not vim.bo[event.buf].filetype or vim.bo[event.buf].filetype == '' then vim.bo[event.buf].filetype = 'fey' end
     end,
   })
   vim.api.nvim_create_autocmd('BufWritePost', {
     pattern = { '*.fey', '*.fey_archive' },
     group = fey_augroup,
-    callback = function(event)
-      self:reload(vim.fn.fnamemodify(event.file, ':p'))
-    end,
+    callback = function(event) self:reload(vim.fn.fnamemodify(event.file, ':p')) end,
   })
   vim.api.nvim_create_autocmd('FileType', {
     pattern = 'fey',
     group = fey_augroup,
-    callback = function()
-      self:reload(vim.fn.expand('<afile>:p'))
-    end,
+    callback = function() self:reload(vim.fn.expand('<afile>:p')) end,
   })
   vim.api.nvim_create_autocmd('ColorScheme', {
     pattern = '*',
     group = fey_augroup,
     callback = function()
-      if self.initialized then
-        require('fey.colors.highlights').define_highlights()
-      end
+      if self.initialized then require('fey.colors.highlights').define_highlights() end
     end,
   })
 
@@ -135,9 +125,7 @@ function Fey:setup_autocmds()
     pattern = { '*.fey', '*.fey_archive' },
     group = fey_augroup,
     callback = function(event)
-      if self.buffers then
-        self.buffers.add(event.buf)
-      end
+      if self.buffers then self.buffers.add(event.buf) end
     end,
   })
 
@@ -145,9 +133,7 @@ function Fey:setup_autocmds()
     pattern = { '*.fey', '*.fey_archive' },
     group = fey_augroup,
     callback = function(event)
-      if self.buffers then
-        self.buffers.remove(event.buf)
-      end
+      if self.buffers then self.buffers.remove(event.buf) end
     end,
   })
 
@@ -159,16 +145,10 @@ function Fey:setup_autocmds()
       local reindex_pending = {}
 
       local function do_reindex(buf)
-        if not vim.api.nvim_buf_is_valid(buf) then
-          return
-        end
-        if undotree.was_undo_or_redo(buf) then
-          return
-        end
+        if not vim.api.nvim_buf_is_valid(buf) then return end
+        if undotree.was_undo_or_redo(buf) then return end
         reindexing[buf] = true
-        pcall(function()
-          vim.cmd('undojoin')
-        end)
+        pcall(function() vim.cmd('undojoin') end)
         local feyfile = FeyFile:new({ filename = event.file, buf = event.buf })
         local buff_changed_event = events.BufferChanged:new(feyfile)
         pcall(EventManager.dispatch, buff_changed_event)
@@ -177,9 +157,7 @@ function Fey:setup_autocmds()
       end
 
       local function schedule_reindex(buf)
-        if reindex_pending[buf] then
-          return
-        end
+        if reindex_pending[buf] then return end
         reindex_pending[buf] = true
         vim.schedule(function()
           reindex_pending[buf] = nil
@@ -191,9 +169,7 @@ function Fey:setup_autocmds()
         group = fey_augroup,
         buffer = event.buf,
         callback = function()
-          if reindexing[event.buf] then
-            return
-          end
+          if reindexing[event.buf] then return end
           schedule_reindex(event.buf)
         end,
       })
@@ -221,13 +197,15 @@ function Fey.setup(opts)
   instance:init()
   vim.defer_fn(function()
     if config.notifications.enabled and #vim.api.nvim_list_uis() > 0 then
-      Fey.files:load():next(vim.schedule_wrap(function()
-        instance.notifications = require('fey.notifications')
-          :new({
-            files = Fey.files,
-          })
-          :start_timer()
-      end))
+      Fey.files:load():next(vim.schedule_wrap(
+        function()
+          instance.notifications = require('fey.notifications')
+            :new({
+              files = Fey.files,
+            })
+            :start_timer()
+        end
+      ))
     end
     config:setup_mappings('global')
   end, 1)
@@ -240,14 +218,11 @@ end
 function Fey._set_dot_repeat(cmd, args)
   local repeat_action = ("'%s'"):format(cmd)
   local serialized_args = {}
-  print(vim.inspect(args))
   for _, arg in ipairs(args or {}) do
     table.insert(serialized_args, ("'%s'"):format(arg))
   end
 
-  print(vim.inspect(serialized_args))
   local args_str = table.concat(serialized_args, ', ')
-  print(args_str)
   vim.cmd(
     string.format(
       [[silent! call repeat#set("\<cmd>lua require('fey').action(%s, { args = { %s } })\<CR>")]],
@@ -261,11 +236,8 @@ end
 ---@param opts? table
 function Fey.action(cmd, opts)
   opts = opts or {}
-  print('action_top: ' .. vim.inspect(opts.args))
   local parts = vim.split(cmd, '.', { plain = true })
-  if #parts < 2 then
-    return
-  end
+  if #parts < 2 then return end
   local fey = Fey.instance()
   local item = nil
   for i = 1, #parts - 1 do
@@ -277,12 +249,8 @@ function Fey.action(cmd, opts)
     local args = opts.args or {}
     local success, result = pcall(method, item, unpack(args))
     if not success then
-      if result.message then
-        return require('fey.utils').echo_error(result.message)
-      end
-      if type(result) == 'string' then
-        return require('fey.utils').echo_error(result)
-      end
+      if result.message then return require('fey.utils').echo_error(result.message) end
+      if type(result) == 'string' then return require('fey.utils').echo_error(result) end
     end
     Fey._set_dot_repeat(cmd, args)
     return result
@@ -292,9 +260,7 @@ end
 function Fey.cron(opts)
   local ok, result = pcall(function()
     local config = require('fey.config'):extend(opts or {})
-    if not config.notifications.cron_enabled then
-      return vim.cmd([[qa!]])
-    end
+    if not config.notifications.cron_enabled then return vim.cmd([[qa!]]) end
     -- Fey.files:load_sync(true, 20000)
     instance.notifications = require('fey.notifications')
       :new({
@@ -310,9 +276,7 @@ function Fey.cron(opts)
 end
 
 function Fey.instance()
-  if not instance then
-    instance = Fey:new()
-  end
+  if not instance then instance = Fey:new() end
   instance:init()
   return instance
 end
@@ -325,16 +289,12 @@ function Fey.destroy()
 end
 
 function Fey.is_setup_called()
-  if not instance then
-    return false
-  end
+  if not instance then return false end
   return instance.setup_called
 end
 
 function _G.fey.statusline()
-  if not instance or not instance.initialized then
-    return ''
-  end
+  if not instance or not instance.initialized then return '' end
   return instance.statusline_debounced() or ''
 end
 

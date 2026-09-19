@@ -43,9 +43,7 @@ end
 ---@return TSNode
 function Heading:node()
   local bufnr = self.file:bufnr()
-  if bufnr < 0 then
-    return self.heading
-  end
+  if bufnr < 0 then return self.heading end
   return self:refresh().heading
 end
 
@@ -54,9 +52,7 @@ end
 function Heading:refresh()
   local start_row, start_col = self.heading:start()
   local updated_heading = self.file:closest_heading_node({ start_row + 1, start_col })
-  if updated_heading then
-    self.heading = updated_heading
-  end
+  if updated_heading then self.heading = updated_heading end
   return self
 end
 
@@ -81,17 +77,13 @@ function Heading:get_priority()
 
   local priority_node = item and item:field('priority')[1]
 
-  if not priority_node then
-    return '', nil
-  end
+  if not priority_node then return '', nil end
 
   local value = self.file:get_node_text(priority_node)
   -- Parse only the priority cookie, [#A] -> A
   local priority = value:sub(3, -2)
 
-  if not config:get_priorities()[priority] then
-    return '', nil
-  end
+  if not config:get_priorities()[priority] then return '', nil end
 
   return priority, priority_node
 end
@@ -128,11 +120,9 @@ function Heading:promote(amount, recursive, dryRun)
         if config:should_indent(heading.file:bufnr()) then
           lines[i] = line:sub(1 + indent_width)
         else
-          local existing_indent
-          existing_indent, line = line:match('(%s*)(.*)')
-          existing_indent = existing_indent and existing_indent or ''
+          line, _ = line:gsub('^%s+', '')
           local indent_amount = indent.indentexpr(start_line + i, heading.file:bufnr())
-          lines[i] = existing_indent .. string.rep(' ', indent_amount) .. line
+          lines[i] = string.rep(' ', indent_amount) .. line
         end
       end
     end
@@ -150,18 +140,21 @@ function Heading:demote(amount, recursive, dryRun)
   recursive = recursive or false
 
   return self:_handle_promote_demote(recursive, function(start_line, lines, heading)
-    local signature_node = heading:_get_child_node('signature')
+    local signature = heading:_get_child_node('signature')
     local level = heading:get_level()
-    local _, sig_start, _, sig_end = signature_node:range()
+    local _, sig_start, _, sig_end = signature:range()
 
-    local signature_text = vim.treesitter.get_node_text(signature_node, heading.file:bufnr())
+    local signature_text = vim.treesitter.get_node_text(signature, heading.file:bufnr())
     local new_segments = ''
     for i = 1, amount do
-      local idx = ((level + i - 1) % #config.fey_default_subheading_index_order) + 1
-      local pattern = config.fey_default_subheading_index_order[idx]
+      local pattern_idx = ((level + i - 1) % #config.fey_default_subheading_index_order) + 1
+      local pattern = config.fey_default_subheading_index_order[pattern_idx]
       local segment_index = sequences.patterns[pattern].to_symbol(1)
-      local demote_segment = segment_index .. config.fey_default_subheading_delimiter
-      new_segments = new_segments .. demote_segment
+      local delim_idx = ((i - 1) % #config.fey_default_subheading_delimiter_order) + 1
+      local delimiter = config.fey_default_subheading_delimiter_order[delim_idx]
+      delimiter = delimiter and delimiter or vim.treesitter.get_node_text(assert(signature:named_children()[level]:child(1)), 0)
+
+      new_segments = new_segments .. segment_index .. delimiter
     end
     local new_signature = signature_text .. new_segments
 
@@ -172,11 +165,9 @@ function Heading:demote(amount, recursive, dryRun)
       if config:should_indent(heading.file:bufnr()) then
         lines[i] = heading:_apply_indent(line, #new_segments)
       else
-        local existing_indent
-        existing_indent, line = line:match('(%s*)(.*)')
-        existing_indent = existing_indent and existing_indent or ''
+        line, _ = line:gsub('^%s+', '')
         local indent_amount = indent.indentexpr(start_line + i, heading.file:bufnr())
-        lines[i] = existing_indent .. string.rep(' ', indent_amount) .. line
+        lines[i] = string.rep(' ', indent_amount) .. line
       end
     end
 
@@ -192,9 +183,7 @@ end
 
 function Heading:clock_in()
   local logbook = self:get_logbook()
-  if not logbook then
-    logbook = Logbook.new_from_heading(self)
-  end
+  if not logbook then logbook = Logbook.new_from_heading(self) end
   logbook:add_clock_in()
   EventManager.dispatch(events.ClockedIn:new(self))
   return self:refresh()
@@ -211,18 +200,14 @@ end
 
 function Heading:cancel_active_clock()
   local logbook = self:get_logbook()
-  if logbook then
-    logbook:cancel_active_clock()
-  end
+  if logbook then logbook:cancel_active_clock() end
   return self:refresh()
 end
 
 ---@return FeyLogbook | nil
 function Heading:get_logbook()
   local drawer = self:get_drawer('logbook')
-  if drawer then
-    return Logbook.from_node(drawer, self.file, self:get_non_plan_dates())
-  end
+  if drawer then return Logbook.from_node(drawer, self.file, self:get_non_plan_dates()) end
   return nil
 end
 
@@ -239,9 +224,7 @@ function Heading:get_priority_sort_value()
 end
 
 function Heading:is_archived()
-  return #vim.tbl_filter(function(tag)
-    return tag:upper() == 'ARCHIVE'
-  end, self:get_tags()) > 0
+  return #vim.tbl_filter(function(tag) return tag:upper() == 'ARCHIVE' end, self:get_tags()) > 0
 end
 
 ---Check if heading has tag
@@ -249,9 +232,7 @@ end
 ---@return boolean
 function Heading:has_tag(tag)
   for _, tag_item in ipairs(self:get_tags()) do
-    if tag_item == tag then
-      return true
-    end
+    if tag_item == tag then return true end
   end
   return false
 end
@@ -261,9 +242,7 @@ memoize('get_category')
 function Heading:get_category()
   local category = self:get_property('category', true)
 
-  if category then
-    return category
-  end
+  if category then return category end
 
   return self.file:get_category()
 end
@@ -295,14 +274,10 @@ function Heading:set_tags(tags)
   ---@type TSNode
   local predecessor = nil
   for _, node in ipairs(ts_utils.get_named_children(self:node())) do
-    if node:type() ~= 'tag_list' then
-      predecessor = node
-    end
+    if node:type() ~= 'tag_list' then predecessor = node end
   end
 
-  if not predecessor then
-    return nil
-  end
+  if not predecessor then return nil end
 
   local bufnr = self.file:get_valid_bufnr()
   local txt = self.file:get_node_text(predecessor)
@@ -323,9 +298,7 @@ function Heading:set_tags(tags)
 
     local to_col = config.fey_tags_column
     local tags_width = vim.api.nvim_strwidth(tags)
-    if to_col < 0 then
-      to_col = math.abs(to_col) - tags_width
-    end
+    if to_col < 0 then to_col = math.abs(to_col) - tags_width end
 
     local spaces = math.max(to_col - (vim.api.nvim_strwidth(txt) + signature:len()), 1)
     text = string.rep(' ', spaces) .. tags
@@ -339,9 +312,7 @@ end
 function Heading:add_tag(tag)
   local current_tags = self:get_own_tags()
   local present = vim.tbl_contains(current_tags, tag)
-  if not present then
-    table.insert(current_tags, tag)
-  end
+  if not present then table.insert(current_tags, tag) end
   self:set_tags(utils.tags_to_string(current_tags))
   return not present
 end
@@ -351,13 +322,9 @@ end
 function Heading:remove_tag(tag)
   local current_tags = self:get_own_tags()
   ---@type string[]
-  local new_tags = vim.tbl_filter(function(i)
-    return i ~= tag
-  end, current_tags)
+  local new_tags = vim.tbl_filter(function(i) return i ~= tag end, current_tags)
   local present = #new_tags ~= #current_tags
-  if present then
-    self:set_tags(utils.tags_to_string(new_tags))
-  end
+  if present then self:set_tags(utils.tags_to_string(new_tags)) end
   return present
 end
 
@@ -367,9 +334,7 @@ function Heading:toggle_tag(tag)
   local current_tags = self:get_own_tags()
   local present = vim.tbl_contains(current_tags, tag)
   if present then
-    current_tags = vim.tbl_filter(function(i)
-      return i ~= tag
-    end, current_tags)
+    current_tags = vim.tbl_filter(function(i) return i ~= tag end, current_tags)
   else
     table.insert(current_tags, tag)
   end
@@ -379,9 +344,7 @@ end
 
 function Heading:align_tags()
   local own_tags, node = self:get_own_tags()
-  if node then
-    self:set_tags(utils.tags_to_string(own_tags))
-  end
+  if node then self:set_tags(utils.tags_to_string(own_tags)) end
 end
 
 ---@param priority string
@@ -390,20 +353,14 @@ function Heading:set_priority(priority)
   priority = vim.trim(priority)
 
   if priority == '' then
-    if priority_node then
-      return self:_set_node_text(priority_node, '')
-    end
+    if priority_node then return self:_set_node_text(priority_node, '') end
     return
   end
 
-  if priority_node then
-    return self:_set_node_text(priority_node, ('[#%s]'):format(priority))
-  end
+  if priority_node then return self:_set_node_text(priority_node, ('[#%s]'):format(priority)) end
 
   local todo, todo_node = self:get_todo()
-  if todo then
-    return self:_set_node_text(todo_node, ('%s [#%s]'):format(todo, priority))
-  end
+  if todo then return self:_set_node_text(todo_node, ('%s [#%s]'):format(todo, priority)) end
 
   local signature = self:_get_child_node('signature')
   local _, level = signature:end_()
@@ -432,17 +389,13 @@ function Heading:get_todo()
   -- A valid keyword can only be the first child
   local first_item_node = self:_get_child_node('item')
   local todo_node = first_item_node and first_item_node:named_child(0)
-  if not todo_node then
-    return nil, nil, nil
-  end
+  if not todo_node then return nil, nil, nil end
 
   local todo_keywords = self.file:get_todo_keywords()
 
   local text = self.file:get_node_text(todo_node)
   local keyword_by_value = todo_keywords:find(text)
-  if not keyword_by_value then
-    return nil, nil, nil, nil
-  end
+  if not keyword_by_value then return nil, nil, nil, nil end
 
   return text, todo_node, keyword_by_value.type, keyword_by_value.index
 end
@@ -486,9 +439,7 @@ function Heading:get_own_properties()
   local section = self:node():parent()
   local properties_node = section and section:field('property_drawer')[1]
 
-  if not properties_node then
-    return {}, nil
-  end
+  if not properties_node then return {}, nil end
 
   local properties = {}
 
@@ -497,9 +448,7 @@ function Heading:get_own_properties()
       local name = node:field('name')[1]
       local value = node:field('value')[1]
 
-      if name then
-        properties[self.file:get_node_text(name):lower()] = self.file:get_node_text(value) or ''
-      end
+      if name then properties[self.file:get_node_text(name):lower()] = self.file:get_node_text(value) or '' end
     end
   end
 
@@ -511,9 +460,7 @@ memoize('get_properties')
 function Heading:get_properties()
   local properties, own_properties_node = self:get_own_properties()
 
-  if not config.fey_use_property_inheritance then
-    return properties, own_properties_node
-  end
+  if not config.fey_use_property_inheritance then return properties, own_properties_node end
 
   local parent_section = self:node():parent():parent()
   while parent_section do
@@ -521,9 +468,7 @@ function Heading:get_properties()
     if heading_node then
       local heading = Heading:new(heading_node, self.file)
       for name, value in pairs(heading:get_own_properties()) do
-        if properties[name] == nil and config:use_property_inheritance(name) then
-          properties[name] = value
-        end
+        if properties[name] == nil and config:use_property_inheritance(name) then properties[name] = value end
       end
     end
     parent_section = parent_section:parent()
@@ -539,14 +484,10 @@ function Heading:set_property(name, value)
   local bufnr = self.file:get_valid_bufnr()
   if not value then
     local existing_property, property_node = self:get_property(name, false)
-    if existing_property and property_node then
-      vim.fn.deletebufline(bufnr, property_node:start() + 1)
-    end
+    if existing_property and property_node then vim.fn.deletebufline(bufnr, property_node:start() + 1) end
     self:refresh()
     local properties, properties_node = self:get_own_properties()
-    if vim.tbl_isempty(properties) then
-      self:_set_node_lines(properties_node, {})
-    end
+    if vim.tbl_isempty(properties) then self:_set_node_lines(properties_node, {}) end
     return self:refresh()
   end
 
@@ -560,9 +501,7 @@ function Heading:set_property(name, value)
 
   local property = (':%s: %s'):format(name, value)
   local existing_property, property_node = self:get_property(name, false)
-  if existing_property then
-    return self:_set_node_text(property_node, property)
-  end
+  if existing_property then return self:_set_node_text(property_node, property) end
   local property_end = properties and properties:end_()
 
   local new_line = self:_apply_indent(property) --[[@as string]]
@@ -573,9 +512,7 @@ end
 ---@param note string[] | nil
 ---@return FeyHeading
 function Heading:add_note(note)
-  if not note then
-    return self
-  end
+  if not note then return self end
   local drawer = config.fey_log_into_drawer
   local append_line
   if drawer ~= nil then
@@ -606,13 +543,9 @@ function Heading:get_property(property_name, search_parents)
     end
   end
 
-  if search_parents == nil then
-    search_parents = config:use_property_inheritance(property_name)
-  end
+  if search_parents == nil then search_parents = config:use_property_inheritance(property_name) end
 
-  if not search_parents then
-    return nil, nil
-  end
+  if not search_parents then return nil, nil end
 
   local parent_section = self:node():parent():parent()
   while parent_section do
@@ -620,9 +553,7 @@ function Heading:get_property(property_name, search_parents)
     if heading_node then
       local heading = Heading:new(heading_node, self.file)
       local property, property_node = heading:get_property(property_name, false)
-      if property then
-        return property, property_node
-      end
+      if property then return property, property_node end
     end
     parent_section = parent_section:parent()
   end
@@ -631,23 +562,17 @@ function Heading:get_property(property_name, search_parents)
 end
 
 function Heading:matches_search_term(term)
-  if self:get_title():lower():match(term) then
-    return true
-  end
+  if self:get_title():lower():match(term) then return true end
   local body = self.file:get_node_text(self:node():parent():field('body')[1])
   return body:lower():match(term) ~= nil
 end
 
-function Heading:content()
-  return self.file:get_node_text_list(self:node():parent():field('body')[1])
-end
+function Heading:content() return self.file:get_node_text_list(self:node():parent():field('body')[1]) end
 
 ---@return FeyDate[]
 function Heading:get_deadline_and_scheduled_dates()
   local dates = { self:get_deadline_date(), self:get_scheduled_date() }
-  return vim.tbl_filter(function(date)
-    return date ~= nil
-  end, dates)
+  return vim.tbl_filter(function(date) return date ~= nil end, dates)
 end
 
 ---@return FeyDate | nil
@@ -666,9 +591,7 @@ memoize('get_tags')
 ---@return string[], TSNode | nil
 function Heading:get_tags()
   local tags, own_tags_node = self:get_own_tags()
-  if not config.fey_use_tag_inheritance then
-    return tags, own_tags_node
-  end
+  if not config.fey_use_tag_inheritance then return tags, own_tags_node end
 
   local parent_tags = {}
   local parent_section = self:node():parent():parent()
@@ -696,9 +619,7 @@ end
 ---@return FeyHeading | nil
 function Heading:get_parent_heading()
   local parent_section = self:node():parent():parent()
-  if not parent_section then
-    return nil
-  end
+  if not parent_section then return nil end
 
   local heading = parent_section:field('heading')[1]
   return Heading:new(heading, self.file)
@@ -708,35 +629,25 @@ memoize('get_own_tags')
 ---@return string[], TSNode | nil
 function Heading:get_own_tags()
   local node = self:_get_child_node('tags')
-  if node then
-    return utils.parse_tags_string(self.file:get_node_text(node)), node
-  end
+  if node then return utils.parse_tags_string(self.file:get_node_text(node)), node end
   return {}, nil
 end
 
 ---@return FeyDate[]
 function Heading:get_repeater_dates()
-  return vim.tbl_filter(function(date)
-    return date:get_repeater()
-  end, self:get_all_dates())
+  return vim.tbl_filter(function(date) return date:get_repeater() end, self:get_all_dates())
 end
 
 ---@return boolean
-function Heading:is_first_section()
-  return self:get_prev_heading_same_level() == nil
-end
+function Heading:is_first_section() return self:get_prev_heading_same_level() == nil end
 
 ---@return boolean
-function Heading:is_last_section()
-  return self:get_next_heading_same_level() == nil
-end
+function Heading:is_last_section() return self:get_next_heading_same_level() == nil end
 
 ---@return FeyHeading | nil
 function Heading:get_prev_heading_same_level()
   local prev_section = self:node():parent():prev_named_sibling()
-  if not prev_section or prev_section:type() ~= 'section' then
-    return nil
-  end
+  if not prev_section or prev_section:type() ~= 'section' then return nil end
 
   return Heading:new(prev_section:field('heading')[1], self.file)
 end
@@ -744,9 +655,7 @@ end
 ---@return FeyHeading | nil
 function Heading:get_next_heading_same_level()
   local next_section = self:node():parent():next_named_sibling()
-  if not next_section or next_section:type() ~= 'section' then
-    return nil
-  end
+  if not next_section or next_section:type() ~= 'section' then return nil end
 
   return Heading:new(next_section:field('heading')[1], self.file)
 end
@@ -778,9 +687,7 @@ function Heading:get_plan_dates()
   local dates_nodes = {}
   local has_plan_dates = false
 
-  if not plan then
-    return dates, dates_nodes, has_plan_dates
-  end
+  if not plan then return dates, dates_nodes, has_plan_dates end
 
   local valid_plan_types = { 'SCHEDULED', 'DEADLINE', 'CLOSED', 'NONE' }
 
@@ -789,13 +696,9 @@ function Heading:get_plan_dates()
     local name = name_node and self.file:get_node_text(name_node)
     local timestamp = node:field('timestamp')[1]
 
-    if not name or not vim.tbl_contains(valid_plan_types, name:upper()) then
-      name = 'NONE'
-    end
+    if not name or not vim.tbl_contains(valid_plan_types, name:upper()) then name = 'NONE' end
 
-    if name ~= 'NONE' then
-      has_plan_dates = true
-    end
+    if name ~= 'NONE' then has_plan_dates = true end
     dates[name:upper()] = Date.from_node(timestamp, self.file:get_source(), {
       type = name:upper(),
     })
@@ -820,9 +723,7 @@ memoize('get_non_plan_dates')
 function Heading:get_non_plan_dates()
   local heading_node = self:node()
   local section = heading_node:parent()
-  if not section then
-    return {}
-  end
+  if not section then return {} end
 
   local body_node = section:field('body')[1]
   local property_node = section:field('property_drawer')[1]
@@ -867,9 +768,7 @@ function Heading:tags_to_string(sorted)
 end
 
 ---@return boolean
-function Heading:has_child_headings()
-  return self:node():parent():field('subsection')[1] ~= nil
-end
+function Heading:has_child_headings() return self:node():parent():field('subsection')[1] ~= nil end
 
 ---@return boolean
 function Heading:is_one_line()
@@ -883,18 +782,17 @@ memoize('get_child_headings')
 ---@return FeyHeading[]
 function Heading:get_child_headings()
   local child_sections = self:node():parent():field('subsection')
-  local headings = vim.tbl_map(function(child_section)
-    return Heading:new(child_section:field('heading')[1], self.file)
-  end, child_sections)
+  local headings = vim.tbl_map(
+    function(child_section) return Heading:new(child_section:field('heading')[1], self.file) end,
+    child_sections
+  )
 
   return headings
 end
 
 ---@param category string
 ---@return boolean
-function Heading:matches_category(category)
-  return self:get_category() == category
-end
+function Heading:matches_category(category) return self:get_category() == category end
 
 ---@return FeyDate[]
 function Heading:get_valid_dates_for_agenda()
@@ -912,41 +810,27 @@ function Heading:get_valid_dates_for_agenda()
 end
 
 ---@param date FeyDate
-function Heading:set_deadline_date(date)
-  return self:_add_date('DEADLINE', date, true)
-end
+function Heading:set_deadline_date(date) return self:_add_date('DEADLINE', date, true) end
 
 ---@param date FeyDate
-function Heading:set_scheduled_date(date)
-  return self:_add_date('SCHEDULED', date, true)
-end
+function Heading:set_scheduled_date(date) return self:_add_date('SCHEDULED', date, true) end
 
 ---@param date? FeyDate
 function Heading:set_closed_date(date)
   local dates = self:get_plan_dates()
-  if vim.tbl_get(dates, 'CLOSED', 1) then
-    return
-  end
+  if vim.tbl_get(dates, 'CLOSED', 1) then return end
   return self:_add_date('CLOSED', date or Date.now(), false)
 end
 
-function Heading:remove_closed_date()
-  return self:_remove_date('CLOSED')
-end
+function Heading:remove_closed_date() return self:_remove_date('CLOSED') end
 
-function Heading:remove_deadline_date()
-  return self:_remove_date('DEADLINE')
-end
+function Heading:remove_deadline_date() return self:_remove_date('DEADLINE') end
 
-function Heading:remove_scheduled_date()
-  return self:_remove_date('SCHEDULED')
-end
+function Heading:remove_scheduled_date() return self:_remove_date('SCHEDULED') end
 
 function Heading:get_cookie()
   local cookie = self:_parse_title_part('%[%d*/%d*%]')
-  if cookie then
-    return cookie
-  end
+  if cookie then return cookie end
   return self:_parse_title_part('%[%d?%d?%d?%%%]')
 end
 
@@ -966,14 +850,10 @@ function Heading:update_cookie()
 
   -- Return early if the heading doesn't have a cookie
   local cookie = self:get_cookie()
-  if not cookie then
-    return self
-  end
+  if not cookie then return self end
 
   local section = self:node():parent()
-  if not section then
-    return self
-  end
+  if not section then return self end
 
   -- Count checked boxes from all lists
   local num_checked_boxes, num_boxes = 0, 0
@@ -983,9 +863,7 @@ function Heading:update_cookie()
       if node:type() == 'list' then
         local boxes = self:child_checkboxes(node)
         num_boxes = num_boxes + #boxes
-        local checked_boxes = vim.tbl_filter(function(box)
-          return box:match('%[%w%]')
-        end, boxes)
+        local checked_boxes = vim.tbl_filter(function(box) return box:match('%[%w%]') end, boxes)
         num_checked_boxes = num_checked_boxes + #checked_boxes
       end
     end
@@ -1000,9 +878,7 @@ function Heading:update_todo_cookie()
 
   -- Return early if the heading doesn't have a cookie
   local cookie = self:get_cookie()
-  if not cookie then
-    return self
-  end
+  if not cookie then return self end
 
   -- Count done children headings and total children with TODO keywords
   local children = self:get_child_headings()
@@ -1011,9 +887,7 @@ function Heading:update_todo_cookie()
     return todo ~= nil
   end, children)
 
-  local dones = vim.tbl_filter(function(h)
-    return h:is_done()
-  end, headings_with_todo)
+  local dones = vim.tbl_filter(function(h) return h:is_done() end, headings_with_todo)
 
   -- Set the cookie
   return self:_set_cookie(cookie, #dones, #headings_with_todo)
@@ -1021,9 +895,7 @@ end
 
 function Heading:update_parent_cookie()
   local parent = self:get_parent_heading()
-  if parent and parent.heading then
-    parent:update_todo_cookie()
-  end
+  if parent and parent.heading then parent:update_todo_cookie() end
   return self
 end
 
@@ -1037,20 +909,14 @@ end
 ---@return TSNode | nil
 function Heading:get_drawer(name)
   local section = self:node():parent()
-  if not section then
-    return nil
-  end
+  if not section then return nil end
   local body = section:field('body')[1]
-  if not body then
-    return nil
-  end
+  if not body then return nil end
 
   for _, node in ipairs(ts_utils.get_named_children(body)) do
     if node:type() == 'drawer' then
       local drawer_name = node:field('name')
-      if #drawer_name and string.lower(self.file:get_node_text(drawer_name[1])) == string.lower(name) then
-        return node
-      end
+      if #drawer_name and string.lower(self.file:get_node_text(drawer_name[1])) == string.lower(name) then return node end
     end
   end
 end
@@ -1075,14 +941,10 @@ end
 
 memoize('get_range')
 ---@return FeyRange
-function Heading:get_range()
-  return Range.from_node(self:node():parent())
-end
+function Heading:get_range() return Range.from_node(self:node():parent()) end
 
 ---@return string[]
-function Heading:get_lines()
-  return self.file:get_node_text_list(self:node():parent())
-end
+function Heading:get_lines() return self.file:get_node_text_list(self:node():parent()) end
 
 memoize('get_heading_line_content')
 ---@return string
@@ -1093,9 +955,7 @@ end
 
 ---@param amount? number
 ---@return string
-function Heading:get_indent(amount)
-  return config:get_indent(amount or self:get_signature_width() + 1, self.file:bufnr())
-end
+function Heading:get_indent(amount) return config:get_indent(amount or self:get_signature_width() + 1, self.file:bufnr()) end
 
 function Heading:is_same(other_heading)
   return self.file.filename == other_heading.filename
@@ -1105,9 +965,7 @@ end
 
 function Heading:id_get_or_create()
   local id_prop = self:get_property('ID', false)
-  if id_prop then
-    return vim.trim(id_prop)
-  end
+  if id_prop then return vim.trim(id_prop) end
   local fey_id = FeyId.new()
   self:set_property('ID', fey_id)
   return fey_id
@@ -1125,14 +983,10 @@ function Heading:_add_date(type, date, active)
     vim.fn.appendbufline(self.file:get_valid_bufnr(), start_line + 1, self:_apply_indent(text) --[[@as string]])
     return self:refresh()
   end
-  if date_nodes[type] then
-    return self:_set_node_text(date_nodes[type], text)
-  end
+  if date_nodes[type] then return self:_set_node_text(date_nodes[type], text) end
 
   local keys = vim.tbl_keys(date_nodes)
-  local other_types = vim.tbl_filter(function(t)
-    return t ~= type
-  end, { 'DEADLINE', 'SCHEDULED', 'CLOSED' })
+  local other_types = vim.tbl_filter(function(t) return t ~= type end, { 'DEADLINE', 'SCHEDULED', 'CLOSED' })
   local last_child = date_nodes[keys[#keys]]
   for _, date_type in ipairs(other_types) do
     if date_nodes[date_type] then
@@ -1148,16 +1002,12 @@ end
 ---@private
 function Heading:_remove_date(type)
   local _, date_nodes = self:get_plan_dates()
-  if vim.tbl_count(date_nodes) == 0 or not date_nodes[type] then
-    return
-  end
+  if vim.tbl_count(date_nodes) == 0 or not date_nodes[type] then return end
   local line_nr = date_nodes[type]:start()
   self.file:set_node_text(date_nodes[type], '', true)
   local bufnr = self.file:get_valid_bufnr()
   local cur_line = vim.api.nvim_buf_get_lines(bufnr, line_nr, line_nr + 1, false)[1]
-  if vim.trim(cur_line) == '' then
-    vim.fn.deletebufline(bufnr, line_nr + 1)
-  end
+  if vim.trim(cur_line) == '' then vim.fn.deletebufline(bufnr, line_nr + 1) end
   return self:refresh()
 end
 
@@ -1166,13 +1016,9 @@ end
 function Heading:_apply_indent(text, amount)
   local indent_text = self:get_indent(amount)
 
-  if indent_text == '' then
-    return text
-  end
+  if indent_text == '' then return text end
 
-  if type(text) ~= 'table' then
-    return indent_text .. text
-  end
+  if type(text) ~= 'table' then return indent_text .. text end
 
   for i, line in ipairs(text) do
     text[i] = indent_text .. line
@@ -1181,9 +1027,7 @@ function Heading:_apply_indent(text, amount)
   return text
 end
 
-function Heading:_get_child_node(name)
-  return self:node():field(name)[1]
-end
+function Heading:_get_child_node(name) return self:node():field(name)[1] end
 
 ---@param node? TSNode
 ---@param text string
@@ -1207,9 +1051,7 @@ function Heading:_parse_title_part(pattern)
   for _, node in ipairs(ts_utils.get_named_children(self:_get_child_node('item'))) do
     local text = self.file:get_node_text(node) or ''
     local match = text:match(pattern)
-    if match then
-      return node, match
-    end
+    if match then return node, match end
   end
 
   return nil, ''
@@ -1249,15 +1091,11 @@ function Heading:_handle_promote_demote(recursive, modifier, dryRun)
     for _, child_node in ipairs(child_sections) do
       local child_headline = Heading:new(child_node:field('heading')[1], self.file)
       local child_res = child_headline:_handle_promote_demote(true, modifier, dryRun)
-      if dryRun and child_res then
-        vim.list_extend(result_lines, child_res)
-      end
+      if dryRun and child_res then vim.list_extend(result_lines, child_res) end
     end
   end
 
-  if dryRun then
-    return result_lines
-  end
+  if dryRun then return result_lines end
 
   return self:refresh()
 end

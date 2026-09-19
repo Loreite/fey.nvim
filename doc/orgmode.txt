@@ -546,7 +546,7 @@ Cannot be negative.
 fey_blank_before_new_entry                *fey-fey_blank_before_new_entry*
 
 - Type: `table<string, boolean>`
-- Default: `{ heading = true, plain_list_item = false }`
+- Default: `{ heading = true, list_item = false }`
 
 Determine if blank line should be prepended when:
 

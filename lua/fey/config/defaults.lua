@@ -2,8 +2,12 @@
 local DefaultConfig = {
   -- MY NEW OPTIONS
   -- TODO: Document these!
+  -- TODO: Validate these! (vim.validate())
+  --
   -- TODO: verify list is no empty
   fey_default_subheading_index_order = { 'roman_upper', 'alpha_upper', 'roman_lower', 'alpha_lower' },
+  -- fey_default_subheading_delimiter_order = { '.', ':', ';' },
+  fey_default_subheading_delimiter_order = {},
   fey_default_subheading_delimiter = '.',
   fey_subheadings_unique_segments_for_subtree = false,
   fey_use_uppercase_for_binary_marker = false,
@@ -78,7 +82,7 @@ local DefaultConfig = {
   fey_cycle_separator_lines = 2,
   fey_blank_before_new_entry = {
     heading = true,
-    plain_list_item = false,
+    list_item = false,
   },
   fey_src_window_setup = 'top 16new',
   fey_edit_src_content_indentation = 0,
