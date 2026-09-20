@@ -3,12 +3,13 @@ local DefaultConfig = {
   -- MY NEW OPTIONS
   -- TODO: Document these!
   -- TODO: Validate these! (vim.validate())
-  --
-  -- TODO: verify list is no empty
   fey_default_subheading_index_order = { 'roman_upper', 'alpha_upper', 'roman_lower', 'alpha_lower' },
   fey_default_subheading_delimiter_order = '.:;',
   fey_default_subheading_delimiter = '.',
+  --
   fey_subheadings_unique_segments_for_subtree = false,
+  fey_sublists_unique_bullets_for_subtree = false,
+  --
   fey_use_uppercase_for_binary_marker = false,
   fey_use_uppercase_for_hex_marker = false,
   fey_use_uppercase_for_hex_index = false,
@@ -197,6 +198,7 @@ local DefaultConfig = {
       fey_anonymize_heading = '<prefix>haf',
       --
       fey_fix_indentation = '<prefix>fi',
+      fey_reindex_headings_or_list = '<prefix>fI',
       --
       fey_do_promote = '<>',
       fey_do_demote = '><',

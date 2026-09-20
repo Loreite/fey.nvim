@@ -483,11 +483,17 @@ function FeyMappings:do_promote(whole_subtree)
   vim.cmd([[normal! _]])
 
   local node = ts_utils.get_node_at_cursor()
-  if node and (node:type() == 'bullet' or node:type() == 'segment' or node:type() == 'list') then
+  local set = utils.set({ 'bullet', 'segment', 'list' })
+  if node and set[node:type()] then
     local listitem = self.files:get_closest_listitem()
     if listitem then
       listitem:promote(whole_subtree)
       vim.fn.winrestview(win_view)
+
+      -- trigger reindex
+      local bufnr = vim.api.nvim_get_current_buf()
+      local feyfile = FeyFile:new({ filename = vim.api.nvim_buf_get_name(bufnr), buf = bufnr })
+      EventManager.dispatch(events.BufferChanged:new(feyfile, true))
       return
     end
   end
@@ -508,11 +514,17 @@ function FeyMappings:do_demote(whole_subtree)
   vim.cmd([[normal! _]])
 
   local node = ts_utils.get_node_at_cursor()
-  if node and (node:type() == 'bullet' or node:type() == 'segment' or node:type() == 'list') then
+  local set = utils.set({ 'bullet', 'segment', 'list' })
+  if node and set[node:type()] then
     local listitem = self.files:get_closest_listitem()
     if listitem then
       listitem:demote(whole_subtree)
       vim.fn.winrestview(win_view)
+
+      -- trigger reindex
+      local bufnr = vim.api.nvim_get_current_buf()
+      local feyfile = FeyFile:new({ filename = vim.api.nvim_buf_get_name(bufnr), buf = bufnr })
+      EventManager.dispatch(events.BufferChanged:new(feyfile, true))
       return
     end
   end
@@ -654,6 +666,18 @@ function FeyMappings:anonymize_or_enumerate_heading(enumerate, from_start)
   -- reindex buffer
   local feyfile = FeyFile:new({ filename = vim.api.nvim_buf_get_name(data.bufnr), buf = data.bufnr })
   EventManager.dispatch(events.BufferChanged:new(feyfile))
+end
+
+function FeyMappings:reindex_heading_or_list()
+  local node = ts_utils.closest_item_or_heading_node()
+  if not node then return end
+  local bufnr = vim.api.nvim_get_current_buf()
+  local feyfile = FeyFile:new({ filename = vim.api.nvim_buf_get_name(bufnr), buf = bufnr })
+  if node:type() == 'heading' then
+    EventManager.dispatch(events.BufferChanged:new(feyfile))
+  else
+    EventManager.dispatch(events.BufferChanged:new(feyfile, true))
+  end
 end
 
 function FeyMappings:fix_indentation()
@@ -825,9 +849,14 @@ function FeyMappings:_insert_item_below(listitem, subheading)
       newText = indent_str .. delim_text .. spacing .. '\n',
     })
   else
-    local pattern = sequences.detect_pattern(token_text)
-    local next_index = subheading and 1 or sequences.patterns[pattern].to_index(token_text) + 1
-    local next_symbol = sequences.patterns[pattern].to_symbol(next_index)
+    local _, list_depth = ts_utils.closest_root_list_node()
+    local pattern_idx = ((list_depth - 1) % #config.fey_default_subheading_index_order) + 1
+    local pattern = config.fey_default_subheading_index_order[pattern_idx]
+    local next_symbol = sequences.patterns[pattern].to_symbol(1)
+
+    -- local pattern = sequences.detect_pattern(token_text)
+    -- local next_index = subheading and 1 or sequences.patterns[pattern].to_index(token_text) + 1
+    -- local next_symbol = sequences.patterns[pattern].to_symbol(next_index)
 
     -- If creating a subheading, reset the counter to 1 for the new sub-list
 

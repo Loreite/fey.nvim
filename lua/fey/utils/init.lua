@@ -9,42 +9,28 @@ function utils.readfile(file, opts)
   opts = opts or {}
   return Promise.new(function(resolve, reject)
     uv.fs_open(file, 'r', 438, function(err1, fd)
-      if err1 then
-        return reject(err1)
-      end
+      if err1 then return reject(err1) end
       assert(fd)
       uv.fs_fstat(fd, function(err2, stat)
-        if err2 then
-          return reject(err2)
-        end
+        if err2 then return reject(err2) end
         assert(stat)
         uv.fs_read(fd, stat.size, 0, function(err3, data)
-          if err3 then
-            return reject(err3)
-          end
+          if err3 then return reject(err3) end
           uv.fs_close(fd, function(err4)
-            if err4 then
-              return reject(err4)
-            end
+            if err4 then return reject(err4) end
             assert(data)
             local result = nil
             if opts.raw then
               result = data
             else
               local lines = vim.split(data, '[\r\n]')
-              if lines[#lines] == '' then
-                table.remove(lines, #lines)
-              end
+              if lines[#lines] == '' then table.remove(lines, #lines) end
               result = lines
             end
 
-            if not opts.schedule then
-              return resolve(result)
-            end
+            if not opts.schedule then return resolve(result) end
 
-            vim.schedule(function()
-              return resolve(result)
-            end)
+            vim.schedule(function() return resolve(result) end)
           end)
         end)
       end)
@@ -60,23 +46,15 @@ function utils.writefile(file, data, opts)
   return Promise.new(function(resolve, reject)
     local flags = opts and opts.excl and 'wx' or 'w'
     uv.fs_open(file, flags, 438, function(err1, fd)
-      if err1 then
-        return reject(err1)
-      end
+      if err1 then return reject(err1) end
       assert(fd)
       uv.fs_fstat(fd, function(err2, stat)
-        if err2 then
-          return reject(err2)
-        end
+        if err2 then return reject(err2) end
         assert(stat)
         uv.fs_write(fd, data, nil, function(err3, bytes)
-          if err3 then
-            return reject(err3)
-          end
+          if err3 then return reject(err3) end
           uv.fs_close(fd, function(err4)
-            if err4 then
-              return reject(err4)
-            end
+            if err4 then return reject(err4) end
             return resolve(bytes)
           end)
         end)
@@ -86,13 +64,9 @@ function utils.writefile(file, data, opts)
 end
 
 function utils.system_notification(message)
-  if vim.fn.executable('notify-send') == 1 then
-    uv.spawn('notify-send', { args = { message } })
-  end
+  if vim.fn.executable('notify-send') == 1 then uv.spawn('notify-send', { args = { message } }) end
 
-  if vim.fn.executable('terminal-notifier') == 1 then
-    uv.spawn('terminal-notifier', { args = { '-message', message } })
-  end
+  if vim.fn.executable('terminal-notifier') == 1 then uv.spawn('terminal-notifier', { args = { '-message', message } }) end
 end
 
 ---@param msg string|table
@@ -113,53 +87,37 @@ end
 ---@param msg string|table
 ---@param additional_msg? table
 ---@param store_in_history? boolean
-function utils.echo_info(msg, additional_msg, store_in_history)
-  return utils._echo(msg, nil, additional_msg, store_in_history)
-end
+function utils.echo_info(msg, additional_msg, store_in_history) return utils._echo(msg, nil, additional_msg, store_in_history) end
 
 ---@private
 ---@return nil
 function utils._echo(msg, hl, additional_msg, store_in_history)
   vim.cmd([[redraw!]])
-  if type(msg) == 'table' then
-    msg = table.concat(msg, '\n')
-  end
+  if type(msg) == 'table' then msg = table.concat(msg, '\n') end
   local msg_item = { string.format('[fey] %s', msg) }
-  if hl then
-    table.insert(msg_item, hl)
-  end
+  if hl then table.insert(msg_item, hl) end
   local msg_list = { msg_item }
-  if additional_msg then
-    msg_list = utils.concat(msg_list, additional_msg)
-  end
+  if additional_msg then msg_list = utils.concat(msg_list, additional_msg) end
   local store = true
-  if type(store_in_history) == 'boolean' then
-    store = store_in_history
-  end
+  if type(store_in_history) == 'boolean' then store = store_in_history end
   return vim.api.nvim_echo(msg_list, store, {})
 end
 
 ---@param word string
 ---@return string
-function utils.capitalize(word)
-  return (word:gsub('^%l', string.upper))
-end
+function utils.capitalize(word) return (word:gsub('^%l', string.upper)) end
 
 ---@param isoweekday number
 ---@return number
 function utils.convert_from_isoweekday(isoweekday)
-  if isoweekday == 7 then
-    return 1
-  end
+  if isoweekday == 7 then return 1 end
   return isoweekday + 1
 end
 
 ---@param weekday number
 ---@return number
 function utils.convert_to_isoweekday(weekday)
-  if weekday == 1 then
-    return 7
-  end
+  if weekday == 1 then return 7 end
   return weekday - 1
 end
 
@@ -192,9 +150,7 @@ end
 ---@return table
 function utils.concat(first, second, unique)
   for _, v in ipairs(second) do
-    if not unique or not vim.tbl_contains(first, v) then
-      table.insert(first, v)
-    end
+    if not unique or not vim.tbl_contains(first, v) then table.insert(first, v) end
   end
   return first
 end
@@ -209,35 +165,25 @@ end
 function utils.get_keymap(data)
   local find_keymap = function(list)
     for _, map in ipairs(list) do
-      if map.lhs == data.lhs then
-        return map
-      end
+      if map.lhs == data.lhs then return map end
     end
   end
 
   local keymap = nil
 
-  if data.buffer then
-    keymap = find_keymap(vim.api.nvim_buf_get_keymap(data.buffer, data.mode))
-  end
+  if data.buffer then keymap = find_keymap(vim.api.nvim_buf_get_keymap(data.buffer, data.mode)) end
 
-  if not keymap then
-    keymap = find_keymap(vim.api.nvim_get_keymap(data.mode))
-  end
+  if not keymap then keymap = find_keymap(vim.api.nvim_get_keymap(data.mode)) end
 
   return keymap
 end
 
-function utils.esc(cmd)
-  return vim.api.nvim_replace_termcodes(cmd, true, false, true)
-end
+function utils.esc(cmd) return vim.api.nvim_replace_termcodes(cmd, true, false, true) end
 
 function utils.parse_tags_string(tags)
   local parsed_tags = {}
   for _, tag in ipairs(vim.split(tags or '', ':')) do
-    if tag:find('^[\128-\255%w_%%@#]+$') then
-      table.insert(parsed_tags, tag)
-    end
+    if tag:find('^[\128-\255%w_%%@#]+$') then table.insert(parsed_tags, tag) end
   end
   return parsed_tags
 end
@@ -256,22 +202,16 @@ function utils.tags_to_string(taglist, sorted)
 end
 
 function utils.ensure_array(val)
-  if type(val) ~= 'table' then
-    return { val }
-  end
+  if type(val) ~= 'table' then return { val } end
   return val
 end
 
 function utils.humanize_minutes(minutes)
-  if minutes == 0 then
-    return 'Now'
-  end
+  if minutes == 0 then return 'Now' end
   local is_past = minutes < 0
   local minutes_abs = math.abs(minutes)
   if minutes_abs < 60 then
-    if is_past then
-      return string.format('%d min ago', minutes_abs)
-    end
+    if is_past then return string.format('%d min ago', minutes_abs) end
     return string.format('in %d min', minutes_abs)
   end
 
@@ -279,15 +219,11 @@ function utils.humanize_minutes(minutes)
   local remaining_minutes = minutes_abs - (hours * 60)
 
   if remaining_minutes == 0 then
-    if is_past then
-      return string.format('%d hr ago', hours)
-    end
+    if is_past then return string.format('%d hr ago', hours) end
     return string.format('in %d hr', hours)
   end
 
-  if is_past then
-    return string.format('%d hr and %d min ago', hours, remaining_minutes)
-  end
+  if is_past then return string.format('%d hr and %d min ago', hours, remaining_minutes) end
   return string.format('in %d hr and %d min', hours, remaining_minutes)
 end
 
@@ -302,13 +238,7 @@ function utils.debounce(name, fn, ms)
     end
     local timer = uv.new_timer()
     debounce_timers[name] = timer
-    timer:start(
-      ms,
-      0,
-      vim.schedule_wrap(function()
-        result = fn(unpack(argv))
-      end)
-    )
+    timer:start(ms, 0, vim.schedule_wrap(function() result = fn(unpack(argv)) end))
     return result
   end
 end
@@ -317,9 +247,7 @@ end
 ---@return function
 function utils.profile(name)
   local start_time = uv.hrtime()
-  return function()
-    return print(name, string.format('%.2f', (uv.hrtime() - start_time) / 1000000))
-  end
+  return function() return print(name, string.format('%.2f', (uv.hrtime() - start_time) / 1000000)) end
 end
 
 ---@param arg_lead string
@@ -334,18 +262,15 @@ function utils.prompt_autocomplete(arg_lead, list, split_chars)
   local parts = vim.split(arg_lead, split_rgx)
   local base = arg_lead:gsub(match_rgx, '')
   local last = arg_lead:match(match_rgx)
-  local matches = vim.tbl_filter(function(tag)
-    return tag:match('^' .. vim.pesc(last)) and not vim.tbl_contains(parts, tag)
-  end, list)
+  local matches = vim.tbl_filter(
+    function(tag) return tag:match('^' .. vim.pesc(last)) and not vim.tbl_contains(parts, tag) end,
+    list
+  )
 
-  return vim.tbl_map(function(tag)
-    return base .. tag
-  end, matches)
+  return vim.tbl_map(function(tag) return base .. tag end, matches)
 end
 
-function utils.current_file_path()
-  return vim.api.nvim_buf_get_name(0)
-end
+function utils.current_file_path() return vim.api.nvim_buf_get_name(0) end
 
 ---@param winnr? number
 function utils.winwidth(winnr)
@@ -396,13 +321,9 @@ function utils.open_window(name, height, split_mode, border)
     return
   end
 
-  if type(split_mode) == 'function' then
-    return split_mode(name)
-  end
+  if type(split_mode) == 'function' then return split_mode(name) end
 
-  if split_mode == 'float' then
-    return utils.open_float(name, { border = border })
-  end
+  if split_mode == 'float' then return utils.open_float(name, { border = border }) end
 
   if type(split_mode) == 'table' and split_mode[1] == 'float' then
     return utils.open_float(name, { scale = split_mode[2], border = border })
@@ -433,21 +354,15 @@ function utils.open_tmp_fey_window(height, split_mode, border, on_close)
   end
 
   local close_win = function()
-    if vim.api.nvim_get_current_buf() ~= bufnr then
-      return
-    end
-    if utils.is_single_win() then
-      return vim.cmd('q!')
-    end
+    if vim.api.nvim_get_current_buf() ~= bufnr then return end
+    if utils.is_single_win() then return vim.cmd('q!') end
     return pcall(vim.api.nvim_win_close, 0, true)
   end
 
   return function()
     vim.api.nvim_create_augroup('FeyTmpWindow_' .. bufnr, { clear = true })
     close_win()
-    if prev_winnr and vim.api.nvim_win_is_valid(prev_winnr) then
-      vim.api.nvim_set_current_win(prev_winnr)
-    end
+    if prev_winnr and vim.api.nvim_win_is_valid(prev_winnr) then vim.api.nvim_set_current_win(prev_winnr) end
   end
 end
 
@@ -481,16 +396,12 @@ end
 ---@param amount number
 function utils.pad_right(str, amount)
   local spaces = math.max(0, amount - vim.api.nvim_strwidth(str))
-  if spaces == 0 then
-    return str
-  end
+  if spaces == 0 then return str end
   return string.format('%s%s', str, string.rep(' ', spaces))
 end
 
 function utils.is_list(value)
-  if vim.islist then
-    return vim.islist(value)
-  end
+  if vim.islist then return vim.islist(value) end
   ---@diagnostic disable-next-line: deprecated
   return vim.tbl_islist(value)
 end
@@ -556,9 +467,7 @@ end
 ---@return EntryType | nil
 function utils.find(entries, check_fn)
   for i, entry in ipairs(entries) do
-    if check_fn(entry, i) then
-      return entry
-    end
+    if check_fn(entry, i) then return entry end
   end
   return nil
 end
@@ -593,9 +502,7 @@ function utils.goto_heading(heading)
 end
 
 ---@return string
-function utils.get_visual_selection()
-  return table.concat(vim.fn.getregion(vim.fn.getpos('v'), vim.fn.getpos('.')), '\n')
-end
+function utils.get_visual_selection() return table.concat(vim.fn.getregion(vim.fn.getpos('v'), vim.fn.getpos('.')), '\n') end
 
 ---@param msg string|string[]
 ---@param opts? { level?: 'info' | 'warn' | 'error', id: string  }
@@ -618,9 +525,7 @@ function utils.if_nil(...)
   local nargs = select('#', ...)
   for i = 1, nargs do
     local v = select(i, ...)
-    if v ~= nil then
-      return v
-    end
+    if v ~= nil then return v end
   end
   return nil
 end
@@ -630,26 +535,26 @@ end
 ---@return boolean
 function utils.is_single_win()
   local wins = vim.api.nvim_list_wins()
-  if #wins == 1 then
-    return true
-  end
+  if #wins == 1 then return true end
   local ok, ui2 = pcall(require, 'vim._core.ui2')
-  if not ok then
-    return false
-  end
-  local ui2_win_ids = vim.tbl_filter(function(win)
-    return win > -1
-  end, ui2.wins)
+  if not ok then return false end
+  local ui2_win_ids = vim.tbl_filter(function(win) return win > -1 end, ui2.wins)
 
-  if #ui2_win_ids == 0 then
-    return false
-  end
+  if #ui2_win_ids == 0 then return false end
 
-  wins = vim.tbl_filter(function(win)
-    return not vim.tbl_contains(ui2_win_ids, win)
-  end, wins)
+  wins = vim.tbl_filter(function(win) return not vim.tbl_contains(ui2_win_ids, win) end, wins)
 
   return #wins == 1
+end
+
+---Make a set of values for indexing or other purpose
+---@param set list
+---@return table
+function utils.set(set)
+  return vim.iter(set):fold({}, function(acc, item)
+    acc[item] = true
+    return acc
+  end)
 end
 
 return utils

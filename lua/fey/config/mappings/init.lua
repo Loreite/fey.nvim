@@ -300,6 +300,10 @@ return {
         help_desc = 'make {count} segments of signature from start indexed',
       },
     }),
+    fey_reindex_headings_or_list = m.action(
+      'fey_mappings.reindex_heading_or_list',
+      { opts = { desc = 'reindex heading or lisa', help_desc = 'triggers and automatic reindex of a list or headings' } }
+    ),
     fey_fix_indentation = m.action(
       'fey_mappings.fix_indentation',
       { opts = { desc = 'fey fix indentation', help_desc = 'Assert indentation for subsection' } }

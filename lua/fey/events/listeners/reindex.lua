@@ -1,4 +1,8 @@
----@param event FeyTodoChangedEvent | FeyHeadingDemotedEvent | FeyHeadingPromotedEvent
+---@param event FeyBufferChangedEvent
 return function(event)
-  event.file:reindex_headings()
+  if event.list then
+    event.file:reindex_list()
+  else
+    event.file:reindex_headings()
+  end
 end

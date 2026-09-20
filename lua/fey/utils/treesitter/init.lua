@@ -44,6 +44,33 @@ function M.find_heading(node)
   return nil
 end
 
+-- walks the tree to find a listitem
+function M.find_item(node)
+  if node:type() == 'listitem' then return node end
+
+  if node:type() == 'list' then
+    -- If there's a list then ther's a listitem
+    return node:named_child(1)
+  end
+
+  if node:parent() then return M.find_item(node:parent()) end
+
+  return nil
+end
+
+function M.find_list(node)
+  if node:type() == 'list' then return node end
+
+  if node:type() == 'listitem' then
+    -- if there's a listitem then there's a list
+    return node:parent()
+  end
+
+  if node:parent() then return M.find_list(node:parent()) end
+
+  return nil
+end
+
 -- walks the tree to find an item or heading
 ---@param node TSNode | nil
 ---@param or_body boolean?
@@ -88,6 +115,46 @@ function M.closest_heading_node(cursor)
   if not node then return nil end
 
   return M.find_heading(node)
+end
+
+-- returns nearest listitem
+function M.closest_item_node(cursor)
+  local node = M.get_node_at_cursor(cursor)
+
+  if not node then return nil end
+
+  return M.find_item(node)
+end
+
+-- returns nearest (sub)list
+function M.closest_list_node(cursor)
+  local node = M.get_node_at_cursor(cursor)
+
+  if not node then return nil end
+
+  return M.find_list(node)
+end
+
+-- returns nearest root list
+---@return TSNode|nil, integer
+function M.closest_root_list_node(cursor)
+  local node = M.get_node_at_cursor(cursor)
+
+  if not node then return nil, 0 end
+
+  local list = M.find_list(node)
+  local counter = 0
+  while list do
+    counter = counter + 1
+    local parent = list:parent() and M.find_list(list:parent()) or nil
+    if parent then
+      list = parent
+    else
+      break
+    end
+  end
+
+  return list, counter
 end
 
 ---@param node TSNode | nil

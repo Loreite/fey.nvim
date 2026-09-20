@@ -106,43 +106,6 @@ function Listitem:update_cookie(total_child_checkboxes, checked_child_checkboxes
   end
 end
 
--- ---@return TSNode|nil
--- function Listitem:_get_list_parent_list()
---   local parent_listitem = self.listitem:parent():parent()
---   if parent_listitem and parent_listitem:type() == 'listitem' then return parent_listitem:parent() end
---   return nil
--- end
---
--- ---@param line string
--- ---@return string
--- function Listitem._increase(line) return '  ' .. line end
--- ---
--- ---@param line string
--- ---@return string
--- function Listitem._decrease(line)
---   local repl, _ = line:gsub('^  ', '', 1)
---   return repl
--- end
---
--- ---@param adjust_fn function
--- ---@param include_childs boolean
--- function Listitem:_adjust_lines(adjust_fn, include_childs)
---   local start_row, _, end_row, _ = self.listitem:range()
---   if not include_childs then end_row = start_row + 1 end
---
---   local lines = vim.api.nvim_buf_get_lines(0, start_row, end_row, false)
---   for i, line in ipairs(lines) do
---     lines[i] = adjust_fn(line)
---   end
---   vim.api.nvim_buf_set_lines(0, start_row, end_row, false, lines)
--- end
---
--- ---@param include_childs boolean
--- function Listitem:demote(include_childs) self:_adjust_lines(self._increase, include_childs) end
---
--- ---@param include_childs boolean
--- function Listitem:promote(include_childs) self:_adjust_lines(self._decrease, include_childs) end
-
 ---@return TSNode|nil
 function Listitem:_get_parent_listitem()
   local list = self.listitem:parent()
@@ -215,13 +178,13 @@ end
 function Listitem:demote(include_childs)
   local start_row = self.listitem:range()
   local current_indent = vim.fn.indent(start_row + 1)
-
-  local parent_listitem = self:_get_parent_listitem()
+  local target_listitem = self.listitem:prev_sibling()
+  target_listitem = target_listitem and target_listitem or self:_get_parent_listitem()
   local target_indent
-  if parent_listitem then
-    local parent_start_row = parent_listitem:range()
-    local parent_indent = indent.indentexpr(parent_start_row + 1)
-    target_indent = parent_indent + get_overhang(parent_listitem)
+  if target_listitem then
+    local target_start_row = target_listitem:range()
+    local listitem_indent = indent.indentexpr(target_start_row + 1)
+    target_indent = listitem_indent + get_overhang(target_listitem)
   else
     target_indent = current_indent + 2
   end

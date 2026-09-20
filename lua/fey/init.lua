@@ -150,9 +150,8 @@ function Fey:setup_autocmds()
         reindexing[buf] = true
         pcall(function() vim.cmd('undojoin') end)
         local feyfile = FeyFile:new({ filename = event.file, buf = event.buf })
-        local buff_changed_event = events.BufferChanged:new(feyfile)
-        pcall(EventManager.dispatch, buff_changed_event)
-
+        pcall(EventManager.dispatch, events.BufferChanged:new(feyfile))
+        pcall(EventManager.dispatch, events.BufferChanged:new(feyfile, true))
         reindexing[buf] = nil
       end
 

@@ -92,6 +92,83 @@ function FeyFile.load(filename)
   )
 end
 
+function FeyFile:reindex_list()
+  local buf = self:get_valid_bufnr()
+  local root_data = {
+    edits = {},
+    firsts = {},
+    counters = {},
+    last_depth = 0,
+    depth = 0,
+  }
+  self:parse(true)
+
+  local list = ts_utils.closest_root_list_node()
+  if not list then return end
+
+  local function update_index_rec(node, data)
+    data.depth = data.depth + 1
+    local bullet = node:field('bullet')[1]
+    local indent, bullet_text = (vim.treesitter.get_node_text(bullet, buf)):match('^(%s*)(.*)')
+    local range = { bullet:range() }
+    local segment = bullet:named_children()[1]
+
+    local index = vim.treesitter.get_node_text(segment:child(0), buf)
+    local delim = vim.treesitter.get_node_text(segment:child(1), buf)
+
+    for d = data.depth + 1, #data.counters do
+      data.counters[d] = nil
+    end
+
+    local depth_start = data.depth
+    if data.last_depth < data.depth and (data.depth - data.last_depth) > 1 then depth_start = data.last_depth + 1 end
+    for i = depth_start, data.depth do
+      if index ~= '' then data.counters[i] = (data.counters[i] or 0) + 1 end
+    end
+
+    if index ~= '' then
+      local pattern_key = data.firsts[data.depth]
+      if not pattern_key then
+        pattern_key = sequences.detect_pattern(index)
+        data.firsts[data.depth] = pattern_key
+      end
+
+      local pattern = sequences.patterns[pattern_key]
+      local idx = data.counters[data.depth] or 1
+      index = pattern.to_symbol(idx)
+    end
+
+    local new_bullet = index .. delim
+    if new_bullet ~= bullet_text then table.insert(data.edits, { r = range, text = indent .. new_bullet }) end
+
+    data.last_depth = data.depth
+
+    for _, child in ipairs(node:named_children()) do
+      if child:type() == 'list' then
+        for _, item in ipairs(child:named_children()) do
+          update_index_rec(item, data)
+        end
+      end
+    end
+
+    data.depth = data.depth - 1
+    if config.fey_sublists_unique_bullets_for_subtree then
+      for d = data.depth + 1, #data.counters do
+        data.firsts[d] = nil
+      end
+    end
+  end
+
+  for _, node in ipairs(list:named_children()) do
+    update_index_rec(node, root_data)
+  end
+
+  for i = #root_data.edits, 1, -1 do
+    local e = root_data.edits[i]
+    vim.api.nvim_buf_set_text(buf, e.r[1], e.r[2], e.r[3], e.r[4], { e.text })
+  end
+end
+
 function FeyFile:reindex_headings()
   local buf = self:get_valid_bufnr()
   self:parse(true)
