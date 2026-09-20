@@ -252,6 +252,10 @@ return {
     ),
 
     -- BEGIN: First Mappings
+    fey_fix_indentation = m.action(
+      'fey_mappings.fix_indentation',
+      { opts = { desc = 'fey fix indentation', help_desc = 'Assert indentation for subsection' } }
+    ),
     fey_do_promote = m.action(
       'fey_mappings.do_promote',
       { opts = { desc = 'fey promote heading', help_desc = 'Promote heading' } }

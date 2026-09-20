@@ -116,14 +116,13 @@ function Heading:promote(amount, recursive, dryRun)
 
     for i = 2, #lines do
       local line = lines[i]
-      if vim.trim(line:sub(1, indent_width)) == '' then
-        if config:should_indent(heading.file:bufnr()) then
-          lines[i] = line:sub(1 + indent_width)
-        else
-          line, _ = line:gsub('^%s+', '')
-          local indent_amount = indent.indentexpr(start_line + i, heading.file:bufnr())
-          lines[i] = string.rep(' ', indent_amount) .. line
-        end
+      if vim.trim(line:sub(1, indent_width)) == '' and config:should_indent(heading.file:bufnr()) then
+        lines[i] = line:sub(1 + indent_width)
+      else
+        line, _ = line:gsub('^%s+', '')
+        local is_empty = line:match('^$')
+        local indent_amount = is_empty and 0 or indent.indentexpr(start_line + i, heading.file:bufnr())
+        lines[i] = string.rep(' ', indent_amount) .. line
       end
     end
 
@@ -166,7 +165,8 @@ function Heading:demote(amount, recursive, dryRun)
         lines[i] = heading:_apply_indent(line, #new_segments)
       else
         line, _ = line:gsub('^%s+', '')
-        local indent_amount = indent.indentexpr(start_line + i, heading.file:bufnr())
+        local is_empty = line:match('^$')
+        local indent_amount = is_empty and 0 or indent.indentexpr(start_line + i, heading.file:bufnr())
         lines[i] = string.rep(' ', indent_amount) .. line
       end
     end

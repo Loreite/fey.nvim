@@ -7,7 +7,7 @@ local DefaultConfig = {
   -- TODO: verify list is no empty
   fey_default_subheading_index_order = { 'roman_upper', 'alpha_upper', 'roman_lower', 'alpha_lower' },
   -- fey_default_subheading_delimiter_order = { '.', ':', ';' },
-  fey_default_subheading_delimiter_order = {},
+  fey_default_subheading_delimiter_order = {}, -- empty list or nil means use last value
   fey_default_subheading_delimiter = '.',
   fey_subheadings_unique_segments_for_subtree = false,
   fey_use_uppercase_for_binary_marker = false,
@@ -186,6 +186,7 @@ local DefaultConfig = {
       -- fey_archive_subtree = '<prefix>$',
       -- fey_set_tags_command = '<prefix>t',
       -- fey_toggle_archive_tag = '<prefix>A',
+      fey_fix_indentation = '<prefix>fi',
       fey_do_promote = '<>',
       fey_do_demote = '><',
       fey_promote_subtree = '<prefix>h',

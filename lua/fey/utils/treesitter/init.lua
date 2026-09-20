@@ -46,18 +46,21 @@ end
 
 -- walks the tree to find an item or heading
 ---@param node TSNode | nil
+---@param or_body boolean?
 ---@return TSNode | nil
-function M.find_item_or_heading(node)
+function M.find_item_or_heading(node, or_body)
   if not node then return nil end
 
   local node_type = node:type()
+  if or_body and node_type == 'document' then return node:field('body')[1] end
   if node_type == 'heading' or node_type == 'listitem' then return node end
 
   if node_type == 'list' then
-    -- Move right one character to pick up the current listitem
+    -- Move back one word to pick up the current listitem
+    -- Move forward one word to pick up the current listitem
 
-    vim.cmd([[norm b]])
-    local back_node = M.find_item_or_heading(M.get_node_at_cursor())
+    vim.cmd([[norm w]])
+    local back_node = M.find_item_or_heading(M.get_node_at_cursor(), or_body)
     if node:type() ~= 'listitem' then
       return node:named_child(0)
     else
@@ -69,11 +72,14 @@ function M.find_item_or_heading(node)
     -- The heading is always the first child of a section
     return node:field('heading')[1]
   end
-  return M.find_item_or_heading(node:parent())
+  return M.find_item_or_heading(node:parent(), or_body)
 end
 
 -- returns the nearest item or heading
 function M.closest_item_or_heading_node(cursor) return M.find_item_or_heading(M.get_node_at_cursor(cursor)) end
+
+-- returns the nearest item or heading or the root body of the document
+function M.closest_item_heading_or_rootbody_node(cursor) return M.find_item_or_heading(M.get_node_at_cursor(cursor), true) end
 
 -- returns the nearest heading
 function M.closest_heading_node(cursor)

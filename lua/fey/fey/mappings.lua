@@ -15,6 +15,7 @@ local events = EventManager.event
 local Babel = require('fey.babel')
 local Promise = require('fey.utils.promise')
 local Input = require('fey.ui.input')
+local indent = require('fey.fey.indent')
 local Footnote = require('fey.objects.footnote')
 local sequences = require('fey.utils.sequences')
 
@@ -523,6 +524,37 @@ function FeyMappings:do_demote(whole_subtree)
   if foldclosed > -1 and vim.fn.foldclosed('.') == -1 then vim.cmd([[norm!zc]]) end
   EventManager.dispatch(events.HeadingDemoted:new(self.files:get_closest_heading(), old_level))
   vim.fn.winrestview(win_view)
+end
+
+function FeyMappings:fix_indentation()
+  local node = assert(ts_utils.closest_item_heading_or_rootbody_node())
+
+  local node_type = node:type()
+  local start_line, end_line
+  if node_type == 'heading' then
+    local parent_section = assert(node:parent())
+    local parent_first_child = parent_section:field('subsection')[1]
+    start_line = node:start() + 1
+    end_line = parent_first_child and parent_first_child:start() or parent_section:end_()
+  elseif node_type == 'listitem' then
+    local parent_list = assert(node:parent())
+    start_line = parent_list:start() + 1
+    end_line = parent_list:end_()
+  else
+    start_line = node:start()
+    end_line = node:end_()
+  end
+
+  local bufnr = vim.api.nvim_get_current_buf()
+  local lines = vim.api.nvim_buf_get_lines(bufnr, start_line, end_line, false)
+  for i, line in ipairs(lines) do
+    line, _ = line:gsub('^%s+', '')
+    local is_empty = line:match('^$')
+    local indent_amount = is_empty and 0 or indent.indentexpr(start_line + i, bufnr)
+    lines[i] = string.rep(' ', indent_amount) .. line
+  end
+
+  vim.api.nvim_buf_set_lines(bufnr, start_line, end_line, false, lines)
 end
 
 function FeyMappings:fey_return()

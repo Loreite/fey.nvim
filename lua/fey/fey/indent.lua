@@ -110,15 +110,8 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
     end
 
     if type == 'listitem' then
-      local content = node:named_child(1)
-      if content then
-        local content_linenr, content_indent = content:start()
-        if content_linenr == range.start.line then opts.overhang = content_indent - opts.indent end
-      end
-      if not opts.overhang then
-        local bullet = node:named_child(0)
-        opts.overhang = bullet and vim.treesitter.get_node_text(bullet, bufnr):len() + 2 or 0
-      end
+      local bullet = assert(node:named_child(0))
+      if not opts.overhang then opts.overhang = vim.trim(vim.treesitter.get_node_text(bullet, bufnr)):len() + 2 end
 
       local parent = node:parent()
       while parent and parent:type() ~= 'section' and parent:type() ~= 'listitem' do
@@ -133,95 +126,21 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
       end
     end
 
-    -- if type == 'block' then
-    --   opts.indent_type = 'block'
-    --
-    --   local new_header_indent = opts.indent
-    --   if new_header_indent == 2 then new_header_indent = 0 end
-    --
-    --   -- Ensure the block footer is properly aligned with the header
-    --   matches[range.start.line + 1] = vim.tbl_deep_extend('force', opts, {
-    --     indent = new_header_indent,
-    --   })
-    --   matches[range['end'].line] = vim.tbl_deep_extend('force', opts, {
-    --     indent = new_header_indent,
-    --   })
-    --
-    --   local content_indent_pad
-    --   -- Only include the header line and the content. Do not include the footer in the loop.
-    --   for i = range.start.line + 1, range['end'].line - 2 do
-    --     local linenr = i + 1
-    --     local line_content = vim.api.nvim_buf_get_lines(bufnr, linenr - 1, linenr, true)[1]
-    --     -- If the line is blank, we should ignore it as `vim.fn.indent` will return a 0 indent for
-    --     -- it which may be less indented than the header indentation. We shouldn't factor in blank
-    --     -- lines for indentation.
-    --     if not line_content:match('^$') then
-    --       local curr_indent = vim.fn.indent(linenr)
-    --       -- Correctly align the pad to the new header position if it was underindented
-    --       local new_indent_pad = new_header_indent - curr_indent
-    --       -- If the current content indentation is less than the new header indent we want to increase all of the
-    --       -- content by the largest difference in indentation between a given content line and the new header indent.
-    --       if curr_indent < new_header_indent then
-    --         content_indent_pad = math.max(new_indent_pad, content_indent_pad or 0)
-    --       else
-    --         -- If the current content indentation is more than the new header indentation, but it was the current
-    --         -- content indentation was less than the current header indent then we want to add some indentation onto
-    --         -- the content by the largest negative difference (meaning -1 > -2 > -3 so take -1 as the pad).
-    --         --
-    --         -- We do a check for 0 here as we don't want to do a max of neg number against 0. 0 will always win. As
-    --         -- such if the current pad is 0 just set to the new calculated pad.
-    --         if not content_indent_pad then
-    --           content_indent_pad = new_indent_pad
-    --         else
-    --           content_indent_pad = math.max(new_indent_pad, content_indent_pad)
-    --         end
-    --       end
-    --     end
-    --   endit should already be keeping the indentation of the
-    --
-    --   -- If any of the content is underindented relative to the header and footer, we need to indent all of the
-    --   -- content until the most underindented content is equal in indention to the header and footer.
-    --   --
-    --   -- Only loop the content.
-    --   for i = range.start.line + 1, range['end'].line - 2 do
-    --     matches[i + 1] = vim.tbl_deep_extend('force', opts, {
-    --       indent = vim.fn.indent(i + 1) + (content_indent_pad or 0),
-    --     })
-    --   end
     if type == 'block' then
       opts.indent_type = 'block'
-
-      -- -- Capture the exact current indentation of the fences
-      -- local header_indent = vim.fn.indent(range.start.line + 1)
-      --
-      -- -- Fences remain entirely unchanged from their current state
-      -- matches[range.start.line + 1] = vim.tbl_deep_extend('force', opts, {
-      --   indent = header_indent,
-      -- })
-      -- matches[range['end'].line] = vim.tbl_deep_extend('force', opts, {
-      --   indent = header_indent,
-      -- })
-      --
-      -- -- Loop through the interior lines only
-      -- for i = range.start.line + 1, range['end'].line - 2 do
-      --   local linenr = i + 1
-      --   local line_content = vim.api.nvim_buf_get_lines(bufnr, linenr - 1, linenr, true)[1]
-      --   local curr_indent = vim.fn.indent(linenr)
-      --
-      --   local new_indent = curr_indent
-      --
-      --   -- Ignore blank lines. If content is indented less than the fence, pad it to
-      --   -- equal the fence. If it is deeper, leave it unchanged.
-      --   if not line_content:match('^$') then new_indent = math.max(curr_indent, header_indent) end
-
       local head_indent = opts.indent
+
       for i = range.start.line, range['end'].line - 1 do
+        local line_content = vim.api.nvim_buf_get_lines(bufnr, i, i+1, true)[1]
+        if line_content:match('^$') then goto continue end
         local curr_indent = vim.fn.indent(i + 1)
-        opts.indent = math.max(head_indent, curr_indent)
-        matches[i + 1] = opts
+
+        matches[i + 1] = vim.tbl_extend('force', opts, {
+          indent = math.max(head_indent, curr_indent),
+        })
+        ::continue::
       end
     elseif type == 'paragraph' or type == 'drawer' or type == 'property_drawer' then
-      -- if type == 'paragraph' or type == 'drawer' or type == 'property_drawer' then
       opts.indent_type = 'other'
 
       if opts.indent == 2 then opts.indent = 0 end
