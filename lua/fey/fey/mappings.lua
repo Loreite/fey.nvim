@@ -18,6 +18,7 @@ local Input = require('fey.ui.input')
 local indent = require('fey.fey.indent')
 local Footnote = require('fey.objects.footnote')
 local sequences = require('fey.utils.sequences')
+local FeyFile = require('fey.files.file')
 
 ---Schedule a fold update for the given range. Call after buffer edits.
 ---FeyRange is 1-indexed; vim._foldupdate expects 0-indexed lines.
@@ -482,7 +483,7 @@ function FeyMappings:do_promote(whole_subtree)
   vim.cmd([[normal! _]])
 
   local node = ts_utils.get_node_at_cursor()
-  if node and node:type() == 'bullet' then
+  if node and (node:type() == 'bullet' or node:type() == 'segment' or node:type() == 'list') then
     local listitem = self.files:get_closest_listitem()
     if listitem then
       listitem:promote(whole_subtree)
@@ -507,12 +508,11 @@ function FeyMappings:do_demote(whole_subtree)
   vim.cmd([[normal! _]])
 
   local node = ts_utils.get_node_at_cursor()
-  if node and node:type() == 'bullet' then
+  if node and (node:type() == 'bullet' or node:type() == 'segment' or node:type() == 'list') then
     local listitem = self.files:get_closest_listitem()
     if listitem then
       listitem:demote(whole_subtree)
       vim.fn.winrestview(win_view)
-
       return
     end
   end
@@ -524,6 +524,136 @@ function FeyMappings:do_demote(whole_subtree)
   if foldclosed > -1 and vim.fn.foldclosed('.') == -1 then vim.cmd([[norm!zc]]) end
   EventManager.dispatch(events.HeadingDemoted:new(self.files:get_closest_heading(), old_level))
   vim.fn.winrestview(win_view)
+end
+
+local function setup_heading_func(mappings)
+  local data = {}
+  data.count = vim.v.count1
+  data.heading = mappings.files:get_closest_heading()
+  data.signature = data.heading:get_child_node('signature')
+  data.startl, data.startc, data.endl, data.endc = data.signature:range()
+  data.level = data.heading:get_level()
+  data.count = math.min(data.count, data.level)
+  data.segments = data.signature:named_children()
+  data.bufnr = vim.api.nvim_get_current_buf()
+  data.new_sig = ''
+  data.converted = 0
+  return data
+end
+
+local function setup_reversible_loop(from_start, seg_len)
+  return (from_start and 1 or seg_len), (from_start and seg_len or 1), (from_start and 1 or -1)
+end
+
+local function get_segment_parts(segment, bufnr)
+  return vim.treesitter.get_node_text(assert(segment:child(0)), bufnr),
+    vim.treesitter.get_node_text(assert(segment:child(1)), bufnr)
+end
+
+local function submit_heading_change(data)
+  local lines = vim.api.nvim_buf_get_lines(data.bufnr, data.startl, data.endl + 1, false)
+  lines[1] = lines[1]:sub(1, data.startc) .. '  ' .. data.new_sig .. lines[1]:sub(data.endc + 1)
+  vim.api.nvim_buf_set_lines(data.bufnr, data.startl, data.endl + 1, false, lines)
+end
+
+local function enumerate_segment(data, from_start)
+  local idx = from_start and data.converted or (data.level - data.converted + 1)
+  local pattern_idx = ((idx - 1) % #config.fey_default_subheading_index_order) + 1
+  local pattern = config.fey_default_subheading_index_order[pattern_idx]
+  return sequences.patterns[pattern].to_symbol(1)
+end
+
+function FeyMappings:change_all_delimiters(from_start)
+  local data = setup_heading_func(self)
+  local s, e, d = setup_reversible_loop(from_start, #data.segments)
+
+  local input = vim.fn.input('Delimiter: ')
+  input = input:gsub('[^.,:;!?/\\\'"`%-+*=~^@&#$%%%[%](){}<>]', '')
+  if input == '' then input = config.fey_default_subheading_delimiter_order end
+
+  local counter = 0
+  for i = s, e, d do
+    local token, delim = get_segment_parts(data.segments[i], data.bufnr)
+
+    if data.converted < data.count then
+      local idx = (counter % #input) + 1
+      local new_delim = input:sub(idx, idx)
+      if new_delim ~= delim then
+        delim = new_delim
+        data.converted = data.converted + 1
+      end
+    end
+    counter = counter + 1
+
+    local segment = token .. delim
+    data.new_sig = from_start and (data.new_sig .. segment) or (segment .. data.new_sig)
+  end
+
+  -- make edit
+  submit_heading_change(data)
+end
+
+function FeyMappings:anonymize_or_enumerate_full_heading(enumerate)
+  local data = setup_heading_func(self)
+  local s, e, d = setup_reversible_loop(true, #data.segments)
+  data.count = data.level
+
+  for i = s, e, d do
+    local token, delim = get_segment_parts(data.segments[i], data.bufnr)
+
+    local enumerated = token ~= ''
+    local convert = (enumerate and not enumerated) or (not enumerate and enumerated)
+
+    if convert and data.converted < data.count then
+      data.converted = data.converted + 1
+      if enumerate then
+        token = enumerate_segment(data, true)
+      else
+        token = ''
+      end
+    end
+    local segment = token .. delim
+    data.new_sig = data.new_sig .. segment
+  end
+
+  -- make edit
+  submit_heading_change(data)
+
+  -- reindex buffer
+  local feyfile = FeyFile:new({ filename = vim.api.nvim_buf_get_name(data.bufnr), buf = data.bufnr })
+  EventManager.dispatch(events.BufferChanged:new(feyfile))
+end
+
+---@param enumerate boolean
+---@param from_start boolean
+function FeyMappings:anonymize_or_enumerate_heading(enumerate, from_start)
+  local data = setup_heading_func(self)
+  local s, e, d = setup_reversible_loop(from_start, #data.segments)
+
+  for i = s, e, d do
+    local token, delim = get_segment_parts(data.segments[i], data.bufnr)
+
+    local enumerated = token ~= ''
+    local convert = (enumerate and not enumerated) or (not enumerate and enumerated)
+
+    if convert and data.converted < data.count then
+      data.converted = data.converted + 1
+      if enumerate then
+        token = enumerate_segment(data, from_start)
+      else
+        token = ''
+      end
+    end
+    local segment = token .. delim
+    data.new_sig = from_start and (data.new_sig .. segment) or (segment .. data.new_sig)
+  end
+
+  -- make edit
+  submit_heading_change(data)
+
+  -- reindex buffer
+  local feyfile = FeyFile:new({ filename = vim.api.nvim_buf_get_name(data.bufnr), buf = data.bufnr })
+  EventManager.dispatch(events.BufferChanged:new(feyfile))
 end
 
 function FeyMappings:fix_indentation()
@@ -538,7 +668,7 @@ function FeyMappings:fix_indentation()
     end_line = parent_first_child and parent_first_child:start() or parent_section:end_()
   elseif node_type == 'listitem' then
     local parent_list = assert(node:parent())
-    start_line = parent_list:start() + 1
+    start_line = parent_list:start()
     end_line = parent_list:end_()
   else
     start_line = node:start()
@@ -628,8 +758,8 @@ function FeyMappings:meta_return(suffix, subheading)
       local pattern = config.fey_default_subheading_index_order[pattern_idx]
       local segment_index = sequences.patterns[pattern].to_symbol(1)
       local delim_idx = ((i - 1) % #config.fey_default_subheading_delimiter_order) + 1
-      local delimiter = config.fey_default_subheading_delimiter_order[delim_idx]
-      delimiter = delimiter and delimiter
+      local delimiter = config.fey_default_subheading_delimiter_order:sub(delim_idx, delim_idx)
+      delimiter = delimiter ~= '' and delimiter
         or (
           signature and vim.treesitter.get_node_text(assert(signature:named_children()[level]:child(1)), 0)
           or config.fey_default_subheading_delimiter

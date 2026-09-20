@@ -59,21 +59,21 @@ end
 memoize('get_level')
 ---@return number
 function Heading:get_level()
-  local count = self:_get_child_node('signature'):named_child_count()
+  local count = self:get_child_node('signature'):named_child_count()
   return count
 end
 
 memoize('get_signature_width')
 ---@return number
 function Heading:get_signature_width()
-  local _, count = self:_get_child_node('signature'):end_()
+  local _, count = self:get_child_node('signature'):end_()
   return count
 end
 
 memoize('get_priority')
 ---@return string, TSNode | nil
 function Heading:get_priority()
-  local item = self:_get_child_node('item')
+  local item = self:get_child_node('item')
 
   local priority_node = item and item:field('priority')[1]
 
@@ -101,7 +101,7 @@ function Heading:promote(amount, recursive, dryRun)
   end
 
   return self:_handle_promote_demote(recursive, function(start_line, lines, heading)
-    local signature_node = heading:_get_child_node('signature')
+    local signature_node = heading:get_child_node('signature')
     local total_segments = signature_node:named_child_count()
 
     local target_segment = signature_node:named_children()[total_segments - amount + 1]
@@ -139,7 +139,7 @@ function Heading:demote(amount, recursive, dryRun)
   recursive = recursive or false
 
   return self:_handle_promote_demote(recursive, function(start_line, lines, heading)
-    local signature = heading:_get_child_node('signature')
+    local signature = heading:get_child_node('signature')
     local level = heading:get_level()
     local _, sig_start, _, sig_end = signature:range()
 
@@ -150,8 +150,9 @@ function Heading:demote(amount, recursive, dryRun)
       local pattern = config.fey_default_subheading_index_order[pattern_idx]
       local segment_index = sequences.patterns[pattern].to_symbol(1)
       local delim_idx = ((i - 1) % #config.fey_default_subheading_delimiter_order) + 1
-      local delimiter = config.fey_default_subheading_delimiter_order[delim_idx]
-      delimiter = delimiter and delimiter or vim.treesitter.get_node_text(assert(signature:named_children()[level]:child(1)), 0)
+      local delimiter = config.fey_default_subheading_delimiter_order:sub(delim_idx, delim_idx)
+      delimiter = delimiter ~= '' and delimiter
+        or vim.treesitter.get_node_text(assert(signature:named_children()[level]:child(1)), 0)
 
       new_segments = new_segments .. segment_index .. delimiter
     end
@@ -362,7 +363,7 @@ function Heading:set_priority(priority)
   local todo, todo_node = self:get_todo()
   if todo then return self:_set_node_text(todo_node, ('%s [#%s]'):format(todo, priority)) end
 
-  local signature = self:_get_child_node('signature')
+  local signature = self:get_child_node('signature')
   local _, level = signature:end_()
   return self:_set_node_text(signature, ('%s [#%s]'):format(('*'):rep(level), priority))
 end
@@ -375,7 +376,7 @@ function Heading:set_todo(keyword)
     return self:update_parent_cookie()
   end
 
-  local signature = self:_get_child_node('signature')
+  local signature = self:get_child_node('signature')
   local _, level = signature:end_()
   self:_set_node_text(signature, ('%s %s'):format(('*'):rep(level), keyword))
   return self:update_parent_cookie()
@@ -387,7 +388,7 @@ memoize('get_todo')
 --- @return string | nil, TSNode | nil, string | nil, number | nil
 function Heading:get_todo()
   -- A valid keyword can only be the first child
-  local first_item_node = self:_get_child_node('item')
+  local first_item_node = self:get_child_node('item')
   local todo_node = first_item_node and first_item_node:named_child(0)
   if not todo_node then return nil, nil, nil end
 
@@ -415,7 +416,7 @@ end
 memoize('get_title')
 ---@return string, number
 function Heading:get_title()
-  local title_node = self:_get_child_node('item')
+  local title_node = self:get_child_node('item')
   local title = self.file:get_node_text(title_node) or ''
   local word, todo_node = self:get_todo()
   local offset = title_node and select(2, title_node:start()) or 0
@@ -628,7 +629,7 @@ end
 memoize('get_own_tags')
 ---@return string[], TSNode | nil
 function Heading:get_own_tags()
-  local node = self:_get_child_node('tags')
+  local node = self:get_child_node('tags')
   if node then return utils.parse_tags_string(self.file:get_node_text(node)), node end
   return {}, nil
 end
@@ -1027,7 +1028,7 @@ function Heading:_apply_indent(text, amount)
   return text
 end
 
-function Heading:_get_child_node(name) return self:node():field(name)[1] end
+function Heading:get_child_node(name) return self:node():field(name)[1] end
 
 ---@param node? TSNode
 ---@param text string
@@ -1048,7 +1049,7 @@ end
 ---@private
 ---@return TSNode | nil, string
 function Heading:_parse_title_part(pattern)
-  for _, node in ipairs(ts_utils.get_named_children(self:_get_child_node('item'))) do
+  for _, node in ipairs(ts_utils.get_named_children(self:get_child_node('item'))) do
     local text = self.file:get_node_text(node) or ''
     local match = text:match(pattern)
     if match then return node, match end

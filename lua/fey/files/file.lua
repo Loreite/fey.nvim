@@ -36,12 +36,15 @@ local clean_empty_line = vim.fn.has('nvim-0.13') == 1 or vim.fn.has('nvim-0.12.3
 ---@field root TSNode
 local FeyFile = {}
 
-local memoize = Memoize:new(FeyFile, function(self)
-  return {
-    file = self,
-    id = table.concat({ 'file', self.root and self.root:id() or '' }, '_'),
-  }
-end)
+local memoize = Memoize:new(
+  FeyFile,
+  function(self)
+    return {
+      file = self,
+      id = table.concat({ 'file', self.root and self.root:id() or '' }, '_'),
+    }
+  end
+)
 
 ---Constructor function, should not be used directly
 ---@param opts FeyFileOpts
@@ -61,9 +64,7 @@ function FeyFile:new(opts)
     },
   }
   local this = setmetatable(data, self)
-  if this.buf > 0 then
-    this:_update_lines(this:_get_lines(this.buf))
-  end
+  if this.buf > 0 then this:_update_lines(this:_get_lines(this.buf)) end
   return this
 end
 
@@ -79,16 +80,16 @@ function FeyFile.load(filename)
     }))
   end
 
-  if not vim.uv.fs_stat(filename) or not utils.is_fey_file(filename) then
-    return Promise.resolve(false)
-  end
+  if not vim.uv.fs_stat(filename) or not utils.is_fey_file(filename) then return Promise.resolve(false) end
 
-  return utils.readfile(filename, { schedule = true }):next(function(lines)
-    return FeyFile:new({
-      filename = filename,
-      lines = lines,
-    })
-  end)
+  return utils.readfile(filename, { schedule = true }):next(
+    function(lines)
+      return FeyFile:new({
+        filename = filename,
+        lines = lines,
+      })
+    end
+  )
 end
 
 function FeyFile:reindex_headings()
@@ -116,10 +117,9 @@ function FeyFile:reindex_headings()
     local range = { signature:range() }
     local segments = {}
     for i, segment in ipairs(signature:named_children()) do
-      local count = segment:child_count()
       segments[i] = {}
-      segments[i]['index'] = count == 1 and '' or vim.treesitter.get_node_text(segment:child(0), buf)
-      segments[i]['delim'] = vim.treesitter.get_node_text(segment:child(count == 1 and 0 or 1), buf)
+      segments[i]['index'] = vim.treesitter.get_node_text(segment:child(0), buf)
+      segments[i]['delim'] = vim.treesitter.get_node_text(segment:child(1), buf)
     end
     local depth = #segments
 
@@ -129,13 +129,9 @@ function FeyFile:reindex_headings()
 
     -- skipping headings at intermediary depths implies their existence in the hierarchy
     local depth_start = depth
-    if data.last_depth < depth and (depth - data.last_depth) > 1 then
-      depth_start = data.last_depth + 1
-    end
+    if data.last_depth < depth and (depth - data.last_depth) > 1 then depth_start = data.last_depth + 1 end
     for i = depth_start, depth do
-      if segments[i].index ~= '' then
-        data.counters[i] = (data.counters[i] or 0) + 1
-      end
+      if segments[i].index ~= '' then data.counters[i] = (data.counters[i] or 0) + 1 end
     end
 
     for d = 1, depth do
@@ -154,9 +150,7 @@ function FeyFile:reindex_headings()
     end
 
     local new_signature = assemble_signature(segments)
-    if new_signature ~= signature_text then
-      table.insert(data.edits, { r = range, text = new_signature })
-    end
+    if new_signature ~= signature_text then table.insert(data.edits, { r = range, text = new_signature }) end
 
     data.last_depth = depth
 
@@ -184,9 +178,7 @@ end
 ---Reload the file if it has been modified
 ---@return FeyPromise<FeyFile>
 function FeyFile:reload()
-  if not self:is_modified() then
-    return Promise.resolve(self)
-  end
+  if not self:is_modified() then return Promise.resolve(self) end
 
   local bufnr = self:bufnr()
   local buf_changed = false
@@ -223,9 +215,7 @@ end
 ---sync reload the file if it has been modified
 ---@param timeout? number
 ---@return FeyFile
-function FeyFile:reload_sync(timeout)
-  return self:reload():wait(timeout)
-end
+function FeyFile:reload_sync(timeout) return self:reload():wait(timeout) end
 
 ---@param action fun(...:FeyFile):any
 function FeyFile:update(action)
@@ -242,16 +232,12 @@ function FeyFile:update(action)
 
   return Promise.resolve(action(self)):next(function(result)
     edit_file.close()
-    return self:reload():next(function()
-      return result
-    end)
+    return self:reload():next(function() return result end)
   end)
 end
 
 ---@param action fun(...:FeyFile):any
-function FeyFile:update_sync(action, timeout)
-  return self:update(action):wait(timeout)
-end
+function FeyFile:update_sync(action, timeout) return self:update(action):wait(timeout) end
 
 ---Check if file has been modified via 2 methods:
 ---1. If file is loaded in a buffer, check the changedtick
@@ -261,17 +247,11 @@ function FeyFile:is_modified()
   local bufnr = self:bufnr()
   if bufnr > -1 then
     local cur_changedtick = vim.api.nvim_buf_get_changedtick(bufnr)
-    if cur_changedtick ~= self.metadata.changedtick then
-      return true
-    end
+    if cur_changedtick ~= self.metadata.changedtick then return true end
   end
   local stat = vim.uv.fs_stat(self.filename)
-  if not stat then
-    return false
-  end
-  if stat.mtime.nsec > 0 then
-    return stat.mtime.nsec ~= self.metadata.mtime
-  end
+  if not stat then return false end
+  if stat.mtime.nsec > 0 then return stat.mtime.nsec ~= self.metadata.mtime end
 
   return stat.mtime.sec ~= self.metadata.mtime_sec
 end
@@ -280,9 +260,7 @@ end
 ---@param skip_if_not_modified? boolean If true, skip parsing the file if it has not been modified
 ---@return TSNode
 function FeyFile:parse(skip_if_not_modified)
-  if skip_if_not_modified and self.root and not self:is_modified() then
-    return self.root
-  end
+  if skip_if_not_modified and self.root and not self:is_modified() then return self.root end
   self.parser = self:_get_parser()
   local trees = self.parser:parse()
   self.root = trees[1]:root()
@@ -296,9 +274,7 @@ end
 function FeyFile:get_ts_matches(query, parent_node)
   self:parse()
   parent_node = parent_node or self.root
-  if not parent_node then
-    return {}
-  end
+  if not parent_node then return {} end
   local ts_query = ts_utils.get_query(query)
   local matches = {}
 
@@ -326,9 +302,7 @@ end
 function FeyFile:get_ts_captures(query, node)
   self:parse()
   node = node or self.root
-  if not node then
-    return {}
-  end
+  if not node then return {} end
   local ts_query = ts_utils.get_query(query)
   local matches = {}
 
@@ -341,34 +315,24 @@ end
 memoize('get_headings')
 ---@return FeyHeading[]
 function FeyFile:get_headings()
-  if self:is_archive_file() then
-    return {}
-  end
+  if self:is_archive_file() then return {} end
   local matches = self:get_ts_captures('(section (heading) @heading)')
-  return vim.tbl_map(function(node)
-    return Heading:new(node, self)
-  end, matches)
+  return vim.tbl_map(function(node) return Heading:new(node, self) end, matches)
 end
 
 memoize('get_top_level_headings')
 ---@return FeyHeading[]
 function FeyFile:get_top_level_headings()
-  if self:is_archive_file() then
-    return {}
-  end
+  if self:is_archive_file() then return {} end
   local matches = self:get_ts_captures('(document (section (heading) @heading))')
-  return vim.tbl_map(function(node)
-    return Heading:new(node, self)
-  end, matches)
+  return vim.tbl_map(function(node) return Heading:new(node, self) end, matches)
 end
 
 memoize('get_headings_including_archived')
 ---@return FeyHeading[]
 function FeyFile:get_headings_including_archived()
   local matches = self:get_ts_captures('(section (heading) @heading)')
-  return vim.tbl_map(function(node)
-    return Heading:new(node, self)
-  end, matches)
+  return vim.tbl_map(function(node) return Heading:new(node, self) end, matches)
 end
 
 ---@param title string
@@ -377,9 +341,7 @@ end
 function FeyFile:find_headings_by_title(title, exact)
   return vim.tbl_filter(function(item)
     local pattern = '^' .. vim.pesc(title:lower())
-    if exact then
-      pattern = pattern .. '$'
-    end
+    if exact then pattern = pattern .. '$' end
     return item:get_title():lower():match(pattern)
   end, self:get_headings())
 end
@@ -387,22 +349,16 @@ end
 ---@param title string
 ---@return FeyHeading | nil
 function FeyFile:find_heading_by_title(title)
-  return utils.find(self:get_headings(), function(item)
-    return item:get_title():lower() == title:lower()
-  end)
+  return utils.find(self:get_headings(), function(item) return item:get_title():lower() == title:lower() end)
 end
 
 memoize('get_todo_keywords')
 function FeyFile:get_todo_keywords()
   local todo_directives = self:_get_directive('todo', true)
 
-  if not todo_directives then
-    return config:get_todo_keywords()
-  end
+  if not todo_directives then return config:get_todo_keywords() end
 
-  if type(todo_directives) ~= 'table' then
-    todo_directives = { todo_directives }
-  end
+  if type(todo_directives) ~= 'table' then todo_directives = { todo_directives } end
 
   local keywords_data = {}
   for _, directive in ipairs(todo_directives) do
@@ -415,28 +371,20 @@ end
 
 ---@return FeyHeading[]
 function FeyFile:get_unfinished_todo_entries()
-  if self:is_archive_file() then
-    return {}
-  end
+  if self:is_archive_file() then return {} end
 
-  return vim.tbl_filter(function(heading)
-    return not heading:is_archived() and heading:is_todo()
-  end, self:get_headings())
+  return vim.tbl_filter(function(heading) return not heading:is_archived() and heading:is_todo() end, self:get_headings())
 end
 
 ---@param search FeySearch
 ---@param todo_only boolean
 ---@return FeyHeading[]
 function FeyFile:apply_search(search, todo_only)
-  if self:is_archive_file() then
-    return {}
-  end
+  if self:is_archive_file() then return {} end
 
   return vim.tbl_filter(function(item)
     ---@cast item FeyHeading
-    if item:is_archived() or (todo_only and not item:is_todo()) then
-      return false
-    end
+    if item:is_archived() or (todo_only and not item:is_todo()) then return false end
 
     local deadline = item:get_deadline_date()
     local scheduled = item:get_scheduled_date()
@@ -466,17 +414,11 @@ end
 ---@param ignore_archive_flag? boolean
 ---@return FeyHeading[]
 function FeyFile:find_headings_matching_search_term(search_term, no_escape, ignore_archive_flag)
-  if self:is_archive_file() and not ignore_archive_flag then
-    return {}
-  end
+  if self:is_archive_file() and not ignore_archive_flag then return {} end
   local term = search_term:lower()
-  if not no_escape then
-    term = vim.pesc(term)
-  end
+  if not no_escape then term = vim.pesc(term) end
 
-  return vim.tbl_filter(function(item)
-    return item:matches_search_term(term)
-  end, self:get_headings_including_archived())
+  return vim.tbl_filter(function(item) return item:matches_search_term(term) end, self:get_headings_including_archived())
 end
 
 ---Find headings where property value is matching the term partially from start
@@ -504,41 +446,27 @@ end
 memoize('get_opened_headings')
 ---@return FeyHeading[]
 function FeyFile:get_opened_headings()
-  if self:is_archive_file() then
-    return {}
-  end
+  if self:is_archive_file() then return {} end
 
-  return vim.tbl_filter(function(heading)
-    return not heading:is_archived()
-  end, self:get_headings())
+  return vim.tbl_filter(function(heading) return not heading:is_archived() end, self:get_headings())
 end
 
 --- Check if this file is an fey archive file
 --- @return boolean
-function FeyFile:is_archive_file()
-  return vim.fn.fnamemodify(self.filename, ':e') == 'fey_archive'
-end
+function FeyFile:is_archive_file() return vim.fn.fnamemodify(self.filename, ':e') == 'fey_archive' end
 
 function FeyFile:closest_heading_node(cursor)
   self:parse()
-  if not cursor then
-    cursor = vim.api.nvim_win_get_cursor(0)
-  end
+  if not cursor then cursor = vim.api.nvim_win_get_cursor(0) end
   local cursor_range = { cursor[1] - 1, cursor[2], cursor[1] - 1, cursor[2] + 1 }
 
   local node = self.parser:named_node_for_range(cursor_range)
 
-  if not node then
-    return nil
-  end
+  if not node then return nil end
 
-  if node:type() == 'heading' then
-    return node
-  end
+  if node:type() == 'heading' then return node end
 
-  if node:type() == 'section' then
-    return node:field('heading')[1]
-  end
+  if node:type() == 'section' then return node:field('heading')[1] end
 
   while node and node:type() ~= 'heading' do
     if node:type() == 'section' then
@@ -554,26 +482,20 @@ end
 ---@return FeyHeading
 function FeyFile:get_closest_heading(cursor)
   local node = self:closest_heading_node(cursor)
-  if not node then
-    error('No heading found', 0)
-  end
+  if not node then error('No heading found', 0) end
   return Heading:new(node, self)
 end
 
 ---@return FeyHeading | nil
 function FeyFile:get_closest_heading_or_nil(cursor)
   local node = self:closest_heading_node(cursor)
-  if not node then
-    return nil
-  end
+  if not node then return nil end
   return Heading:new(node, self)
 end
 
 function FeyFile:get_node_at_cursor(cursor)
   self:parse()
-  if not cursor then
-    cursor = vim.api.nvim_win_get_cursor(0)
-  end
+  if not cursor then cursor = vim.api.nvim_win_get_cursor(0) end
   local row = cursor[1] - 1
   local col = cursor[2]
 
@@ -584,19 +506,13 @@ end
 ---@param range? number[]
 ---@return string
 function FeyFile:get_node_text(node, range)
-  if not node then
-    return ''
-  end
+  if not node then return '' end
   local opts = {}
-  if range then
-    opts = { metadata = { range = range } }
-  end
+  if range then opts = { metadata = { range = range } } end
 
   local _, _, _, end_col = node:range()
   local text = ts.get_node_text(node, self:get_source(), opts)
-  if clean_empty_line and end_col == 0 and text:sub(-1) == '\n' then
-    return text:sub(1, -2)
-  end
+  if clean_empty_line and end_col == 0 and text:sub(-1) == '\n' then return text:sub(1, -2) end
   return text
 end
 
@@ -605,9 +521,7 @@ end
 ---@return string[]
 function FeyFile:get_node_text_list(node, range)
   local node_text = self:get_node_text(node, range)
-  if node_text == '' then
-    return {}
-  end
+  if node_text == '' then return {} end
   return vim.split(self:get_node_text(node, range), '\n', { plain = true })
 end
 
@@ -616,9 +530,7 @@ end
 ---@param front_trim boolean? If true,trim the text from the front by 1 character
 ---@return boolean
 function FeyFile:set_node_text(node, text, front_trim)
-  if not node then
-    return false
-  end
+  if not node then return false end
   local bufnr = self:get_valid_bufnr()
   local start_row, start_col, end_row, end_col = node:range()
   local replacement = vim.split(text, '\n', { plain = true })
@@ -648,9 +560,7 @@ end
 ---@param lines string[]
 ---@return boolean
 function FeyFile:set_node_lines(node, lines)
-  if not node then
-    return false
-  end
+  if not node then return false end
   local bufnr = self:get_valid_bufnr()
   local start_row, _, end_row, _ = node:range()
   vim.api.nvim_buf_set_lines(bufnr, start_row, end_row, false, lines)
@@ -662,9 +572,7 @@ function FeyFile:bufnr()
   local bufnr = Buffers.get_buffer_by_filename(self.filename)
   -- Do not consider unloaded buffers as valid
   -- Treesitter is not working in them
-  if bufnr > -1 and vim.api.nvim_buf_is_loaded(bufnr) then
-    return bufnr
-  end
+  if bufnr > -1 and vim.api.nvim_buf_is_loaded(bufnr) then return bufnr end
   return -1
 end
 
@@ -682,9 +590,7 @@ end
 ---@return number
 function FeyFile:get_valid_bufnr()
   local bufnr = self:bufnr()
-  if bufnr < 0 then
-    error('[fey] No valid buffer for file ' .. self.filename .. ' to edit', 0)
-  end
+  if bufnr < 0 then error('[fey] No valid buffer for file ' .. self.filename .. ' to edit', 0) end
   -- Do not consider unloaded buffers as valid
   -- Treesitter is not working in them
   if not vim.api.nvim_buf_is_loaded(bufnr) then
@@ -696,24 +602,18 @@ end
 memoize('get_filetags')
 --- Get tags list applied on file level via #+FILETAGS
 --- @return string[]
-function FeyFile:get_filetags()
-  return utils.parse_tags_string(self:_get_directive('filetags'))
-end
+function FeyFile:get_filetags() return utils.parse_tags_string(self:_get_directive('filetags')) end
 
 memoize('get_blocks')
 --- @return FeyBlock[]
 function FeyFile:get_blocks()
   local matches = self:get_ts_captures('(block) @block')
-  return vim.tbl_map(function(node)
-    return Block:new(node, self)
-  end, matches)
+  return vim.tbl_map(function(node) return Block:new(node, self) end, matches)
 end
 
 function FeyFile:get_header_args()
   local header_args_prop = self:get_directive_property('header-args')
-  if not header_args_prop then
-    return vim.tbl_extend('force', {}, config.fey_babel_default_header_args)
-  end
+  if not header_args_prop then return vim.tbl_extend('force', {}, config.fey_babel_default_header_args) end
   local header_args = config:parse_header_args(header_args_prop)
   return vim.tbl_extend('force', config.fey_babel_default_header_args, header_args)
 end
@@ -732,13 +632,9 @@ function FeyFile:get_directive_properties()
   self:parse(true)
   local properties = {}
   local directives_body = self.root:field('body')[1]
-  if not directives_body then
-    return properties
-  end
+  if not directives_body then return properties end
   local directives = directives_body:field('directive')
-  if not directives or #directives == 0 then
-    return properties
-  end
+  if not directives or #directives == 0 then return properties end
 
   for _, directive in ipairs(directives) do
     local name = directive:field('name')[1]
@@ -748,9 +644,7 @@ function FeyFile:get_directive_properties()
       local name_text = self:get_node_text(name)
       if name_text:lower() == 'property' then
         local value_items = vim.split(self:get_node_text(value), '%s+')
-        if #value_items > 1 then
-          properties[value_items[1]:lower()] = table.concat({ unpack(value_items, 2) }, ' ')
-        end
+        if #value_items > 1 then properties[value_items[1]:lower()] = table.concat({ unpack(value_items, 2) }, ' ') end
       end
     end
   end
@@ -763,23 +657,17 @@ memoize('get_drawer')
 function FeyFile:get_drawer(name)
   self:parse(true)
   local document_body = self.root:field('body')[1]
-  if not document_body then
-    return nil
-  end
+  if not document_body then return nil end
 
   local drawer = utils.find(ts_utils.get_named_children(document_body), function(node)
     if node:type() == 'drawer' then
       local drawer_name = node:field('name')[1]
-      if drawer_name and self:get_node_text(drawer_name):lower() == name:lower() then
-        return true
-      end
+      if drawer_name and self:get_node_text(drawer_name):lower() == name:lower() then return true end
     end
     return false
   end)
 
-  if not drawer then
-    return nil
-  end
+  if not drawer then return nil end
 
   return drawer
 end
@@ -788,9 +676,7 @@ memoize('get_properties')
 ---@return table<string, string>, table<string, FeyRange>, TSNode | nil
 function FeyFile:get_properties()
   local property_drawer = self:get_drawer('properties')
-  if not property_drawer then
-    return {}, {}, nil
-  end
+  if not property_drawer then return {}, {}, nil end
   local properties = {}
   local properties_ranges = {}
   local contents_node = property_drawer:field('contents')[1]
@@ -821,9 +707,7 @@ function FeyFile:set_property(name, value)
 
   if not value then
     local existing_property, property_range = self:get_property(name)
-    if existing_property and property_range then
-      vim.fn.deletebufline(bufnr, property_range.start_line)
-    end
+    if existing_property and property_range then vim.fn.deletebufline(bufnr, property_range.start_line) end
     self:parse()
     local properties, _, properties_drawer = self:get_properties()
     if vim.tbl_isempty(properties) then
@@ -865,9 +749,7 @@ memoize('get_category')
 --- @return string
 function FeyFile:get_category()
   local category = self:_get_directive('category')
-  if category then
-    return category
-  end
+  if category then return category end
 
   return vim.fn.fnamemodify(self.filename, ':t:r') or ''
 end
@@ -878,9 +760,7 @@ memoize('get_title')
 --- @return string
 function FeyFile:get_title()
   local title = self:_get_directive('title')
-  if title then
-    return title
-  end
+  if title then return title end
 
   return vim.fn.fnamemodify(self.filename, ':t:r') or ''
 end
@@ -888,9 +768,7 @@ end
 memoize('get_opened_unfinished_headings')
 ---@return FeyHeading[]
 function FeyFile:get_opened_unfinished_headings()
-  if self:is_archive_file() then
-    return {}
-  end
+  if self:is_archive_file() then return {} end
 
   return vim.tbl_filter(function(item)
     ---@cast item FeyHeading
@@ -933,9 +811,7 @@ function FeyFile:find_footnote_definition(footnote_reference)
   ]]):format(footnote_reference.label))
 
   for _, match in ts_query:iter_captures(self.root, self:get_source()) do
-    if match and match:type() == 'fndef' then
-      return Footnote.from_node(match, self:get_source())
-    end
+    if match and match:type() == 'fndef' then return Footnote.from_node(match, self:get_source()) end
   end
 end
 
@@ -949,29 +825,21 @@ function FeyFile:find_footnote_reference(footnote_definition)
 
   local matches = {}
   for _, match in ts_query:iter_captures(self.root, self:get_source()) do
-    if match:type() == 'fnref' then
-      table.insert(matches, match)
-    end
+    if match:type() == 'fnref' then table.insert(matches, match) end
   end
-  if #matches > 0 then
-    return Footnote.from_node(matches[#matches], self:get_source())
-  end
+  if #matches > 0 then return Footnote.from_node(matches[#matches], self:get_source()) end
 end
 
 memoize('get_directive')
 ---@param directive_name string
 ---@return string[] | string | nil
-function FeyFile:get_directive(directive_name)
-  return self:_get_directive(directive_name)
-end
+function FeyFile:get_directive(directive_name) return self:_get_directive(directive_name) end
 
 --- Get heading id or create a new one if it doesn't exist
 --- @return string
 function FeyFile:id_get_or_create()
   local id = self:get_property('id')
-  if id then
-    return id
-  end
+  if id then return id end
   local fey_id = require('fey.fey.id').new()
   self:set_property('ID', fey_id)
   return fey_id
@@ -984,13 +852,9 @@ end
 function FeyFile:_get_directive(directive_name, all_matches)
   self:parse(true)
   local directives_body = self.root:field('body')[1]
-  if not directives_body then
-    return nil
-  end
+  if not directives_body then return nil end
   local directives = directives_body:field('directive')
-  if not directives or #directives == 0 then
-    return nil
-  end
+  if not directives or #directives == 0 then return nil end
 
   if all_matches then
     local results = {}
@@ -1000,9 +864,7 @@ function FeyFile:_get_directive(directive_name, all_matches)
 
       if name and value then
         local name_text = self:get_node_text(name)
-        if name_text:lower() == directive_name:lower() then
-          table.insert(results, self:get_node_text(value))
-        end
+        if name_text:lower() == directive_name:lower() then table.insert(results, self:get_node_text(value)) end
       end
     end
     return #results > 0 and results or nil
@@ -1014,9 +876,7 @@ function FeyFile:_get_directive(directive_name, all_matches)
 
     if name and value then
       local name_text = self:get_node_text(name)
-      if name_text:lower() == directive_name:lower() then
-        return self:get_node_text(value)
-      end
+      if name_text:lower() == directive_name:lower() then return self:get_node_text(value) end
     end
   end
 
@@ -1035,9 +895,7 @@ end
 ---@return string[]
 function FeyFile:_get_lines(bufnr)
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-  if #lines == 1 and lines[1] == '' then
-    lines = {}
-  end
+  if #lines == 1 and lines[1] == '' then lines = {} end
   return lines
 end
 
@@ -1065,9 +923,7 @@ end
 ---@return integer | string
 function FeyFile:get_source()
   local bufnr = self:bufnr()
-  if bufnr > -1 then
-    return bufnr
-  end
+  if bufnr > -1 then return bufnr end
   return self.content
 end
 

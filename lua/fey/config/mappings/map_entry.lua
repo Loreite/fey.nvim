@@ -17,17 +17,18 @@ function MapEntry.action(handler, opts)
   local serialized_args = {}
 
   if opts.args then
-    -- print(vim.inspect(opts.args))
     for _, arg in ipairs(opts.args) do
-      table.insert(serialized_args, ('"%s"'):format(arg))
+      if type(arg) == 'string' then
+        table.insert(serialized_args, ('%q'):format(arg))
+      else
+        table.insert(serialized_args, tostring(arg))
+      end
     end
     opts.args = nil
   end
-  -- print('serialized: ' .. vim.inspect(serialized_args))
 
   local action = ('"%s"'):format(handler)
   local args_str = table.concat(serialized_args, ', ')
-  -- print(action .. ': ' .. args_str)
   local formatted_action = ('<cmd>lua require("fey").action(%s, { args = { %s } })<CR>'):format(action, args_str)
 
   return MapEntry:new(formatted_action, opts)
@@ -41,9 +42,7 @@ function MapEntry.text_object(handler, opts)
   })
 end
 
-function MapEntry.custom(handler, opts)
-  return MapEntry:new(handler, opts)
-end
+function MapEntry.custom(handler, opts) return MapEntry:new(handler, opts) end
 
 function MapEntry:with_handler(handler)
   local map_entry = MapEntry:new(self.handler, self.provided_opts)
@@ -83,18 +82,12 @@ end
 ---@param opts? table
 function MapEntry:attach(default_mapping, user_mapping, opts)
   local mapping = vim.deepcopy(default_mapping)
-  if user_mapping ~= nil then
-    mapping = vim.deepcopy(user_mapping)
-  end
+  if user_mapping ~= nil then mapping = vim.deepcopy(user_mapping) end
 
   -- Allow disabling specific mapping
-  if not mapping then
-    return
-  end
+  if not mapping then return end
 
-  if type(mapping) == 'string' then
-    mapping = { mapping }
-  end
+  if type(mapping) == 'string' then mapping = { mapping } end
 
   if type(mapping) ~= 'table' then
     error('Invalid mapping provided for ' .. tostring(self.handler) .. '. Only string and array of strings can be provided', 0)
@@ -108,18 +101,12 @@ function MapEntry:attach(default_mapping, user_mapping, opts)
     map_opts.prefix = nil
   end
 
-  if type(user_mapping) == 'table' and user_mapping.desc then
-    map_opts.desc = user_mapping.desc
-  end
+  if type(user_mapping) == 'table' and user_mapping.desc then map_opts.desc = user_mapping.desc end
 
   for _, map in ipairs(mapping) do
-    if prefix ~= '' then
-      map = map:gsub('<prefix>', prefix)
-    end
+    if prefix ~= '' then map = map:gsub('<prefix>', prefix) end
     vim.keymap.set(self.modes, map, self.handler, map_opts)
-    if self.type == 'operator' then
-      vim.keymap.set('o', map, (':normal v%s<CR>'):format(map), map_opts)
-    end
+    if self.type == 'operator' then vim.keymap.set('o', map, (':normal v%s<CR>'):format(map), map_opts) end
   end
 end
 

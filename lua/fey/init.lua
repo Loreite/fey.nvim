@@ -218,8 +218,13 @@ end
 function Fey._set_dot_repeat(cmd, args)
   local repeat_action = ("'%s'"):format(cmd)
   local serialized_args = {}
+
   for _, arg in ipairs(args or {}) do
-    table.insert(serialized_args, ("'%s'"):format(arg))
+    if type(arg) == 'string' then
+      table.insert(serialized_args, ('%q'):format(arg))
+    else
+      table.insert(serialized_args, tostring(arg))
+    end
   end
 
   local args_str = table.concat(serialized_args, ', ')

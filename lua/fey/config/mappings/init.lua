@@ -252,6 +252,54 @@ return {
     ),
 
     -- BEGIN: First Mappings
+    fey_anonymize_heading = m.action('fey_mappings.anonymize_or_enumerate_full_heading', {
+      args = { false },
+      opts = { desc = 'anonymize full heading signature', help_desc = 'make all segments of signature anonymous' },
+    }),
+    fey_enumerate_heading = m.action('fey_mappings.anonymize_or_enumerate_full_heading', {
+      args = { true },
+      opts = { desc = 'enumerate full heading signature', help_desc = 'make all segments of signature enumerated' },
+    }),
+
+    fey_change_all_delimiters_from_end = m.action('fey_mappings.change_all_delimiters', {
+      args = { false },
+      opts = { desc = 'change all heading delimiters from end', help_desc = 'update all delimiters to prompted value from end' },
+    }),
+    fey_change_all_delimiters_from_start = m.action('fey_mappings.change_all_delimiters', {
+      args = { true },
+      opts = {
+        desc = 'change all heading delimiters from start',
+        help_desc = 'update all delimiters to prompted value from start',
+      },
+    }),
+    fey_anonymize_heading_from_end = m.action('fey_mappings.anonymize_or_enumerate_heading', {
+      args = { false, false },
+      opts = {
+        desc = 'anonymize heading signature from end',
+        help_desc = 'make {count} segments of signature from end anonymous',
+      },
+    }),
+    fey_enumerate_heading_from_end = m.action('fey_mappings.anonymize_or_enumerate_heading', {
+      args = { true, false },
+      opts = {
+        desc = 'enumerate heading signature from end',
+        help_desc = 'make {count} segments of signature from end indexed',
+      },
+    }),
+    fey_anonymize_heading_from_start = m.action('fey_mappings.anonymize_or_enumerate_heading', {
+      args = { false, true },
+      opts = {
+        desc = 'anonymize heading signature from start',
+        help_desc = 'make {count} segments of signature from start anonymous',
+      },
+    }),
+    fey_enumerate_heading_from_start = m.action('fey_mappings.anonymize_or_enumerate_heading', {
+      args = { true, true },
+      opts = {
+        desc = 'enumerate heading signature from start',
+        help_desc = 'make {count} segments of signature from start indexed',
+      },
+    }),
     fey_fix_indentation = m.action(
       'fey_mappings.fix_indentation',
       { opts = { desc = 'fey fix indentation', help_desc = 'Assert indentation for subsection' } }
