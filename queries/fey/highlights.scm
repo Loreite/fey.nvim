@@ -10,4 +10,9 @@
 (body (paragraph) @spell)
 (list (listitem (paragraph) @spell))
 (bullet) @fey.bullet
-
+(row "|" @fey.table.delimiter)
+(cell [ "empty" "|" ] @fey.table.delimiter)
+(table . (row (cell (contents) @fey.table.heading)))
+(table (hr) @fey.table.delimiter)
+(table (cbo) @fey.table.delimiter)
+(table (cbi) @fey.table.delimiter)

@@ -179,6 +179,9 @@ function Listitem:demote(include_childs)
   local start_row = self.listitem:range()
   local current_indent = vim.fn.indent(start_row + 1)
   local target_listitem = self.listitem:prev_sibling()
+  while target_listitem and target_listitem:type() ~= 'listitem' do
+    target_listitem = target_listitem:prev_sibling()
+  end
   target_listitem = target_listitem and target_listitem or self:_get_parent_listitem()
   local target_indent
   if target_listitem then
