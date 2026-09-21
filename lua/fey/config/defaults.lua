@@ -4,6 +4,7 @@ local DefaultConfig = {
   -- TODO: Document these!
   -- TODO: Validate these! (vim.validate())
   fey_default_subheading_index_order = { 'roman_upper', 'alpha_upper', 'roman_lower', 'alpha_lower' },
+  fey_default_sublist_index_order = { 'roman_upper', 'alpha_upper', 'roman_lower', 'alpha_lower' },
   fey_default_subheading_delimiter_order = '.:;',
   fey_default_subheading_delimiter = '.',
   --
@@ -210,7 +211,8 @@ local DefaultConfig = {
       fey_meta_return = '<Leader><CR>', -- Add heading, item or row (context-dependent)
       fey_meta_sub_return = '<Leader><S-CR>', -- Add subheading, item or row (context-dependent)
       -- fey_return = '<CR>',
-      -- fey_insert_heading_respect_content = '<prefix>ih', -- Add new heading after current heading block (same level)
+      fey_insert_heading_respect_content = '<prefix>ih', -- Add new heading after current heading block (same level)
+      fey_insert_subheading_respect_content = '<prefix>iH', -- Add new subheading after current heading block (next level)
       -- fey_insert_todo_heading = '<prefix>iT', -- Add new todo heading right after current heading (same level)
       -- fey_insert_todo_heading_respect_content = '<prefix>it', -- Add new todo heading after current heading block (same level)
       -- fey_export = '<prefix>e',

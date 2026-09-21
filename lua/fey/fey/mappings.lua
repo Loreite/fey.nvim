@@ -765,32 +765,44 @@ function FeyMappings:handle_return(suffix)
   return self:meta_return(suffix)
 end
 
+local function get_new_signature(data)
+  local count, signature, level = unpack(data)
+  local bufnr = vim.api.nvim_get_current_buf()
+  local new_signature = ''
+  for i = 1, count do
+    local token, delimiter
+    if (signature and level) and i <= level then
+      token, delimiter = get_segment_parts(signature:named_children()[i], bufnr)
+    else
+      local pattern_idx = ((i - 1) % #config.fey_default_subheading_index_order) + 1
+      local pattern = config.fey_default_subheading_index_order[pattern_idx]
+      token = sequences.patterns[pattern].to_symbol(1)
+      local delim_idx = ((i - 1) % #config.fey_default_subheading_delimiter_order) + 1
+      delimiter = config.fey_default_subheading_delimiter_order:sub(delim_idx, delim_idx)
+      delimiter = delimiter ~= '' and delimiter or config.fey_default_subheading_delimiter
+    end
+    local segment = token .. delimiter
+    new_signature = new_signature .. segment
+  end
+
+  return new_signature
+end
+
 ---@param subheading boolean?
 function FeyMappings:meta_return(suffix, subheading)
   suffix = suffix or ''
   local item = ts_utils.closest_item_or_heading_node()
 
-  if not item or item:type() == 'heading' then
+  if not item then
+    self:_insert_heading_from_plain_line(suffix, subheading)
+    return vim.cmd([[startinsert!]])
+  elseif item:type() == 'heading' then
     local linenr = vim.fn.line('.') or 0
-    local signature = item and item:field('signature')[1]
-    local level = not item and 1 or (signature and signature:named_child_count())
+    local signature = assert(item:field('signature')[1])
+    local level = signature and signature:named_child_count()
     local count = subheading and (level + vim.v.count1) or (vim.v.count > 0 and vim.v.count or level)
 
-    local new_signature = '  '
-    for i = 1, count do
-      local pattern_idx = ((i - 1) % #config.fey_default_subheading_index_order) + 1
-      local pattern = config.fey_default_subheading_index_order[pattern_idx]
-      local segment_index = sequences.patterns[pattern].to_symbol(1)
-      local delim_idx = ((i - 1) % #config.fey_default_subheading_delimiter_order) + 1
-      local delimiter = config.fey_default_subheading_delimiter_order:sub(delim_idx, delim_idx)
-      delimiter = delimiter ~= '' and delimiter
-        or (
-          signature and vim.treesitter.get_node_text(assert(signature:named_children()[level]:child(1)), 0)
-          or config.fey_default_subheading_delimiter
-        )
-      local segment = segment_index .. delimiter
-      new_signature = new_signature .. segment
-    end
+    local new_signature = '  ' .. get_new_signature({ count, signature, level })
     local content = config:respect_blank_before_new_entry({ new_signature .. ' ' .. suffix })
     vim.fn.append(linenr, content)
     vim.fn.cursor(linenr + #content, 1)
@@ -799,7 +811,6 @@ function FeyMappings:meta_return(suffix, subheading)
   end
 
   -- item is a listitem here
-  if not item then return end
   return self:_insert_item_below(item, subheading)
 end
 
@@ -850,13 +861,9 @@ function FeyMappings:_insert_item_below(listitem, subheading)
     })
   else
     local _, list_depth = ts_utils.closest_root_list_node()
-    local pattern_idx = ((list_depth - 1) % #config.fey_default_subheading_index_order) + 1
-    local pattern = config.fey_default_subheading_index_order[pattern_idx]
+    local pattern_idx = ((list_depth - 1) % #config.fey_default_sublist_index_order) + 1
+    local pattern = config.fey_default_sublist_index_order[pattern_idx]
     local next_symbol = sequences.patterns[pattern].to_symbol(1)
-
-    -- local pattern = sequences.detect_pattern(token_text)
-    -- local next_index = subheading and 1 or sequences.patterns[pattern].to_index(token_text) + 1
-    -- local next_symbol = sequences.patterns[pattern].to_symbol(next_index)
 
     -- If creating a subheading, reset the counter to 1 for the new sub-list
 
@@ -886,13 +893,18 @@ function FeyMappings:_insert_item_below(listitem, subheading)
   end
 end
 
-function FeyMappings:insert_heading_respect_content(suffix)
+---@param subheading boolean?
+function FeyMappings:insert_heading_respect_content(suffix, subheading)
   suffix = suffix or ''
   local item = self.files:get_closest_heading_or_nil()
   if not item then
     self:_insert_heading_from_plain_line(suffix)
   else
-    local line = config:respect_blank_before_new_entry({ string.rep('*', item:get_level()) .. ' ' .. suffix })
+    local signature = item:get_child_node('signature')
+    local level = item:get_level()
+    local count = subheading and (level + vim.v.count1) or (vim.v.count > 0 and vim.v.count or level)
+    local new_signature = '  ' .. get_new_signature({ count, signature, level })
+    local line = config:respect_blank_before_new_entry({ new_signature .. ' ' .. suffix })
     local end_line = item:get_range().end_line
     vim.fn.append(end_line, line)
     vim.fn.cursor(end_line + #line, 1)
@@ -900,45 +912,49 @@ function FeyMappings:insert_heading_respect_content(suffix)
   return vim.cmd([[startinsert!]])
 end
 
-function FeyMappings:insert_todo_heading_respect_content()
+---@param subheading boolean?
+function FeyMappings:insert_todo_heading_respect_content(subheading)
   local todo_keywords = self.files:get_current_file():get_todo_keywords()
-  return self:insert_heading_respect_content(todo_keywords:first_by_type('TODO').value .. ' ')
+  return self:insert_heading_respect_content(todo_keywords:first_by_type('TODO').value .. ' ', subheading)
 end
 
-function FeyMappings:insert_todo_heading()
+---@param subheading boolean?
+function FeyMappings:insert_todo_heading(subheading)
   local item = self.files:get_closest_heading_or_nil()
   local todo_keywords = self.files:get_current_file():get_todo_keywords()
   local first_todo_keyword = todo_keywords:first_by_type('TODO')
   if not item then
-    self:_insert_heading_from_plain_line(first_todo_keyword.value .. ' ')
+    self:_insert_heading_from_plain_line(first_todo_keyword.value .. ' ', subheading)
     return vim.cmd([[startinsert!]])
   else
     vim.fn.cursor(item:get_range().start_line, 1)
-    return self:meta_return(first_todo_keyword.value .. ' ')
+    return self:meta_return(first_todo_keyword.value .. ' ', subheading)
   end
 end
 
-function FeyMappings:_insert_heading_from_plain_line(suffix)
+---@param subheading boolean?
+function FeyMappings:_insert_heading_from_plain_line(suffix, subheading)
   suffix = suffix or ''
   local linenr = vim.fn.line('.') or 0
   local line = vim.fn.getline(linenr)
-  local heading_prefix = '* ' .. suffix
+  local count = subheading and (1 + vim.v.count1) or (vim.v.count > 0 and vim.v.count or 1)
+  local heading_signature = '  ' .. get_new_signature({ count }) .. ' '
 
   if #line == 0 then
-    line = heading_prefix
+    line = heading_signature
     vim.fn.setline(linenr, line)
     vim.fn.cursor(linenr, 0 + #line)
   else
     if vim.fn.col('.') == 1 then
       -- promote whole line to heading
-      line = heading_prefix .. line
+      line = heading_signature .. line
       vim.fn.setline(linenr, line)
       vim.fn.cursor(linenr, 0 + #line)
     else
       -- split at cursor
       local left = string.sub(line, 0, vim.fn.col('.') - 1)
       local right = string.sub(line, vim.fn.col('.') or 0, #line)
-      line = heading_prefix .. right
+      line = heading_signature .. right
       vim.fn.setline(linenr, left)
       vim.fn.append(linenr, line)
       vim.fn.cursor(linenr + 1, 0 + #line)

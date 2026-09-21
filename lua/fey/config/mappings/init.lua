@@ -347,8 +347,8 @@ return {
       opts = { desc = 'fey insert heading (respect content)', help_desc = 'Add new heading after current subtree' },
     }),
     fey_insert_subheading_respect_content = m.action('fey_mappings.insert_heading_respect_content', {
-      args = { true },
-      opts = { desc = 'fey insert heading (respect content)', help_desc = 'Add new heading after current subtree' },
+      args = { '', true },
+      opts = { desc = 'fey insert subheading (respect content)', help_desc = 'Add new subheading after current subtree' },
     }),
     -- END:
 
