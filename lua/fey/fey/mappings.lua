@@ -577,6 +577,7 @@ end
 
 function FeyMappings:change_all_delimiters(from_start)
   local data = setup_heading_func(self)
+  if vim.v.count == 0 then data.count = data.level end
   local s, e, d = setup_reversible_loop(from_start, #data.segments)
 
   local input = vim.fn.input('Delimiter: ')

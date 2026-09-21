@@ -30,7 +30,8 @@ local function get_indent_for_match(matches, linenr, mode, bufnr)
 
   if match.type == 'heading' then
     -- We ensure we check headings (even if a bit redundant) to ensure nothing else is checked below
-    return 0
+    -- this is actually important for typing ':' because of neovim 'indentkeys' or 'cinkeys'
+    return 2
   end
   if match.type == 'listitem' then
     -- We first figure out the indent of the first line of a listitem. Then we
