@@ -208,8 +208,8 @@ local DefaultConfig = {
       fey_move_subtree_up = '<prefix>K',
       fey_move_subtree_down = '<prefix>J',
       --
-      fey_meta_return = '<Leader><CR>', -- Add heading, item or row (context-dependent)
-      fey_meta_sub_return = '<Leader><S-CR>', -- Add subheading, item or row (context-dependent)
+      fey_meta_return = '<Leader><CR>', -- Add heading, listitem, or row (context-dependent)
+      fey_meta_sub_return = '<Leader><S-CR>', -- Add subheading, sublistitem, or row (context-dependent)
       -- fey_return = '<CR>',
       fey_insert_heading_respect_content = '<prefix>ih', -- Add new heading after current heading block (same level)
       fey_insert_subheading_respect_content = '<prefix>iH', -- Add new subheading after current heading block (next level)

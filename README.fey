@@ -3,8 +3,9 @@
 
 
 
-  I. Fey
+  I. About
 
+    ~~~
                                                        ,,
     `7MM"""YMM                                         db
       MM    `7
@@ -15,23 +16,50 @@
     .JMML.    `Mbmmd'    ,V  db .JMML  JMML.   W     .JMML..JMML  JMML  JMML.
                         ,V
                      OOb"
-
-  II. About
+    ~~~
 
 Fey.nvim is a plugin that aims to be for the Fey markup language what
-fey.nvim is for the fey-mode markup language.
+nvim-orgmode/orgmode is for the org-mode markup language.
 
-I use that particular comparison because just like fey-mode, Fey has a tree-like
+I use that particular comparison because just like org-mode, Fey has a tree-like
 heading hierarchy, and the first features that have been implemented are related
 to moving subtrees up/down or promoting/demoting them (or individual headings).
 
 We started here because it's incredible how powerful taking notes feels even when
-all you have as a super-power is feyanizing the sections/subsections of your
-ideas. 95% of what we have found that we use fey-mode for was just feyanizing
+all you have as a super-power is organizing the sections/subsections of your
+ideas. 95% of what we have found that we use org-mode for was just organizing
 text content with headings.
 
+If you're curious what Fey looks like in use, pay attention to this README.fey
+as well as the README.fey of the Fey specification identified in section I.i.
 
-  II.i. Fey specification
+
+  I.A. Special Note
+
+I want to be clear that because of the similarity between Fey and Orgmode I've
+based the Fey.nvim plugin off the nvim-orgmode/orgmode plugin as a starting
+point. As time goes on, much of the code will be different to accomodate for the
+specificities of the Fey markup grammar, but so much of what Fey can do already
+is due to the aboslutely incredible architecture that nvim-orgmode/orgmode has
+which has made developing Fey.nvim incrementally a much easier process than if I
+had to begin from scratch.
+
+
+  I.A.i. Plugin Documentation
+
+You can read up on Fey.nvim in the :help documentation, however, please
+remember that it may be out of sync, as a rough pass of project-wide
+find-and-replace was done to update all references to 'org' and 'orgmode' to
+'fey'. This means that sometimes words like 'organization' are currently
+'feyanaization' which is humorous but will be updated eventually.
+
+Some features in the documentation are also not working or disabled. Check out
+the repo file `/lua/fey/config/defaults.lua` to see what is more or less
+supported as section II. below about the current feature set won't always be
+present in this README.fey.
+
+
+  I.B. Fey specification
 
 The Fey markup language is defined currently by the README.fey of its github
 repository. It is a work in progress as many syntax features have not yet been
@@ -43,20 +71,21 @@ to experiment with how it looks and feels to use.
 [url] https://github.com/Loreite/Fey [Fey Markup Language Specification]
 
 
-  II.ii. Standout feature: Automatic Headings
+  II. Current Feature Set
+
+  II.A. Standout feature: Automatic Headings
 
 If you read the Fey specification you will notice that the headings are defined
 in a way that would make them difficult to maintain manually as the tree
 hierarchy changes when headings are moved, added, or removed, etc.
 
 Thus, the first truly important feature for this plugin to satisfy was the
-automatic tracking and reindexing of heading numbered depth tokens.
+automatic tracking and reindexing of heading enumerated depth tokens.
 
 That is to say the 'II' in 'II.' is the depth token and the '.' is the depth
 delimiter. Each depth maintains its own ordered count in the style of the first
-token-type encountered at that depth for the whole page (it may be a
-configurable feature later to set it so that token-type per depth is
-per-subtree).
+token-type encountered at that depth for the whole page (it is configurable
+to set it so that token-type per depth is per-subtree).
 
 It is possible to have an 'anonymous' depth-token at any given depth which will
 not contribute to the count. Eg. 'II..' has an anonymous depth-token at depth
@@ -70,6 +99,128 @@ available to be used as either a depth- token or delimiter.
   *** Fey anonymous star example
 
 
+  II.B. Standout feature: Automatic Lists
+
+Lists follow a similar specification as headings, except that where a heading
+signature can have multiple segments, eg 'II.A.', bullets can only have one
+segment, but it can also be anonymous to create an unordered listitem.
+
+The bullets of lists and their sublists act much like the different segments of
+a heading, where each new depth of a sublist is akin to adding a new segment
+onto a heading. The only real difference then between a heading and a list is
+that lists are hierarchically defined by their indentation.
+
+Unordered listitems can be intermixed with ordered listitems, which has the same
+cumulative effect on the following listitems as anonymous segments in a heading
+does, ie. it skips it in the ordered count.
+
+for example, the following ordered list is compared to equivalent headings:
+
+    I.  same as heading 'I.'
+        A.  same as heading 'I.A.'
+            i.  same as heading 'I.A.i.'
+            ii.  same as heading 'I.A.ii.'
+
+        .  anonymous heading does not affect ordering
+
+        B.  same as heading 'I.B.'
+            i.  same as heading 'I.B.i.'
+
+    II.  same as heading 'II.'
+        A.  same as heading 'II.A.'
+        .  etc...
+
+
+  II.C. Basic feature: Blocks for Raw Text
+
+You already know how these work if you're familiar with markdown ``` fences or
+org-mode's #+begin_/#+end_ blocks. Fey's approach looks more like markdown,
+except that blocks have a wider range of characters that can be used for the
+open and close fences. In fact its the same set of characters as for heading
+delimiters.
+
+Blocks can be indented to any level, and their content is only requried to be
+indented at a minimum to the same level. Running the command to fix indentation
+will do that automatically for you.
+
+    ###
+    this is some raw text
+        this will maintain its indentation
+            so will this
+    ###
+
+
+  II.D. nvim-orgmode/orgmode Working Feature
+
+Because this plugin is based on another plguin, most of the config options are
+left untouched, or may be turned off to keep the plugin from breaking on
+startup. This has primarily been done by commenting out all of the default
+mappings. See the section on Available Default Mappings for the list of what is
+currently supported.
+
+Otherwise, this list is about features that we have gotten working out of the
+box with little additional effort, or as a side effect of work on other
+features.
+
+
+  II.D.i. Indent Mode
+
+You can toggle virtual or hard heading-aligned indetation by running the
+following command `:Fey indent_mode`. This indents the body content of a heady
+to align with its title. This may or may not be desirious, especially since
+certain types of heading indexes are variable in width, this not all 7th-level
+headings will indent to the same column.
+
+If you would like that behaviour, stick to using anonymous headings and the
+indentation will behave exactly as nvim-orgmode/orgmode
+
+Config options which affect this indentation:
+
+  -  fey_adapt_indentation = false,
+  -  fey_startup_indented = false,
+  -  fey_indent_mode_turns_off_fey_adapt_indentation = true,
+  -  fey_indent_mode_turns_on_hiding_signature = true,
+
+
+  II.E. Currently Available Default Mappings
+
+This subsection won't always be present here in the README, as you can check the
+repo file `/lua/fey/config/defaults.lua` to see what mappings are not commented
+out for the list of supported mappings.
+
+The in-editor documentation will be a work in progress for some time as fey
+slowly alters the nvim-orgmode/orgmode plguin to fit the fey specification
+(which is also updating from time to time itself, based on what works and does
+not work for the grammar).
+
+  -  fey_change_all_delimiters_from_start = '<prefix>hds',
+  -  fey_change_all_delimiters_from_end = '<prefix>hde',
+
+  -  fey_enumerate_heading_from_start = '<prefix>hes',
+  -  fey_enumerate_heading_from_end = '<prefix>hee',
+  -  fey_enumerate_heading = '<prefix>hef',
+
+  -  fey_anonymize_heading_from_start = '<prefix>has',
+  -  fey_anonymize_heading_from_end = '<prefix>hae',
+  -  fey_anonymize_heading = '<prefix>haf',
+
+  -  fey_fix_indentation = '<prefix>fi',
+  -  fey_reindex_headings_or_list = '<prefix>fI',
+
+  -  fey_do_promote = '<>',
+  -  fey_do_demote = '><',
+  -  fey_promote_subtree = '<prefix>H',
+  -  fey_demote_subtree = '<prefix>L',
+  -  fey_move_subtree_up = '<prefix>K',
+  -  fey_move_subtree_down = '<prefix>J',
+
+  -  fey_meta_return = '<Leader><CR>', -- Add heading, listitem, or row (context-dependent)
+  -  fey_meta_sub_return = '<Leader><S-CR>', -- Add subheading, sublistitem, or row (context-dependent)
+
+  -  fey_insert_heading_respect_content = '<prefix>ih', -- Add new heading after current heading block (same level)
+  -  fey_insert_subheading_respect_content = '<prefix>iH', -- Add new subheading after current heading block (next level)
+
+
   III. Disclaimer
 
 Use Fey.nvim at your own risk. While we aim to only push working features, we
@@ -78,28 +229,30 @@ your notes either with version control or otherwise to ensure that no automatic
 editing feature of Fey.nvim will arbitrarily erase any important data.
 
 Think of Fey.nvim now as an experimental playground made to make the basics of
-editing Fey files easier, but not bulletproof.
+editing Fey files easier but not bulletproof.
 
 
   IV. On the use of AI
 
-We fully intend to develop Fey and Fey.nvim slowly and with care, taking
-ownership of generated code through a review process when an idea has been
-explored with an AI and the approach suitable for incorporation.
+We fully intend to develop Fey.nvim slowly and with care, taking ownership of
+all generated code through a review process when an idea has been explored with
+an AI and the approach suitable for incorporation.
 
-Much of the existing code was generated by an LLM. This was not an automated
-process, but an exploration of how to write and compile a tree-sitter
-grammar/parser, as well as explore the neovim features which would enable the
-standout feature of automatic headings.
+We see the benefits and drawbacks of using AI to assist with coding, such as
+faster output or easier bug-fixing, but also a degradation of skills if too much
+reliance is put on the tool. This project is made with a passion for
+programming, markup, and computer science generally (grammars, compilers, and
+parsing specifically), we are not looking to offload the joy of developing this
+tool to another entity. However, when it comes to writing boilerplate code, or
+workshopping an idea that we already have worked out ourselves we see a net
+benefit of achieving our goal of completing this plugin sooner than later for
+everyone to enjoy.
 
-What that means is that when we have an idea, we query an LLM on how to achieve
-that goal (usually we have a solution in mind, but are looking to sidestep
-reading the specific documentation necessary for the implementation to speed the
-exploration process); implement its code output as a starting template; and edit
-manually to eliminate redundancy, and incorrectness. Sometimes our edited
-code goes through further rounds with an LLM to quickly squash bugs, but we do
-not ship code we do not understand ourselves.
+With that said, we hope you do enjoy what we have accomplished so far.
 
+Thanks for Reading.
+
+-  Aldo Zeroun
 
 
 
