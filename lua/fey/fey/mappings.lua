@@ -483,7 +483,7 @@ function FeyMappings:do_promote(whole_subtree)
   vim.cmd([[normal! _]])
 
   local node = ts_utils.get_node_at_cursor()
-  local set = utils.set({ 'bullet', 'segment', 'list' })
+  local set = utils.set({ 'listitem', 'bullet', 'segment', 'list' })
   if node and set[node:type()] then
     local listitem = self.files:get_closest_listitem()
     if listitem then
@@ -514,7 +514,7 @@ function FeyMappings:do_demote(whole_subtree)
   vim.cmd([[normal! _]])
 
   local node = ts_utils.get_node_at_cursor()
-  local set = utils.set({ 'bullet', 'segment', 'list' })
+  local set = utils.set({ 'listitem', 'bullet', 'segment', 'list' })
   if node and set[node:type()] then
     local listitem = self.files:get_closest_listitem()
     if listitem then
