@@ -15,7 +15,7 @@ local DefaultConfig = {
   fey_use_uppercase_for_hex_marker = false,
   fey_use_uppercase_for_hex_index = false,
   --
-  fey_treesitter_local_install = '~/Projects/tree-sitter/tree-sitter-fey/fey.so',
+  fey_treesitter_local_install = '',
 
   fey_agenda_files = '',
   fey_default_notes_file = '',

@@ -9,12 +9,6 @@ local M = {
 -- local required_version = '2.0.4'
 local required_version = 'master'
 
--- function M.install()
---   -- Register local binary and skip git clone/compilation checks
---   local parser_path = vim.fn.expand('~/Projects/tree-sitter/tree-sitter-fey/fey.so')
---   vim.treesitter.language.add('fey', { path = parser_path })
---   return true
--- end
 function M.install()
   local version_info = M.get_version_info()
 
@@ -44,14 +38,7 @@ function M.notify_conflicting_parsers(conflicting_parsers)
   )
 end
 
-function M.reinstall()
-  -- Register local binary and skip git clone/compilation checks
-  --
-  -- local parser_path = vim.fn.expand('~/Projects/tree-sitter/tree-sitter-fey/fey.so')
-  -- vim.treesitter.language.add('fey', { path = parser_path })
-  -- return true
-  return M.run('reinstall')
-end
+function M.reinstall() return M.run('reinstall') end
 
 function M.get_version_info()
   local result = {
@@ -82,17 +69,6 @@ function M.get_version_info()
   return result
 end
 
--- function M.get_parser_locations()
---   local parser_path = vim.fn.expand('~/Projects/tree-sitter/tree-sitter-fey/')
---
---   -- Explicitly register the path to your local shared object with Neovim
---   vim.treesitter.language.add('fey', { path = parser_path })
---
---   return {
---     parser_locations = { parser_path },
---     installed_in_fey_dir = false,
---   }
--- end
 function M.get_parser_locations()
   local runtime_files = vim.api.nvim_get_runtime_file('parser/fey.so', true)
   local parser_locations = {}
@@ -117,17 +93,10 @@ function M.get_parser_locations()
   }
 end
 
--- function M.not_installed()
---   local parser_path = vim.fn.expand('~/Projects/tree-sitter/tree-sitter-fey/fey.so')
---
---   -- Register path during check to ensure pcall succeeds
---   vim.treesitter.language.add('fey', { path = parser_path })
---
---   local ok, result, err = pcall(vim.treesitter.language.add, 'fey')
---   return not ok or (not result and err ~= nil)
--- end
 function M.not_installed()
-  local ok, result, err = pcall(vim.treesitter.language.add, 'fey')
+  local parser_path = vim.fn.expand(config.fey_treesitter_local_install)
+
+  local ok, result, err = pcall(vim.treesitter.language.add, 'fey', parser_path ~= '' and { path = parser_path } or {})
   return not ok or (not result and err ~= nil)
 end
 
@@ -160,10 +129,7 @@ end
 
 function M.get_lock_file() return vim.fs.joinpath(M.get_package_path(), '.fey-ts-lock.json') end
 
-function M.get_parser_path()
-  return vim.fs.joinpath(M.get_package_path(), 'parser', 'fey.so')
-  -- return vim.fn.expand('~/Projects/tree-sitter/tree-sitter-fey/fey.so')
-end
+function M.get_parser_path() return vim.fs.joinpath(M.get_package_path(), 'parser', 'fey.so') end
 
 function M.select_compiler_args(compiler)
   if compiler == 'tree-sitter' then return {
@@ -289,8 +255,6 @@ end
 ---@param type? 'install' | 'update' | 'reinstall''
 ---@return FeyPromise<boolean>
 function M.run(type)
-  -- local local_path = config.fey_treesitter_local_install
-  -- local url = local_path ~= '' and local_path or 'https://github.com/loreite/tree-sitter-fey'
   local url = 'https://github.com/loreite/tree-sitter-fey'
   local compiler = vim.tbl_filter(function(exe) return exe ~= vim.NIL and vim.fn.executable(exe) == 1 end, M.compilers)[1]
 
