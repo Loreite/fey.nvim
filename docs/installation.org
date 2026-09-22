@@ -8,7 +8,7 @@ Here are few examples:
 1. [[https://github.com/folke/lazy.nvim][lazy.nvim]] (Recommended)
    #+begin_src lua
    return {
-     'loreite/fey.nvim',
+     'Loreite/fey.nvim',
      event = 'VeryLazy',
      config = function()
        require('fey').setup({
@@ -23,7 +23,7 @@ Here are few examples:
 2. vim.pack (Available only in Neovim 0.12+)
    #+begin_src lua
    vim.pack.add({
-     { src = 'https://github.com/loreite/fey.nvim'}
+     { src = 'https://github.com/Loreite/fey.nvim'}
    })
    require('fey').setup({
      fey_agenda_files = '~/feyfiles/**/*',
@@ -36,7 +36,7 @@ Here are few examples:
    #+begin_src lua
    require('pckr').add({
      {
-      'loreite/fey.nvim',
+      'Loreite/fey.nvim',
         config = function()
           require('fey').setup({
             fey_agenda_files = '~/feyfiles/**/*',
@@ -48,7 +48,7 @@ Here are few examples:
    #+end_src
 4. [[https://github.com/junegunn/vim-plug][vim-plug]]
    #+begin_src vim
-   Plug 'loreite/fey.nvim'
+   Plug 'Loreite/fey.nvim'
 
    lua << EOF
    require('fey').setup({
@@ -59,7 +59,7 @@ Here are few examples:
    #+end_src
 5. [[https://github.com/Shougo/dein.vim][dein.vim]]
    #+begin_src vim
-   call dein#add('loreite/fey.nvim')
+   call dein#add('Loreite/fey.nvim')
 
     lua << EOF
     require('fey').setup({

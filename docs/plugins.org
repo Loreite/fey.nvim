@@ -60,7 +60,7 @@ Jupyter notebooks for fey-babel.
 :PROPERTIES:
 :CUSTOM_ID: telescope-feynvim
 :END:
-Link: [[https://github.com/loreite/telescope-fey.nvim][telescope-fey.nvim]]
+Link: [[https://github.com/Loreite/telescope-fey.nvim][telescope-fey.nvim]]
 
 [[https://github.com/nvim-telescope/telescope.nvim][Telescope]] extension for fey that adds fuzzy finding of fey files, headings, etc.
 
@@ -149,7 +149,7 @@ require('cmp').setup({
 :PROPERTIES:
 :CUSTOM_ID: fey-bulletsnvim
 :END:
-Link: [[https://github.com/loreite/fey-bullets.nvim][fey-bullets.nvim]]
+Link: [[https://github.com/Loreite/fey-bullets.nvim][fey-bullets.nvim]]
 Port of Emacs [[https://github.com/sabof/fey-bullets][fey-bullets]].
 
 Run after the fey setup.
@@ -213,11 +213,11 @@ To view all plugins that are tagged for =fey.nvim=, visit [[https://github.com/t
 Example configuration with few of these plugins using [[https://github.com/folke/lazy.nvim][lazy.nvim]]:
 #+begin_src lua
 {
-  'loreite/fey.nvim',
+  'Loreite/fey.nvim',
   dependencies = {
     'nvim-telescope/telescope.nvim',
-    'loreite/telescope-fey.nvim',
-    'loreite/fey-bullets.nvim',
+    'Loreite/telescope-fey.nvim',
+    'Loreite/fey-bullets.nvim',
     'Saghen/blink.cmp'
   },
   event = 'VeryLazy',

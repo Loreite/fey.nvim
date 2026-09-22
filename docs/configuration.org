@@ -948,7 +948,7 @@ Templates have the following fields:
         }
       }
       #+end_src
-      Check [[https://github.com/loreite/fey.nvim/blob/master/lua/fey/capture/template/datetree.lua#L144][this line in source]] for builtin tree types and detailed explanation how to add own tree.
+      Check [[https://github.com/Loreite/fey.nvim/blob/master/lua/fey/capture/template/datetree.lua#L144][this line in source]] for builtin tree types and detailed explanation how to add own tree.
 - =regexp (string)= Search for specific line in the target file via regex (same as searching through file from command),
   and append the content after that line. For example, if you have line =appendhere= in target file,
   put this option to =^appendhere$= to add headings after that line
@@ -1276,7 +1276,7 @@ require('fey').setup({
 (The =desc= value is displayed in tools like WhichKey.)
 
 You can find the configuration file that holds all default mappings
-[[https://github.com/loreite/fey.nvim/blob/master/lua/fey/config/mappings/init.lua][here]].
+[[https://github.com/Loreite/fey.nvim/blob/master/lua/fey/config/mappings/init.lua][here]].
 
 *NOTE*: All mappings are normal mode mappings (=nnoremap=) with
 exception of =fey_return=
@@ -2183,7 +2183,7 @@ Show help within the temporary buffer used to edit the content of a
 :END:
 Operator mappings for =fey= files. Example: Pressing =vir= select everything from current heading and all
 child. =inner= means that it doesn't select the signature, where =around= selects =inner= + =signature=. See
-[[https://github.com/loreite/fey.nvim/issues/48#issuecomment-884528170][this issue comment]] for visual preview.
+[[https://github.com/Loreite/fey.nvim/issues/48#issuecomment-884528170][this issue comment]] for visual preview.
 
 📝 NOTE: Some mappings can clash with other plugin mappings, like [[https://github.com/lewis6991/gitsigns.nvim][gitsigns.nvim]] which also has =ih= operator mapping.
 
@@ -2544,7 +2544,7 @@ require('fey').setup({
 :PROPERTIES:
 :CUSTOM_ID: notifications
 :END:
-There is an experimental support for agenda tasks notifications. Related [[https://github.com/loreite/fey.nvim/issues/49][issue #49]].
+There is an experimental support for agenda tasks notifications. Related [[https://github.com/Loreite/fey.nvim/issues/49][issue #49]].
 
 Linux/MacOS has support for notifications via:
 

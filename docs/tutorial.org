@@ -244,4 +244,4 @@ interested in any particular topic. But please keep in mind, that this is a
 work-in-progress port for Neovim and not the original source for Emacs
 Fey. If you find any features you would like to see here, feel free to
 open an issue or (even better)
-[[https://github.com/loreite/fey.nvim#development][get your hands dirty]] and create a pull request :wink:
+[[https://github.com/Loreite/fey.nvim#development][get your hands dirty]] and create a pull request :wink:

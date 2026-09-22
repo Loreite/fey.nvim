@@ -19,9 +19,9 @@ end
 local function get_changes(format, latest_tag)
   format = format or 'fey'
   latest_tag = latest_tag or vim.fn.system('git describe --tags `git rev-list --tags --max-count=1`'):gsub('\n', '')
-  local commit_format = '[[https://github.com/loreite/fey.nvim/commit/%h][%h]]'
+  local commit_format = '[[https://github.com/Loreite/fey.nvim/commit/%h][%h]]'
   if format == 'md' then
-    commit_format = '[%h](https://github.com/loreite/fey.nvim/commit/%h)'
+    commit_format = '[%h](https://github.com/Loreite/fey.nvim/commit/%h)'
   end
   local feature_format = format == 'md' and '**%s**' or '*%s*'
 
@@ -61,7 +61,7 @@ local function generate_changelog()
   local new_tag = arg[1]
 
   local new_content = {
-    ('** [[https://github.com/loreite/fey.nvim/compare/%s...%s][%s]] (%s)'):format(latest_tag, new_tag, new_tag, os.date('%Y-%m-%d')),
+    ('** [[https://github.com/Loreite/fey.nvim/compare/%s...%s][%s]] (%s)'):format(latest_tag, new_tag, new_tag, os.date('%Y-%m-%d')),
   }
 
   local changes = get_changes('fey', latest_tag)

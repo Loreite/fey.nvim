@@ -22,7 +22,7 @@ vim.opt.rtp:prepend(lazypath)
 
 require('lazy').setup({
   {
-    'loreite/fey.nvim',
+    'Loreite/fey.nvim',
     event = 'VeryLazy',
     ft = { 'fey' },
     config = function()

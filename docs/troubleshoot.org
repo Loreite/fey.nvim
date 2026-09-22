@@ -45,7 +45,7 @@ try setting the language to =zh_CN.UTF-8= with the same command as above:
 vim.cmd('language zh_CN.utf8')
 #+end_src
 
-See related issue: [[https://github.com/loreite/fey.nvim/issues/879]]
+See related issue: [[https://github.com/Loreite/fey.nvim/issues/879]]
 
 ** Links are not concealed
 Links are concealed with Vim's conceal feature (see ~:help conceal~). To enable concealing, add this to your ~init.lua~:
@@ -63,4 +63,4 @@ To use forward slashes, you must enable ~shellslash~ option
 #+BEGIN_SRC lua
 vim.opt.shellslash = true
 #+END_SRC
-More info on issue [[https://github.com/loreite/fey.nvim/issues/281#issuecomment-1120200775][#281]]
+More info on issue [[https://github.com/Loreite/fey.nvim/issues/281#issuecomment-1120200775][#281]]

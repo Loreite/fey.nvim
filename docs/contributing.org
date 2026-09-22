@@ -20,7 +20,7 @@ Thanks for wanting to help out with fey.nvim, we appreciate the effort!
 :CUSTOM_ID: reporting-bugsfeatures
 :END:
 
-📣 Please always make a quick search in our [[https://github.com/loreite/fey.nvim/issues][issue-tracker]] before
+📣 Please always make a quick search in our [[https://github.com/Loreite/fey.nvim/issues][issue-tracker]] before
 reporting anything. If the bug/feature has already been reported,
 continue the conversation on the existing issue.
 
@@ -37,7 +37,7 @@ documented, have a look at these [[https://fey.fey/wfey/#resources][resources]].
 :CUSTOM_ID: documentation
 :END:
 If you spot something missing in our [[file:./index.fey][docs]], don't hesitate making a PR.
-The [[https://github.com/loreite/fey.nvim/wiki][wiki]] can be edited freely.
+The [[https://github.com/Loreite/fey.nvim/wiki][wiki]] can be edited freely.
 
 ** Development
 :PROPERTIES:
@@ -98,7 +98,7 @@ can be installed, and exit with a success message.
 :PROPERTIES:
 :CUSTOM_ID: parser
 :END:
-Parsing is done via builtin treesitter parser and the [[https://github.com/loreite/tree-sitter-fey][tree-sitter-fey]] grammar.
+Parsing is done via builtin treesitter parser and the [[https://github.com/Loreite/tree-sitter-fey][tree-sitter-fey]] grammar.
 
 **** Commits
 :PROPERTIES:

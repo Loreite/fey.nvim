@@ -256,7 +256,7 @@ end
 ---@param type? 'install' | 'update' | 'reinstall''
 ---@return FeyPromise<boolean>
 function M.run(type)
-  local url = 'https://github.com/loreite/tree-sitter-fey'
+  local url = 'https://github.com/Loreite/tree-sitter-fey'
   local compiler = vim.tbl_filter(function(exe) return exe ~= vim.NIL and vim.fn.executable(exe) == 1 end, M.compilers)[1]
 
   if not compiler then error('[fey] No C compiler found for installing tree-sitter grammar', 0) end

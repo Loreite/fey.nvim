@@ -15,7 +15,7 @@ To view this documentation offline in Neovim, run =:Fey help=. More info in [[#g
 - Install with [[https://github.com/folke/lazy.nvim][lazy.nvim]]:
   #+begin_src lua
   {
-    'loreite/fey.nvim',
+    'Loreite/fey.nvim',
     event = 'VeryLazy',
     config = function()
       -- Setup fey
