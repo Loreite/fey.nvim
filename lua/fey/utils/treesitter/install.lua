@@ -1,13 +1,14 @@
 local Promise = require('fey.utils.promise')
 local utils = require('fey.utils')
 local config = require('fey.config')
+local constants = require('fey.utils.constants')
 local uv = vim.uv
 local M = {
   compilers = { 'tree-sitter', vim.fn.getenv('CC'), 'cc', 'gcc', 'clang', 'cl', 'zig' },
 }
 
 -- local required_version = '2.0.4'
-local required_version = 'master'
+local required_version = constants.required_version
 
 function M.install()
   local version_info = M.get_version_info()

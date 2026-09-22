@@ -3,4 +3,5 @@ return {
   heading_delimiters = '[.,:;!?/\\\'"`%-+*=~^@&#$%%%[%](){}<>]',
   heading_tokens_pattern = '[%w_]',
   heading_leading_indentation = '  ',
+  required_version = '0.1.0',
 }
