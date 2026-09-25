@@ -1,6 +1,7 @@
 local TableRow = require('fey.files.elements.table.row')
 local TableCell = require('fey.files.elements.table.cell')
 local Table = require('fey.files.elements.table')
+local ts_utils = require('fey.utils.treesitter')
 
 local TableOps = {}
 
@@ -10,49 +11,18 @@ local function get_ctx()
   if not tbl then return nil, 1, 1 end
 
   local cursor = vim.api.nvim_win_get_cursor(0)
-  local cursor_line = cursor[1]
-  local cursor_col = cursor[2]
-
-  local logical_row_idx = 1
   local r, c = 1, 1
-  local current_phys_rows = 0
-  local found = false
 
-  -- Map the physical line location of the cursor back to the logical row and col indexes
-  for child in tbl.node:iter_children() do
-    local c_type = child:type()
-    -- local sr, sc, er, cec = child:range()
-    local sr = child:range()
-    local line_num = sr + 1
+  -- Fetch closest valid cell to exact cursor position
+  local cell_node = ts_utils.get_node_at_cursor(cursor)
+  if cell_node and cell_node:type() ~= 'cell' then cell_node = ts_utils.closest_node(cell_node, 'cell') end
 
-    if c_type == 'row' then
-      current_phys_rows = current_phys_rows + 1
-      if line_num == cursor_line then
-        r = logical_row_idx
-        local cells = child:field('cell')
-        local phys_col = 1
-        for _, cell_node in ipairs(cells) do
-          -- local csr, csc, cer, cc = cell_node:range()
-          local _, csc, _, cc = cell_node:range()
-          if cursor_col >= csc and cursor_col <= cc then
-            if tbl.rows[r] and tbl.rows[r].cells[phys_col] then
-              c = tbl.rows[r].cells[phys_col].col_idx
-            else
-              c = phys_col
-            end
-            found = true
-            break
-          end
-          phys_col = phys_col + 1
-        end
-      end
-    elseif c_type == 'hr' or c_type == 'cbo' or c_type == 'cbi' then
-      if current_phys_rows > 0 then
-        logical_row_idx = logical_row_idx + 1
-        current_phys_rows = 0
-      end
+  if cell_node then
+    local s_row, s_col = cell_node:start()
+    local mapped = tbl.node_map[('%d,%d'):format(s_row, s_col)]
+    if mapped then
+      r, c = mapped.r, mapped.c
     end
-    if found then break end
   end
 
   return tbl, r, c

@@ -7,7 +7,7 @@ local utils = require('fey.utils')
 
 ---@class FeyTable
 ---@field logical_grid table[] Mixed array of boundary definitions and FeyTableRow references
----@field node_lookup table
+---@field node_map table
 ---@field col_widths number[]
 ---@field rows FeyTableRow[]
 ---@field range FeyRange
@@ -38,8 +38,8 @@ function Table:new(range)
 end
 
 ---@param cursor? table
----@return feytable | nil
-function table.from_current_node(cursor)
+---@return FeyTable | nil
+function Table.from_current_node(cursor)
   if not cursor then
     cursor = vim.api.nvim_win_get_cursor(0)
     cursor[2] = vim.fn.col('$')
@@ -51,24 +51,25 @@ function table.from_current_node(cursor)
   if not node then return nil end
 
   local bufnr = vim.api.nvim_get_current_buf()
-  local tbl = table:new(range.from_node(node))
+  local tbl = Table:new(Range.from_node(node))
   tbl.node = node
 
   local current_physical_rows = {}
   local current_top_boundary = nil
   local has_seen_crown = false
-  local is_meta_row_mode = false
+  local is_multi_line_mode = false
+  local pending_hrs = 0 -- Track deferred HR boundaries
 
   local function commit_logical_row()
     if #current_physical_rows == 0 then return end
 
-    local logical_row = tablerow:new({ table = tbl, line = #tbl.rows + 1 })
+    local logical_row = TableRow:new({ table = tbl, line = #tbl.rows + 1 })
 
-    local spans = (is_meta_row_mode and current_top_boundary and current_top_boundary.type ~= 'hr')
+    local spans = (is_multi_line_mode and current_top_boundary and current_top_boundary.type ~= 'hr')
         and current_top_boundary.spans
       or nil
 
-    -- fallback to standard 1:1 columns if not bound by an active cbo/cbi span
+    -- Fallback to standard 1:1 columns if not bound by an active CBO/CBI span
     if not spans then
       spans = {}
       for i = 1, tbl.col_count do
@@ -82,6 +83,10 @@ function table.from_current_node(cursor)
       for _, phys_row in ipairs(current_physical_rows) do
         local cell_node = phys_row[i]
         if cell_node then
+          -- Build O(1) node mapping linking physical TS coordinates to abstract grid coordinates
+          local s_row, s_col = cell_node:start()
+          tbl.node_map[('%d,%d'):format(s_row, s_col)] = { r = logical_row.line, c = col_idx }
+
           local content_node = cell_node:field('contents')[1]
           if content_node then
             local text = vim.treesitter.get_node_text(content_node, bufnr)
@@ -135,7 +140,6 @@ function table.from_current_node(cursor)
           rowspan = 1,
           lines = cell_lines,
         })
-        -- cell:parse_config()
         logical_row:add_cell(cell)
       end
 
@@ -157,15 +161,25 @@ function table.from_current_node(cursor)
       end
       table.insert(current_physical_rows, cells)
     elseif type == 'hr' then
-      commit_logical_row()
-      current_physical_rows = {}
+      if is_multi_line_mode then
+        pending_hrs = pending_hrs + 1
+      else
+        commit_logical_row()
+        current_physical_rows = {}
 
-      local boundary = { type = type }
-      table.insert(tbl.logical_grid, boundary)
-      current_top_boundary = boundary
+        local boundary = { type = type }
+        table.insert(tbl.logical_grid, boundary)
+        current_top_boundary = boundary
+      end
     elseif utils.set({ 'cbi', 'cbo' })[type] then
       commit_logical_row()
       current_physical_rows = {}
+
+      -- Flush pending HR boundaries immediately after committing the deferred region's logical row
+      while pending_hrs > 0 do
+        table.insert(tbl.logical_grid, { type = 'hr' })
+        pending_hrs = pending_hrs - 1
+      end
 
       local spans = {}
       local span = 0
@@ -183,16 +197,22 @@ function table.from_current_node(cursor)
       table.insert(tbl.logical_grid, boundary)
       current_top_boundary = boundary
 
-      if type == 'cbo' and not is_meta_row_mode then
-        is_meta_row_mode = true
-      elseif type == 'cbo' and is_meta_row_mode then
-        is_meta_row_mode = false
+      if type == 'cbo' and not is_multi_line_mode then
+        is_multi_line_mode = true
+      elseif type == 'cbo' and is_multi_line_mode then
+        is_multi_line_mode = false
       end
 
       if not has_seen_crown and #tbl.rows > 0 then has_seen_crown = true end
     end
   end
   commit_logical_row()
+
+  -- Handle trailing hr instances
+  while pending_hrs > 0 do
+    table.insert(tbl.logical_grid, { type = 'hr' })
+    pending_hrs = pending_hrs - 1
+  end
 
   return tbl
 end
