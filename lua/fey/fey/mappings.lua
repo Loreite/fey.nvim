@@ -19,6 +19,7 @@ local indent = require('fey.fey.indent')
 local Footnote = require('fey.objects.footnote')
 local sequences = require('fey.utils.sequences')
 local FeyFile = require('fey.files.file')
+local tableops = require('fey.files.elements.table.operations')
 
 ---Schedule a fold update for the given range. Call after buffer edits.
 ---FeyRange is 1-indexed; vim._foldupdate expects 0-indexed lines.
@@ -1289,6 +1290,46 @@ function FeyMappings:_goto_heading(heading)
   end
   vim.fn.cursor({ heading:get_range().start_line, 1 })
   vim.cmd([[normal! zv]])
+end
+
+function FeyMappings:table_reformat() tableops.reformat() end
+
+---@param choice string
+function FeyMappings:table_insert_row(choice)
+  ({ before = tableops.insert_row_before, after = tableops.insert_row_after })[choice]()
+end
+
+---@param choice string
+function FeyMappings:table_move_row(choice) ({ up = tableops.move_row_up, down = tableops.move_row_down })[choice]() end
+
+---@param choice boolean?
+function FeyMappings:table_insert_col(choice)
+  ({ before = tableops.insert_col_before, after = tableops.insert_col_after })[choice]()
+end
+
+---@param choice string
+function FeyMappings:table_move_col(choice) ({ left = tableops.move_col_left, righ = tableops.move_col_right })[choice]() end
+
+---@param choice string
+function FeyMappings:table_delete(choice) ({ row = tableops.delete_row, col = tableops.delete_col })[choice]() end
+
+---@param choice string
+function FeyMappings:table_move_cell(choice)
+  ({
+    up = tableops.move_cell_up,
+    down = tableops.move_cell_down,
+    left = tableops.move_cell_left,
+    right = tableops.move_cell_right,
+  })[choice]()
+end
+
+---@param choice string
+function FeyMappings:table_merge_cell(choice)
+  ({
+    down = tableops.merge_cell_down,
+    right = tableops.merge_cell_right,
+    unmerge = tableops.unmerge_cells,
+  })[choice]()
 end
 
 return FeyMappings

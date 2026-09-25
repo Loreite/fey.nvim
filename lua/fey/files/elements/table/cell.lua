@@ -1,79 +1,55 @@
 local utils = require('fey.utils')
 
 ---@class FeyTableCell
----@field row FeyTableRow
----@field value string
----@field len number
----@field display_len number
----@field col number
----@field range FeyRange
----@field content string
----@field reference any
+---@field row_idx number Logical row index in the abstract grid
+---@field col_idx number Logical column index in the abstract grid
+---@field rowspan number
+---@field colspan number
+---@field lines string[] Multi-line content
+---@field display_len number Max width among all lines
+---@field range FeyRange[cite: 1]
+---@field config table Parsed configuration (e.g., maxw, minw, auto)
+---@field wrapped table
 local TableCell = {}
 
 function TableCell:new(opts)
-  opts = opts or {}
-  local data = {}
-  data.row = opts.row
-  data.value = opts.value
-  data.len = opts.value:len()
-  data.display_len = vim.api.nvim_strwidth(opts.value)
-  data.col = opts.col or 1
-  data.reference = opts.reference
-  data.range = data.row.range:clone()
-  data.content = opts.content
+  local data = {
+    row_idx = opts.row_idx,
+    col_idx = opts.col_idx,
+    rowspan = opts.rowspan or 1,
+    colspan = opts.colspan or 1,
+    lines = opts.lines or { '' },
+    display_len = 0,
+    config = opts.config or {},
+    range = opts.range,
+    wrapped = {},
+  }
   setmetatable(data, self)
   self.__index = self
+  data:update_display_len()
   return data
 end
 
----@return FeyTableCell
-function TableCell:compile()
-  local width = self.row.table.cols_width[self.col]
-  local val = ''
-  if self.row.is_separator then
-    val = string.format('-%s-', string.rep('-', width))
-  else
-    val = string.format(' %s ', utils.pad_right(self.value, width))
+function TableCell:update_display_len()
+  self.display_len = 0
+  for _, line in ipairs(self.lines) do
+    local len = vim.api.nvim_strwidth(vim.trim(line))
+    if len > self.display_len then self.display_len = len end
   end
-  local start_col = self.row.table.start_col + 2
-  if self.col > 1 then
-    local prev_cell = self.row.cells[self.col - 1]
-    start_col = prev_cell.range.start_col + prev_cell.content:len() + 1
-  end
-  self.range.start_col = start_col
-  self.range.end_col = start_col + self.len - 1
-  if self.value == '' then
-    self.range.end_col = self.range.start_col
-  end
-  self.content = val
-  return self
 end
 
----@return string
-function TableCell:to_string()
-  return self.content
-end
-
----@param data table | string
----@param col_number number
----@param row FeyTableRow
----@return FeyTableCell
-function TableCell.from_row_item(data, col_number, row)
-  local cell_data = {
-    row = row,
-    col = col_number,
-    value = nil,
-    reference = nil,
-  }
-  if type(data) == 'table' then
-    cell_data.value = data.value
-    cell_data.reference = data.reference
-  else
-    cell_data.value = data
+--- Parses 'key: value' configs from the cell lines if it resides in the config block
+function TableCell:parse_config()
+  for _, line in ipairs(self.lines) do
+    local k, v = line:match('([%w_]+):%s*(.+)')
+    if k and v then
+      if k == 'maxw' or k == 'minw' then
+        self.config[k] = tonumber(v)
+      elseif k == 'auto' then
+        self.config[k] = v -- can be a number string or "10%"
+      end
+    end
   end
-
-  return TableCell:new(cell_data)
 end
 
 return TableCell

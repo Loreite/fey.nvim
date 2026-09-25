@@ -214,6 +214,28 @@ local DefaultConfig = {
       -- fey_return = '<CR>',
       fey_insert_heading_respect_content = '<prefix>ih', -- Add new heading after current heading block (same level)
       fey_insert_subheading_respect_content = '<prefix>iH', -- Add new subheading after current heading block (next level)
+      --
+      fey_table_insert_row_before = '<prefix>tiR',
+      fey_table_insert_row_after = '<prefix>tir',
+      fey_table_delete_row = '<prefix>tdr',
+      fey_table_move_row_up = '<prefix>tmk',
+      fey_table_move_row_down = '<prefix>tmj',
+      --
+      fey_table_insert_col_before = '<prefix>tiC',
+      fey_table_insert_col_after = '<prefix>tic',
+      fey_table_delete_col = '<prefix>tdc',
+      fey_table_move_col_left = '<prefix>tmh',
+      fey_table_mvoe_col_right = '<prefix>tml',
+      --
+      fey_table_move_cell_up = '<prefix>tk',
+      fey_table_move_cell_down = '<prefix>tj',
+      fey_table_move_cell_left = '<prefix>th',
+      fey_table_move_cell_right = '<prefix>tl',
+      --
+      fey_table_merge_cell_down = '<prefix>tmd',
+      fey_table_merge_cell_right = '<prefix>tmr',
+      fey_table_unmerge_cells = '<prefix>tu',
+      fey_table_reformat = '<prefix>tf',
       -- fey_insert_todo_heading = '<prefix>iT', -- Add new todo heading right after current heading (same level)
       -- fey_insert_todo_heading_respect_content = '<prefix>it', -- Add new todo heading after current heading block (same level)
       -- fey_export = '<prefix>e',
