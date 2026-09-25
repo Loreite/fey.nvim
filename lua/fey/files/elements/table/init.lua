@@ -97,6 +97,11 @@ function Table.from_current_node(cursor)
         end
       end
 
+      -- Clean up leading empty lines
+      while #cell_lines > 1 and cell_lines[1] == '' do
+        table.remove(cell_lines, 1)
+      end
+
       -- Clean up trailing empty lines that might result from physical padding
       while #cell_lines > 1 and cell_lines[#cell_lines] == '' do
         table.remove(cell_lines)
@@ -160,6 +165,12 @@ function Table.from_current_node(cursor)
         tbl.col_count = #cells
       end
       table.insert(current_physical_rows, cells)
+
+      -- If multi-line is off, each physical row is exactly one logical row
+      if not is_multi_line_mode then
+        commit_logical_row()
+        current_physical_rows = {}
+      end
     elseif type == 'hr' then
       if is_multi_line_mode then
         pending_hrs = pending_hrs + 1

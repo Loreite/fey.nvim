@@ -28,43 +28,84 @@ local function get_ctx()
   return tbl, r, c
 end
 
--- Rebuilds boundary spans/vmerges in logical_grid based on tbl.rows
+-- Rebuilds boundary spans/vmerges dynamically based on table content
 local function sync_boundaries(tbl)
   local old_grid = tbl.logical_grid
-  local new_grid = {}
-  local row_idx = 1
+  local boundary_before = {}
+  local current_row_idx = 1
 
-  -- Reconstruct grid sequence while preserving manual 'hr' lines
+  -- Catalog existing manual boundaries
   for _, item in ipairs(old_grid) do
-    if item.type == 'hr' or item.type == 'cbo' or item.type == 'cbi' then
-      table.insert(new_grid, item)
+    if item.type then
+      boundary_before[current_row_idx] = item.type
     else
-      local row = tbl.rows[row_idx]
-      if row then
-        table.insert(new_grid, row)
-        row_idx = row_idx + 1
-      end
+      current_row_idx = current_row_idx + 1
     end
   end
+  boundary_before[current_row_idx] = boundary_before[current_row_idx] or nil
 
-  -- Add generic bounds for newly inserted rows at the end
-  while row_idx <= #tbl.rows do
-    table.insert(new_grid, { type = 'cbo', spans = {} })
-    table.insert(new_grid, tbl.rows[row_idx])
-    row_idx = row_idx + 1
+  local new_grid = {}
+  local in_multi = false
+
+  for i, row in ipairs(tbl.rows) do
+    local needed_boundary = nil
+    local needs_cbi = false
+    local has_colspan = false
+    local has_multiline = false
+
+    for _, cell in ipairs(row.cells) do
+      if cell.rowspan == 0 then needs_cbi = true end
+      if cell.colspan > 1 then has_colspan = true end
+      if #cell.lines > 1 then has_multiline = true end
+    end
+
+    local prev_has_multiline = false
+    if i > 1 then
+      for _, cell in ipairs(tbl.rows[i - 1].cells) do
+        if #cell.lines > 1 then prev_has_multiline = true end
+      end
+    end
+
+    if needs_cbi then
+      needed_boundary = 'cbi'
+      in_multi = true
+    elseif has_colspan or has_multiline or prev_has_multiline then
+      needed_boundary = 'cbo'
+      in_multi = true
+    else
+      if in_multi then
+        needed_boundary = 'cbo'
+        in_multi = false
+      end
+    end
+
+    -- Preserve manual HRs over automatic bounds
+    local existing = boundary_before[i]
+    if existing == 'hr' then needed_boundary = needs_cbi and 'cbi' or 'hr' end
+
+    if i > 1 and needed_boundary then
+      table.insert(new_grid, { type = needed_boundary, spans = {} })
+    elseif i == 1 and existing == 'hr' then
+      table.insert(new_grid, { type = 'hr', spans = {} })
+    end
+
+    table.insert(new_grid, row)
   end
 
-  -- Update spans based on the structural constraints of the immediately following row
-  for i, item in ipairs(new_grid) do
-    if item.type == 'hr' or item.type == 'cbo' or item.type == 'cbi' then
+  -- Trailing cap
+  local trailing = boundary_before[#tbl.rows + 1]
+  if in_multi or trailing == 'hr' then table.insert(new_grid, { type = trailing == 'hr' and 'hr' or 'cbo', spans = {} }) end
+
+  -- Update visual drawing spans for the active boundaries
+  for idx, item in ipairs(new_grid) do
+    if item.type then
       local next_row = nil
-      for j = i + 1, #new_grid do
+      for j = idx + 1, #new_grid do
         if not new_grid[j].type then
           next_row = new_grid[j]
           break
         end
       end
-
       if next_row then
         local spans = {}
         local col = 1
@@ -77,7 +118,6 @@ local function sync_boundaries(tbl)
             end
           end
           if cell then
-            -- vmerge is true if the cell is a continuation from above (rowspan == 0)
             table.insert(spans, { span = cell.colspan, vmerge = (cell.rowspan == 0) })
             col = col + cell.colspan
           else
@@ -87,7 +127,6 @@ local function sync_boundaries(tbl)
         end
         item.spans = spans
       else
-        -- Bottom boundary mirrors the last row without vmerges
         local prev_row = tbl.rows[#tbl.rows]
         if prev_row then
           local spans = {}
@@ -113,8 +152,130 @@ local function sync_boundaries(tbl)
       end
     end
   end
-
   tbl.logical_grid = new_grid
+end
+
+-- HELPER: Get the multi-column span block spanning consecutive spanned cells
+local function get_col_block(tbl, c)
+  local start_c, end_c = c, c
+  local changed = true
+  while changed do
+    changed = false
+    for _, row in ipairs(tbl.rows) do
+      for _, cell in ipairs(row.cells) do
+        if cell.colspan > 1 then
+          local c_start, c_end = cell.col_idx, cell.col_idx + cell.colspan - 1
+          if not (c_end < start_c or c_start > end_c) then
+            if c_start < start_c then
+              start_c = c_start
+              changed = true
+            end
+            if c_end > end_c then
+              end_c = c_end
+              changed = true
+            end
+          end
+        end
+      end
+    end
+  end
+  return start_c, end_c
+end
+
+-- HELPER: Get the multi-row span block spanning consecutive vmerges
+local function get_row_block(tbl, r)
+  local start_r, end_r = r, r
+  local changed = true
+  while changed do
+    changed = false
+    for i, row in ipairs(tbl.rows) do
+      for _, cell in ipairs(row.cells) do
+        if cell.rowspan > 1 then
+          local c_start, c_end = i, i + cell.rowspan - 1
+          if not (c_end < start_r or c_start > end_r) then
+            if c_start < start_r then
+              start_r = c_start
+              changed = true
+            end
+            if c_end > end_r then
+              end_r = c_end
+              changed = true
+            end
+          end
+        end
+      end
+    end
+  end
+  return start_r, end_r
+end
+
+-- HELPER: Grabs the top root of a vertical cell group regardless of cursor placement
+local function get_vmerge_block(tbl, r, c)
+  local start_r = r
+  local cell = nil
+  while start_r >= 1 do
+    for _, cl in ipairs(tbl.rows[start_r].cells) do
+      if cl.col_idx == c then
+        cell = cl
+        break
+      end
+    end
+    if cell and cell.rowspan > 0 then break end
+    start_r = start_r - 1
+  end
+  if not cell or cell.rowspan == 0 then return nil end
+  return start_r, cell.rowspan, cell
+end
+
+-- HELPER: Shifts full blocks of cells vertically
+local function swap_vmerge_blocks(tbl, c, r1, span1, r2, span2)
+  local extracted = {}
+  for i = r1, r2 + span2 - 1 do
+    local row = tbl.rows[i]
+    local found_idx, cell
+    for j, cl in ipairs(row.cells) do
+      if cl.col_idx == c then
+        found_idx = j
+        cell = cl
+        break
+      end
+    end
+    table.remove(row.cells, found_idx)
+    table.insert(extracted, cell)
+  end
+
+  local blockA, blockB = {}, {}
+  for i = 1, span1 do
+    table.insert(blockA, extracted[i])
+  end
+  for i = 1, span2 do
+    table.insert(blockB, extracted[span1 + i])
+  end
+
+  for i, cell in ipairs(blockB) do
+    cell.row_idx = r1 + i - 1
+  end
+  for i, cell in ipairs(blockA) do
+    cell.row_idx = r1 + span2 + i - 1
+  end
+
+  local new_seq = {}
+  for _, cl in ipairs(blockB) do
+    table.insert(new_seq, cl)
+  end
+  for _, cl in ipairs(blockA) do
+    table.insert(new_seq, cl)
+  end
+
+  for i = r1, r2 + span2 - 1 do
+    local row = tbl.rows[i]
+    local ins_cl = new_seq[i - r1 + 1]
+    local ins_idx = 1
+    while ins_idx <= #row.cells and row.cells[ins_idx].col_idx < c do
+      ins_idx = ins_idx + 1
+    end
+    table.insert(row.cells, ins_idx, ins_cl)
+  end
 end
 
 function TableOps.reformat()
@@ -131,13 +292,13 @@ function TableOps.insert_row_after()
     new_row:add_cell(TableCell:new({ row_idx = r + 1, col_idx = i }))
   end
 
-  for i = r + 1, #tbl.rows do
-    tbl.rows[i].line = i + 1
+  table.insert(tbl.rows, r + 1, new_row)
+  for i = r + 2, #tbl.rows do
+    tbl.rows[i].line = i
     for _, cl in ipairs(tbl.rows[i].cells) do
-      cl.row_idx = cl.row_idx + 1
+      cl.row_idx = i
     end
   end
-  table.insert(tbl.rows, r + 1, new_row)
 
   sync_boundaries(tbl)
   tbl:reformat()
@@ -152,13 +313,13 @@ function TableOps.insert_row_before()
     new_row:add_cell(TableCell:new({ row_idx = r, col_idx = i }))
   end
 
-  for i = r, #tbl.rows do
-    tbl.rows[i].line = i + 1
+  table.insert(tbl.rows, r, new_row)
+  for i = r + 1, #tbl.rows do
+    tbl.rows[i].line = i
     for _, cl in ipairs(tbl.rows[i].cells) do
-      cl.row_idx = cl.row_idx + 1
+      cl.row_idx = i
     end
   end
-  table.insert(tbl.rows, r, new_row)
 
   sync_boundaries(tbl)
   tbl:reformat()
@@ -172,7 +333,7 @@ function TableOps.delete_row()
   for i = r, #tbl.rows do
     tbl.rows[i].line = i
     for _, cl in ipairs(tbl.rows[i].cells) do
-      cl.row_idx = cl.row_idx - 1
+      cl.row_idx = i
     end
   end
 
@@ -188,7 +349,6 @@ function TableOps.insert_col_before()
 
   for r_idx, row in ipairs(tbl.rows) do
     local inserted = false
-    -- Shift columns right or expand cells that span across the insertion point
     for _, cell in ipairs(row.cells) do
       if cell.col_idx < c and cell.col_idx + cell.colspan > c then
         cell.colspan = cell.colspan + 1
@@ -198,7 +358,6 @@ function TableOps.insert_col_before()
       end
     end
 
-    -- If no cell spanned across this gap, insert a fresh 1x1 cell
     if not inserted then
       local idx = 1
       while idx <= #row.cells and row.cells[idx].col_idx < c do
@@ -217,7 +376,6 @@ function TableOps.insert_col_after()
   local tbl, r, c = get_ctx()
   if not tbl then return end
 
-  -- Determine target column based on the current cell's colspan
   local target_c = c + 1
   for _, cl in ipairs(tbl.rows[r].cells) do
     if cl.col_idx == c then
@@ -257,33 +415,21 @@ function TableOps.move_col_left()
   local tbl, _, c = get_ctx()
   if not tbl or c <= 1 then return end
 
-  -- Validate that no cells cross the boundary or have colspans in the involved columns
-  for _, row in ipairs(tbl.rows) do
-    for _, cell in ipairs(row.cells) do
-      if (cell.col_idx == c or cell.col_idx == c - 1) and cell.colspan > 1 then
-        vim.notify('Fey: Cannot move columns containing multi-column cells. Unmerge first.', vim.log.levels.ERROR)
-        return
-      elseif cell.col_idx < c - 1 and cell.col_idx + cell.colspan > c - 1 then
-        vim.notify('Fey: Cannot move columns spanned by multi-column cells.', vim.log.levels.ERROR)
-        return
-      end
-    end
-  end
+  local c2_start, c2_end = get_col_block(tbl, c)
+  if c2_start <= 1 then return end
+
+  local c1_start, c1_end = get_col_block(tbl, c2_start - 1)
+  local w1, w2 = c1_end - c1_start + 1, c2_end - c2_start + 1
 
   for _, row in ipairs(tbl.rows) do
-    local idx_c, idx_prev
-    for i, cell in ipairs(row.cells) do
-      if cell.col_idx == c then
-        idx_c = i
-      elseif cell.col_idx == c - 1 then
-        idx_prev = i
+    for _, cell in ipairs(row.cells) do
+      if cell.col_idx >= c1_start and cell.col_idx <= c1_end then
+        cell.col_idx = cell.col_idx + w2
+      elseif cell.col_idx >= c2_start and cell.col_idx <= c2_end then
+        cell.col_idx = cell.col_idx - w1
       end
     end
-    if idx_c and idx_prev then
-      row.cells[idx_c], row.cells[idx_prev] = row.cells[idx_prev], row.cells[idx_c]
-      row.cells[idx_c].col_idx = c
-      row.cells[idx_prev].col_idx = c - 1
-    end
+    table.sort(row.cells, function(a, b) return a.col_idx < b.col_idx end)
   end
 
   sync_boundaries(tbl)
@@ -293,7 +439,6 @@ end
 function TableOps.delete_col()
   local tbl, _, c = get_ctx()
   if not tbl then return end
-
   if tbl.col_count <= 1 then
     vim.notify('Fey: Cannot delete the last remaining column.', vim.log.levels.WARN)
     return
@@ -303,22 +448,17 @@ function TableOps.delete_col()
 
   for _, row in ipairs(tbl.rows) do
     local remove_idx = nil
-
     for i, cell in ipairs(row.cells) do
-      -- Check if the deleted column falls inside this cell's horizontal span
       if cell.col_idx <= c and (cell.col_idx + cell.colspan - 1) >= c then
         if cell.colspan > 1 then
           cell.colspan = cell.colspan - 1
-          -- cell.col_idx remains the same since the left boundary didn't move past it
         else
           remove_idx = i
         end
       elseif cell.col_idx > c then
-        -- Cells completely to the right of the deleted column shift left
         cell.col_idx = cell.col_idx - 1
       end
     end
-
     if remove_idx then table.remove(row.cells, remove_idx) end
   end
 
@@ -330,33 +470,21 @@ function TableOps.move_col_right()
   local tbl, _, c = get_ctx()
   if not tbl or c >= tbl.col_count then return end
 
-  -- Validate that no cells cross the boundary or have colspans in the involved columns
-  for _, row in ipairs(tbl.rows) do
-    for _, cell in ipairs(row.cells) do
-      if (cell.col_idx == c or cell.col_idx == c + 1) and cell.colspan > 1 then
-        vim.notify('Fey: Cannot move columns containing multi-column cells. Unmerge first.', vim.log.levels.ERROR)
-        return
-      elseif cell.col_idx < c and cell.col_idx + cell.colspan > c then
-        vim.notify('Fey: Cannot move columns spanned by multi-column cells.', vim.log.levels.ERROR)
-        return
-      end
-    end
-  end
+  local c1_start, c1_end = get_col_block(tbl, c)
+  if c1_end >= tbl.col_count then return end
+
+  local c2_start, c2_end = get_col_block(tbl, c1_end + 1)
+  local w1, w2 = c1_end - c1_start + 1, c2_end - c2_start + 1
 
   for _, row in ipairs(tbl.rows) do
-    local idx_c, idx_next
-    for i, cell in ipairs(row.cells) do
-      if cell.col_idx == c then
-        idx_c = i
-      elseif cell.col_idx == c + 1 then
-        idx_next = i
+    for _, cell in ipairs(row.cells) do
+      if cell.col_idx >= c1_start and cell.col_idx <= c1_end then
+        cell.col_idx = cell.col_idx + w2
+      elseif cell.col_idx >= c2_start and cell.col_idx <= c2_end then
+        cell.col_idx = cell.col_idx - w1
       end
     end
-    if idx_c and idx_next then
-      row.cells[idx_c], row.cells[idx_next] = row.cells[idx_next], row.cells[idx_c]
-      row.cells[idx_c].col_idx = c
-      row.cells[idx_next].col_idx = c + 1
-    end
+    table.sort(row.cells, function(a, b) return a.col_idx < b.col_idx end)
   end
 
   sync_boundaries(tbl)
@@ -367,14 +495,31 @@ function TableOps.move_row_up()
   local tbl, r, _ = get_ctx()
   if not tbl or r <= 1 then return end
 
-  tbl.rows[r], tbl.rows[r - 1] = tbl.rows[r - 1], tbl.rows[r]
-  tbl.rows[r].line = r
-  tbl.rows[r - 1].line = r - 1
-  for _, cell in ipairs(tbl.rows[r].cells) do
-    cell.row_idx = r
+  local r2_start, r2_end = get_row_block(tbl, r)
+  if r2_start <= 1 then return end
+
+  local r1_start, r1_end = get_row_block(tbl, r2_start - 1)
+
+  local new_rows = {}
+  for i = 1, r1_start - 1 do
+    table.insert(new_rows, tbl.rows[i])
   end
-  for _, cell in ipairs(tbl.rows[r - 1].cells) do
-    cell.row_idx = r - 1
+  for i = r2_start, r2_end do
+    table.insert(new_rows, tbl.rows[i])
+  end
+  for i = r1_start, r1_end do
+    table.insert(new_rows, tbl.rows[i])
+  end
+  for i = r2_end + 1, #tbl.rows do
+    table.insert(new_rows, tbl.rows[i])
+  end
+
+  tbl.rows = new_rows
+  for i, row in ipairs(tbl.rows) do
+    row.line = i
+    for _, cell in ipairs(row.cells) do
+      cell.row_idx = i
+    end
   end
 
   sync_boundaries(tbl)
@@ -385,14 +530,31 @@ function TableOps.move_row_down()
   local tbl, r, _ = get_ctx()
   if not tbl or r >= #tbl.rows then return end
 
-  tbl.rows[r], tbl.rows[r + 1] = tbl.rows[r + 1], tbl.rows[r]
-  tbl.rows[r].line = r
-  tbl.rows[r + 1].line = r + 1
-  for _, cell in ipairs(tbl.rows[r].cells) do
-    cell.row_idx = r
+  local r1_start, r1_end = get_row_block(tbl, r)
+  if r1_end >= #tbl.rows then return end
+
+  local r2_start, r2_end = get_row_block(tbl, r1_end + 1)
+
+  local new_rows = {}
+  for i = 1, r1_start - 1 do
+    table.insert(new_rows, tbl.rows[i])
   end
-  for _, cell in ipairs(tbl.rows[r + 1].cells) do
-    cell.row_idx = r + 1
+  for i = r2_start, r2_end do
+    table.insert(new_rows, tbl.rows[i])
+  end
+  for i = r1_start, r1_end do
+    table.insert(new_rows, tbl.rows[i])
+  end
+  for i = r2_end + 1, #tbl.rows do
+    table.insert(new_rows, tbl.rows[i])
+  end
+
+  tbl.rows = new_rows
+  for i, row in ipairs(tbl.rows) do
+    row.line = i
+    for _, cell in ipairs(row.cells) do
+      cell.row_idx = i
+    end
   end
 
   sync_boundaries(tbl)
@@ -402,28 +564,43 @@ end
 function TableOps.move_cell_left()
   local tbl, r, c = get_ctx()
   if not tbl then return end
-  local row = tbl.rows[r]
 
-  local idx, cell = nil, nil
-  for i, cl in ipairs(row.cells) do
+  local r_start, span, cell = get_vmerge_block(tbl, r, c)
+  if not r_start then return end
+
+  local root_row = tbl.rows[r_start]
+  local idx
+  for i, cl in ipairs(root_row.cells) do
     if cl.col_idx == c then
       idx = i
-      cell = cl
       break
     end
   end
-  if not cell or idx <= 1 then return end
+  if not idx or idx <= 1 then return end
 
-  local prev_cell = row.cells[idx - 1]
+  local prev_cell = root_row.cells[idx - 1]
   if cell.rowspan ~= prev_cell.rowspan then
     vim.notify('Fey: Cannot swap logical cells with different rowspans.', vim.log.levels.ERROR)
     return
   end
 
-  row.cells[idx], row.cells[idx - 1] = row.cells[idx - 1], row.cells[idx]
-  local temp_col = prev_cell.col_idx
-  prev_cell.col_idx = temp_col + cell.colspan
-  cell.col_idx = temp_col
+  local new_c1_col = prev_cell.col_idx + cell.colspan
+  local new_c2_col = prev_cell.col_idx
+
+  for i = 0, span - 1 do
+    local cur_r = r_start + i
+    local cur_row = tbl.rows[cur_r]
+    local c1, c2
+    for _, cl in ipairs(cur_row.cells) do
+      if cl.col_idx == prev_cell.col_idx then c1 = cl end
+      if cl.col_idx == cell.col_idx then c2 = cl end
+    end
+    if c1 and c2 then
+      c1.col_idx = new_c1_col
+      c2.col_idx = new_c2_col
+    end
+    table.sort(cur_row.cells, function(a, b) return a.col_idx < b.col_idx end)
+  end
 
   sync_boundaries(tbl)
   tbl:reformat()
@@ -432,28 +609,43 @@ end
 function TableOps.move_cell_right()
   local tbl, r, c = get_ctx()
   if not tbl then return end
-  local row = tbl.rows[r]
 
-  local idx, cell = nil, nil
-  for i, cl in ipairs(row.cells) do
+  local r_start, span, cell = get_vmerge_block(tbl, r, c)
+  if not r_start then return end
+
+  local root_row = tbl.rows[r_start]
+  local idx
+  for i, cl in ipairs(root_row.cells) do
     if cl.col_idx == c then
       idx = i
-      cell = cl
       break
     end
   end
-  if not cell or idx >= #row.cells then return end
+  if not idx or idx >= #root_row.cells then return end
 
-  local next_cell = row.cells[idx + 1]
+  local next_cell = root_row.cells[idx + 1]
   if cell.rowspan ~= next_cell.rowspan then
     vim.notify('Fey: Cannot swap logical cells with different rowspans.', vim.log.levels.ERROR)
     return
   end
 
-  row.cells[idx], row.cells[idx + 1] = row.cells[idx + 1], row.cells[idx]
-  local temp_col = cell.col_idx
-  cell.col_idx = temp_col + next_cell.colspan
-  next_cell.col_idx = temp_col
+  local new_c1_col = cell.col_idx + next_cell.colspan
+  local new_c2_col = cell.col_idx
+
+  for i = 0, span - 1 do
+    local cur_r = r_start + i
+    local cur_row = tbl.rows[cur_r]
+    local c1, c2
+    for _, cl in ipairs(cur_row.cells) do
+      if cl.col_idx == cell.col_idx then c1 = cl end
+      if cl.col_idx == next_cell.col_idx then c2 = cl end
+    end
+    if c1 and c2 then
+      c1.col_idx = new_c1_col
+      c2.col_idx = new_c2_col
+    end
+    table.sort(cur_row.cells, function(a, b) return a.col_idx < b.col_idx end)
+  end
 
   sync_boundaries(tbl)
   tbl:reformat()
@@ -463,33 +655,18 @@ function TableOps.move_cell_up()
   local tbl, r, c = get_ctx()
   if not tbl or r <= 1 then return end
 
-  local cell, target_cell, cell_idx, target_idx
-  for i, cl in ipairs(tbl.rows[r].cells) do
-    if cl.col_idx == c then
-      cell = cl
-      cell_idx = i
-      break
-    end
-  end
-  for i, cl in ipairs(tbl.rows[r - 1].cells) do
-    if cl.col_idx == c then
-      target_cell = cl
-      target_idx = i
-      break
-    end
-  end
+  local r2, span2, cell2 = get_vmerge_block(tbl, r, c)
+  if not r2 or r2 <= 1 then return end
 
-  if not cell or not target_cell then return end
-  if cell.colspan ~= target_cell.colspan then
+  local r1, span1, cell1 = get_vmerge_block(tbl, r2 - 1, c)
+  if not r1 then return end
+
+  if cell1.colspan ~= cell2.colspan then
     vim.notify('Fey: Cannot swap logical cells with different colspans.', vim.log.levels.ERROR)
     return
   end
 
-  tbl.rows[r].cells[cell_idx] = target_cell
-  tbl.rows[r - 1].cells[target_idx] = cell
-  cell.row_idx = r - 1
-  target_cell.row_idx = r
-
+  swap_vmerge_blocks(tbl, cell1.col_idx, r1, span1, r2, span2)
   sync_boundaries(tbl)
   tbl:reformat()
 end
@@ -498,33 +675,18 @@ function TableOps.move_cell_down()
   local tbl, r, c = get_ctx()
   if not tbl or r >= #tbl.rows then return end
 
-  local cell, target_cell, cell_idx, target_idx
-  for i, cl in ipairs(tbl.rows[r].cells) do
-    if cl.col_idx == c then
-      cell = cl
-      cell_idx = i
-      break
-    end
-  end
-  for i, cl in ipairs(tbl.rows[r + 1].cells) do
-    if cl.col_idx == c then
-      target_cell = cl
-      target_idx = i
-      break
-    end
-  end
+  local r1, span1, cell1 = get_vmerge_block(tbl, r, c)
+  if not r1 or (r1 + span1 > #tbl.rows) then return end
 
-  if not cell or not target_cell then return end
-  if cell.colspan ~= target_cell.colspan then
+  local r2, span2, cell2 = get_vmerge_block(tbl, r1 + span1, c)
+  if not r2 then return end
+
+  if cell1.colspan ~= cell2.colspan then
     vim.notify('Fey: Cannot swap logical cells with different colspans.', vim.log.levels.ERROR)
     return
   end
 
-  tbl.rows[r].cells[cell_idx] = target_cell
-  tbl.rows[r + 1].cells[target_idx] = cell
-  cell.row_idx = r + 1
-  target_cell.row_idx = r
-
+  swap_vmerge_blocks(tbl, cell1.col_idx, r1, span1, r2, span2)
   sync_boundaries(tbl)
   tbl:reformat()
 end
@@ -532,19 +694,21 @@ end
 function TableOps.merge_cell_right()
   local tbl, r, c = get_ctx()
   if not tbl then return end
-  local row = tbl.rows[r]
 
-  local idx, cell = nil, nil
-  for i, cl in ipairs(row.cells) do
-    if cl.col_idx == c then
+  local r_start, _, cell = get_vmerge_block(tbl, r, c)
+  if not r_start then return end
+
+  local root_row = tbl.rows[r_start]
+  local idx
+  for i, cl in ipairs(root_row.cells) do
+    if cl.col_idx == cell.col_idx then
       idx = i
-      cell = cl
       break
     end
   end
-  if not cell or idx == #row.cells then return end
+  if not idx or idx == #root_row.cells then return end
 
-  local target = row.cells[idx + 1]
+  local target = root_row.cells[idx + 1]
   if target.rowspan ~= cell.rowspan then
     vim.notify('Fey: Cannot merge logical cells with different cross-axis rowspans.', vim.log.levels.ERROR)
     return
@@ -555,20 +719,22 @@ function TableOps.merge_cell_right()
   end
   cell.colspan = cell.colspan + target.colspan
   cell:update_display_len()
+  table.remove(root_row.cells, idx + 1)
 
-  table.remove(row.cells, idx + 1)
-
-  -- Clear out subsequent vmerged placeholders if rowspan spans down
   if cell.rowspan > 1 then
     for step = 1, cell.rowspan - 1 do
-      local next_row = tbl.rows[r + step]
+      local next_row = tbl.rows[r_start + step]
       if next_row then
+        local p_cell, rm_idx
         for ni, nc in ipairs(next_row.cells) do
           if nc.col_idx == target.col_idx then
-            table.remove(next_row.cells, ni)
-            break
+            rm_idx = ni
+          elseif nc.col_idx == cell.col_idx then
+            p_cell = nc
           end
         end
+        if rm_idx then table.remove(next_row.cells, rm_idx) end
+        if p_cell then p_cell.colspan = cell.colspan end
       end
     end
   end
@@ -579,24 +745,13 @@ end
 
 function TableOps.merge_cell_down()
   local tbl, r, c = get_ctx()
-  if not tbl or r == #tbl.rows then return end
+  if not tbl then return end
 
-  local cell, target = nil, nil
-  for _, cl in ipairs(tbl.rows[r].cells) do
-    if cl.col_idx == c then
-      cell = cl
-      break
-    end
-  end
-  for _, cl in ipairs(tbl.rows[r + 1].cells) do
-    if cl.col_idx == c then
-      target = cl
-      break
-    end
-  end
+  local r_start, span, cell = get_vmerge_block(tbl, r, c)
+  if not r_start or (r_start + span > #tbl.rows) then return end
 
-  if not cell or not target then return end
-  if target.colspan ~= cell.colspan then
+  local _, _, target = get_vmerge_block(tbl, r_start + span, c)
+  if not target or target.colspan ~= cell.colspan then
     vim.notify('Fey: Cannot merge logical cells with different cross-axis colspans.', vim.log.levels.ERROR)
     return
   end
@@ -607,7 +762,6 @@ function TableOps.merge_cell_down()
   cell.rowspan = cell.rowspan + target.rowspan
   cell:update_display_len()
 
-  -- Transform target into a placeholder cell directly to avoid layout shift
   target.rowspan = 0
   target.lines = {}
   target:update_display_len()
@@ -619,13 +773,15 @@ end
 function TableOps.unmerge_cells()
   local tbl, r, c = get_ctx()
   if not tbl then return end
-  local row = tbl.rows[r]
 
-  local idx, cell = nil, nil
+  local r_start, _, cell = get_vmerge_block(tbl, r, c)
+  if not r_start then return end
+
+  local row = tbl.rows[r_start]
+  local idx
   for i, cl in ipairs(row.cells) do
-    if cl.col_idx == c then
+    if cl.col_idx == cell.col_idx then
       idx = i
-      cell = cl
       break
     end
   end
@@ -633,36 +789,38 @@ function TableOps.unmerge_cells()
 
   local orig_colspan = cell.colspan
   local orig_rowspan = cell.rowspan
+  local c_idx = cell.col_idx
+
   cell.colspan = 1
   cell.rowspan = 1
 
-  -- Restore horizontal cells
   for extra_c = 1, orig_colspan - 1 do
-    local new_c = c + extra_c
-    local new_cell = TableCell:new({ row_idx = r, col_idx = new_c, colspan = 1, rowspan = 1, lines = {} })
+    local new_c = c_idx + extra_c
+    local new_cell = TableCell:new({ row_idx = r_start, col_idx = new_c, colspan = 1, rowspan = 1, lines = {} })
     table.insert(row.cells, idx + extra_c, new_cell)
   end
 
-  -- Restore vertical placeholders as standard 1x1 cells
   for extra_r = 1, orig_rowspan - 1 do
-    local next_row = tbl.rows[r + extra_r]
+    local next_row = tbl.rows[r_start + extra_r]
     if next_row then
-      local insert_idx = 1
+      local p_idx
       for ni, nc in ipairs(next_row.cells) do
-        if nc.col_idx == c then
-          insert_idx = ni
+        if nc.col_idx == c_idx and nc.rowspan == 0 then
+          p_idx = ni
           break
         end
       end
-
-      if next_row.cells[insert_idx] and next_row.cells[insert_idx].col_idx == c and next_row.cells[insert_idx].rowspan == 0 then
-        table.remove(next_row.cells, insert_idx)
-      end
+      if p_idx then table.remove(next_row.cells, p_idx) end
 
       for extra_c = 0, orig_colspan - 1 do
-        local new_c = c + extra_c
-        local new_cell = TableCell:new({ row_idx = r + extra_r, col_idx = new_c, colspan = 1, rowspan = 1, lines = {} })
-        table.insert(next_row.cells, insert_idx + extra_c, new_cell)
+        local new_c = c_idx + extra_c
+        local new_cell = TableCell:new({ row_idx = r_start + extra_r, col_idx = new_c, colspan = 1, rowspan = 1, lines = {} })
+
+        local ins_idx = 1
+        while ins_idx <= #next_row.cells and next_row.cells[ins_idx].col_idx < new_c do
+          ins_idx = ins_idx + 1
+        end
+        table.insert(next_row.cells, ins_idx, new_cell)
       end
     end
   end
