@@ -19,7 +19,7 @@ function MapEntry.action(handler, opts)
   if opts.args then
     for _, arg in ipairs(opts.args) do
       if type(arg) == 'string' then
-        table.insert(serialized_args, ('%q'):format(arg))
+        table.insert(serialized_args, ('"%s"'):format(arg))
       else
         table.insert(serialized_args, tostring(arg))
       end

@@ -10,9 +10,19 @@
 (body (paragraph) @spell)
 (list (listitem (paragraph) @spell))
 (bullet) @fey.bullet
-(row "|" @fey.table.delimiter)
+
+; tables
+(table (row "|" @fey.table.delimiter))
+(table (row_block (row "|" @fey.table.delimiter)))
 (cell [ "empty" "|" ] @fey.table.delimiter)
 (table . (row (cell (contents) @fey.table.heading)))
 (table (hr) @fey.table.delimiter)
-(table (cbo) @fey.table.delimiter)
-(table (cbi) @fey.table.delimiter)
+(table (row_block (hr) @fey.table.delimiter))
+(table (row_block (cbo) @fey.table.delimiter))
+(table (row_block (cbe) @fey.table.delimiter))
+; how to check for the non-existence of (contents) in cbi_cell to not color that (vmerge)
+(table (row_block (cbi "+" @fey.table.delimiter (cbi_cell [ "div" (cb_corner) (vmerge) ] @fey.table.delimiter))))
+
+; (table (cbi "+" @fey.table.delimiter (cbi_cell [ "|" "div" "empty" "term" ] @fey.table.delimiter)))
+; (table (cbi (cbi_cell (contents) @FeyParagraph)))
+

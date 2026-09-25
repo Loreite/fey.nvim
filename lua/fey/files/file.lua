@@ -116,6 +116,12 @@ function FeyFile:reindex_list()
     local index = vim.treesitter.get_node_text(segment:child(0), buf)
     local delim = vim.treesitter.get_node_text(segment:child(1), buf)
 
+    local anon, enum = index:match(constants.segment_enumeration)
+    if not anon then
+      anon = ''
+      enum = index
+    end
+
     for d = data.depth + 1, #data.counters do
       data.counters[d] = nil
     end
@@ -123,19 +129,20 @@ function FeyFile:reindex_list()
     local depth_start = data.depth
     if data.last_depth < data.depth and (data.depth - data.last_depth) > 1 then depth_start = data.last_depth + 1 end
     for i = depth_start, data.depth do
-      if index ~= '' then data.counters[i] = (data.counters[i] or 0) + 1 end
+      if enum ~= '' then data.counters[i] = (data.counters[i] or 0) + 1 end
     end
 
-    if index ~= '' then
+    if enum ~= '' then
       local pattern_key = data.firsts[data.depth]
       if not pattern_key then
-        pattern_key = sequences.detect_pattern(index)
+        pattern_key = sequences.detect_pattern(enum)
         data.firsts[data.depth] = pattern_key
       end
 
       local pattern = sequences.patterns[pattern_key]
       local idx = data.counters[data.depth] or 1
-      index = pattern.to_symbol(idx)
+      enum = pattern.to_symbol(idx)
+      index = anon .. enum
     end
 
     local new_bullet = index .. delim
@@ -193,9 +200,20 @@ function FeyFile:reindex_headings()
     local signature_text = vim.treesitter.get_node_text(signature, buf)
     local range = { signature:range() }
     local segments = {}
+
     for i, segment in ipairs(signature:named_children()) do
       segments[i] = {}
-      segments[i]['index'] = vim.treesitter.get_node_text(segment:child(0), buf)
+      local index_text = vim.treesitter.get_node_text(segment:child(0), buf)
+
+      local anon, enum = index_text:match(constants.segment_enumeration)
+      if not anon then
+        anon = ''
+        enum = index_text
+      end
+
+      segments[i]['anon'] = anon
+      segments[i]['enum'] = enum
+      segments[i]['index'] = index_text
       segments[i]['delim'] = vim.treesitter.get_node_text(segment:child(1), buf)
     end
     local depth = #segments
@@ -208,21 +226,22 @@ function FeyFile:reindex_headings()
     local depth_start = depth
     if data.last_depth < depth and (depth - data.last_depth) > 1 then depth_start = data.last_depth + 1 end
     for i = depth_start, depth do
-      if segments[i].index ~= '' then data.counters[i] = (data.counters[i] or 0) + 1 end
+      if segments[i].enum ~= '' then data.counters[i] = (data.counters[i] or 0) + 1 end
     end
 
     for d = 1, depth do
       local segment = segments[d]
-      if segment.index ~= '' then
+      if segment.enum ~= '' then
         local pattern_key = data.firsts[d]
         if not pattern_key then
-          pattern_key = sequences.detect_pattern(segment.index)
+          pattern_key = sequences.detect_pattern(segment.enum)
           data.firsts[d] = pattern_key
         end
 
         local pattern = sequences.patterns[pattern_key]
         local idx = (d == depth) and data.counters[depth] or (data.counters[d] or 1)
-        segment.index = pattern.to_symbol(idx)
+        segment.enum = pattern.to_symbol(idx)
+        segment.index = segment.anon .. segment.enum
       end
     end
 

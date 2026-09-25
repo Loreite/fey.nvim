@@ -1,4 +1,4 @@
-; (block parameter: (expr) @_lang (contents) @injection.content (#set! injection.include-children) (#fey-set-block-language! @_lang))
+(block parameter: (expr) @_lang (contents) @injection.content (#set! injection.include-children) (#fey-set-block-language! @_lang))
 ; (inline_code_block
 ;   open: (open) @_lang
 ;   contents: (contents) @injection.content
