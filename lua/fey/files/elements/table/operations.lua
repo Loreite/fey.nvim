@@ -31,18 +31,19 @@ end
 -- Rebuilds boundary spans/vmerges dynamically based on table content
 local function sync_boundaries(tbl)
   local old_grid = tbl.logical_grid
-  local boundary_before = {}
-  local current_row_idx = 1
+  local boundary_before_row = {}
+  local last_boundary = nil
 
-  -- Catalog existing manual boundaries
+  -- Catalog existing manual boundaries by mapping them to their specific row objects
   for _, item in ipairs(old_grid) do
     if item.type then
-      boundary_before[current_row_idx] = item.type
+      last_boundary = item.type
     else
-      current_row_idx = current_row_idx + 1
+      boundary_before_row[item] = last_boundary
+      last_boundary = nil
     end
   end
-  boundary_before[current_row_idx] = boundary_before[current_row_idx] or nil
+  local trailing_boundary = last_boundary
 
   local new_grid = {}
   local in_multi = false
@@ -79,8 +80,8 @@ local function sync_boundaries(tbl)
       end
     end
 
-    -- Preserve manual HRs over automatic bounds
-    local existing = boundary_before[i]
+    -- Preserve manual HRs over automatic bounds using the object reference
+    local existing = boundary_before_row[row]
     if existing == 'hr' then needed_boundary = needs_cbi and 'cbi' or 'hr' end
 
     if i > 1 and needed_boundary then
@@ -93,8 +94,9 @@ local function sync_boundaries(tbl)
   end
 
   -- Trailing cap
-  local trailing = boundary_before[#tbl.rows + 1]
-  if in_multi or trailing == 'hr' then table.insert(new_grid, { type = trailing == 'hr' and 'hr' or 'cbo', spans = {} }) end
+  if in_multi or trailing_boundary == 'hr' then
+    table.insert(new_grid, { type = trailing_boundary == 'hr' and 'hr' or 'cbo', spans = {} })
+  end
 
   -- Update visual drawing spans for the active boundaries
   for idx, item in ipairs(new_grid) do

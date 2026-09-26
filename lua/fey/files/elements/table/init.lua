@@ -58,18 +58,16 @@ function Table.from_current_node(cursor)
   local current_top_boundary = nil
   local has_seen_crown = false
   local is_multi_line_mode = false
-  local pending_hrs = 0 -- Track deferred HR boundaries
+  local pending_hrs = 0
 
   local function commit_logical_row()
     if #current_physical_rows == 0 then return end
 
     local logical_row = TableRow:new({ table = tbl, line = #tbl.rows + 1 })
 
-    local spans = (is_multi_line_mode and current_top_boundary and current_top_boundary.type ~= 'hr')
-        and current_top_boundary.spans
-      or nil
+    -- local spans = (is_multi_line_mode and current_top_boundary and current_top_boundary.type ~= 'hr')
+    local spans = (is_multi_line_mode and current_top_boundary) and current_top_boundary.spans or nil
 
-    -- Fallback to standard 1:1 columns if not bound by an active CBO/CBI span
     if not spans then
       spans = {}
       for i = 1, tbl.col_count do
@@ -83,7 +81,6 @@ function Table.from_current_node(cursor)
       for _, phys_row in ipairs(current_physical_rows) do
         local cell_node = phys_row[i]
         if cell_node then
-          -- Build O(1) node mapping linking physical TS coordinates to abstract grid coordinates
           local s_row, s_col = cell_node:start()
           tbl.node_map[('%d,%d'):format(s_row, s_col)] = { r = logical_row.line, c = col_idx }
 
@@ -97,18 +94,14 @@ function Table.from_current_node(cursor)
         end
       end
 
-      -- Clean up leading empty lines
       while #cell_lines > 1 and cell_lines[1] == '' do
         table.remove(cell_lines, 1)
       end
-
-      -- Clean up trailing empty lines that might result from physical padding
       while #cell_lines > 1 and cell_lines[#cell_lines] == '' do
         table.remove(cell_lines)
       end
 
       if span_info.vmerge and #tbl.rows > 0 then
-        -- Apply the lines to the cell in the previous valid row for this column block
         local prev_cell
         for r = #tbl.rows, 1, -1 do
           for _, c in ipairs(tbl.rows[r].cells) do
@@ -122,13 +115,19 @@ function Table.from_current_node(cursor)
 
         if prev_cell then
           prev_cell.rowspan = prev_cell.rowspan + 1
+
+          -- Extract and commit the multi-line content physically embedded on the $.cbi bound
+          if span_info.content and vim.trim(span_info.content) ~= '' then
+            table.insert(prev_cell.lines, vim.trim(span_info.content))
+            span_info.content = nil
+          end
+
           for _, ln in ipairs(cell_lines) do
             if vim.trim(ln) ~= '' then table.insert(prev_cell.lines, ln) end
           end
           prev_cell:update_display_len()
         end
 
-        -- Insert a placeholder cell into this logical row so the grid respects the skip
         local cell = TableCell:new({
           row_idx = logical_row.line,
           col_idx = col_idx,
@@ -166,7 +165,6 @@ function Table.from_current_node(cursor)
       end
       table.insert(current_physical_rows, cells)
 
-      -- If multi-line is off, each physical row is exactly one logical row
       if not is_multi_line_mode then
         commit_logical_row()
         current_physical_rows = {}
@@ -177,16 +175,12 @@ function Table.from_current_node(cursor)
       else
         commit_logical_row()
         current_physical_rows = {}
-
-        local boundary = { type = type }
-        table.insert(tbl.logical_grid, boundary)
-        current_top_boundary = boundary
+        table.insert(tbl.logical_grid, { type = type })
       end
     elseif utils.set({ 'cbi', 'cbo' })[type] then
       commit_logical_row()
       current_physical_rows = {}
 
-      -- Flush pending HR boundaries immediately after committing the deferred region's logical row
       while pending_hrs > 0 do
         table.insert(tbl.logical_grid, { type = 'hr' })
         pending_hrs = pending_hrs - 1
@@ -194,12 +188,33 @@ function Table.from_current_node(cursor)
 
       local spans = {}
       local span = 0
+      local current_col_idx = 1
+
       for i, cell in ipairs(child:field('cb_cell')) do
         span = span + 1
         local text = vim.treesitter.get_node_text(cell, bufnr)
+
         if text:sub(-1, -1) == '+' then
           local vmerge = text:sub(1, 1) == '|' and text:sub(-2, -2) == '|'
-          table.insert(spans, { span = span, start = i, vmerge = vmerge })
+          local content = nil
+
+          if vmerge then
+            -- Mirror the column width constraint from the top boundary bounds
+            if current_top_boundary and current_top_boundary.spans then
+              local search_col = 1
+              for _, top_span in ipairs(current_top_boundary.spans) do
+                if search_col == current_col_idx then
+                  span = top_span.span
+                  break
+                end
+                search_col = search_col + top_span.span
+              end
+            end
+            content = vim.trim(text:sub(2, -3))
+          end
+
+          table.insert(spans, { span = span, start = i, vmerge = vmerge, content = content })
+          current_col_idx = current_col_idx + span
           span = 0
         end
       end
@@ -219,7 +234,6 @@ function Table.from_current_node(cursor)
   end
   commit_logical_row()
 
-  -- Handle trailing hr instances
   while pending_hrs > 0 do
     table.insert(tbl.logical_grid, { type = 'hr' })
     pending_hrs = pending_hrs - 1
@@ -232,14 +246,16 @@ function Table:calculate_widths(max_table_width)
   max_table_width = max_table_width or 120
   self.col_widths = {}
   for i = 1, self.col_count do
-    self.col_widths[i] = 3
+    self.col_widths[i] = 1 -- Lowered base minimum to 1 character
   end
 
-  -- Apply single-column widths
   for _, row in ipairs(self.rows) do
     for _, cell in ipairs(row.cells) do
       if cell.colspan == 1 then
         local required = cell.display_len
+        -- Account for the 2 inner '|' characters eating space on the $.cbi bound
+        if cell.rowspan > 1 then required = required + 2 end
+
         if cell.config.minw and cell.config.minw > required then required = cell.config.minw end
         if cell.config.maxw and cell.config.maxw < required then required = cell.config.maxw end
         self.col_widths[cell.col_idx] = math.max(self.col_widths[cell.col_idx], required)
@@ -247,11 +263,13 @@ function Table:calculate_widths(max_table_width)
     end
   end
 
-  -- Apply and distribute multi-column widths
   for _, row in ipairs(self.rows) do
     for _, cell in ipairs(row.cells) do
       if cell.colspan > 1 then
         local required = cell.display_len
+        -- Account for the 2 inner '|' characters eating space on the $.cbi bound
+        if cell.rowspan > 1 then required = required + 2 end
+
         local current_span_width = 0
         for c = cell.col_idx, cell.col_idx + cell.colspan - 1 do
           current_span_width = current_span_width + self.col_widths[c]
@@ -269,7 +287,6 @@ function Table:calculate_widths(max_table_width)
     end
   end
 
-  -- Limit maximum width constraint via degradation
   local total = 1
   for i = 1, self.col_count do
     total = total + self.col_widths[i] + 3
@@ -286,14 +303,13 @@ function Table:calculate_widths(max_table_width)
           largest_idx = i
         end
       end
-      if largest_val <= 3 then break end
+      if largest_val <= 1 then break end -- Lowered degradation limit to 1
       self.col_widths[largest_idx] = self.col_widths[largest_idx] - 1
       excess = excess - 1
     end
   end
 end
 
--- Local helper to chunk cell contents that exceed block width limits
 local function wrap_lines(lines, max_w)
   local wrapped = {}
   for _, line in ipairs(lines) do
@@ -324,45 +340,6 @@ function Table:draw()
   self:calculate_widths(120)
   local rendered_lines = {}
 
-  local function draw_boundary(b_type, spans)
-    local chars = { hr = '=', cbo = '-', cbi = '~' }
-    local fill = chars[b_type] or '-'
-    local line = '+'
-
-    if not spans then
-      for i = 1, self.col_count do
-        line = line .. string.rep(fill, self.col_widths[i] + 2) .. '+'
-      end
-    else
-      local col_idx = 1
-      for _, span_info in ipairs(spans) do
-        local span_str = ''
-        if span_info.vmerge then
-          for i = 0, span_info.span - 1 do
-            local c = col_idx + i
-            local w = self.col_widths[c] + 2
-            local spaces = string.rep(' ', w - 2)
-            span_str = span_str .. '|' .. spaces .. '|'
-            if i < span_info.span - 1 then span_str = span_str .. '*' end
-          end
-          span_str = span_str .. '+'
-        else
-          for i = 0, span_info.span - 1 do
-            local c = col_idx + i
-            local w = self.col_widths[c] + 2
-            span_str = span_str .. string.rep(fill, w)
-            if i < span_info.span - 1 then span_str = span_str .. '*' end
-          end
-          span_str = span_str .. '+'
-        end
-        line = line .. span_str
-        col_idx = col_idx + span_info.span
-      end
-    end
-    return line
-  end
-
-  -- Wrap cell contents to their respective span constraints
   for _, row in ipairs(self.rows) do
     for _, cell in ipairs(row.cells) do
       local max_w = 0
@@ -378,6 +355,8 @@ function Table:draw()
   for i = 1, #self.rows do
     row_phys_lines[i] = 1
   end
+
+  -- Calculate the height distribution, injecting `cbi` boundary real estate into the available space
   for i, row in ipairs(self.rows) do
     for _, cell in ipairs(row.cells) do
       if cell.rowspan > 0 then
@@ -386,6 +365,8 @@ function Table:draw()
         for r = i, i + cell.rowspan - 1 do
           available = available + row_phys_lines[r]
         end
+        available = available + (cell.rowspan - 1)
+
         if needed > available then
           local diff = needed - available
           local var1 = math.floor(diff / cell.rowspan)
@@ -401,12 +382,74 @@ function Table:draw()
     end
   end
 
+  -- Global cursor sequentially tracking the next text line assigned out of a cell's `wrapped` block
+  local cell_line_cursor = {}
+  local next_row_idx = 1
+
   for _, item in ipairs(self.logical_grid) do
     if item.type == 'hr' or item.type == 'cbo' or item.type == 'cbi' then
-      table.insert(rendered_lines, draw_boundary(item.type, item.spans))
+      local chars = { hr = '=', cbo = '-', cbi = '~' }
+      local fill = chars[item.type] or '-'
+      local line = '+'
+
+      if not item.spans then
+        for i = 1, self.col_count do
+          line = line .. string.rep(fill, self.col_widths[i] + 2) .. '+'
+        end
+      else
+        local col_idx = 1
+        for _, span_info in ipairs(item.spans) do
+          if span_info.vmerge then
+            local active_cell = nil
+            for _, r in ipairs(self.rows) do
+              for _, c in ipairs(r.cells) do
+                if c.col_idx == col_idx and c.rowspan > 0 then
+                  if c.row_idx < next_row_idx and (c.row_idx + c.rowspan - 1) >= next_row_idx then
+                    active_cell = c
+                    break
+                  end
+                end
+              end
+              if active_cell then break end
+            end
+
+            local text = ''
+            if active_cell then
+              local line_idx = cell_line_cursor[active_cell] or 1
+              text = active_cell.wrapped[line_idx] or ''
+              cell_line_cursor[active_cell] = line_idx + 1
+            end
+
+            local total_chars = 0
+            for i = 0, span_info.span - 1 do
+              total_chars = total_chars + self.col_widths[col_idx + i] + 2
+            end
+            total_chars = total_chars + span_info.span
+
+            local text_w = vim.api.nvim_strwidth(text)
+            local pad_len = total_chars - text_w - 5
+            if pad_len < 0 then pad_len = 0 end
+
+            line = line .. '| ' .. text .. string.rep(' ', pad_len) .. ' |+'
+          else
+            local span_str = ''
+            for i = 0, span_info.span - 1 do
+              local c = col_idx + i
+              local w = self.col_widths[c] + 2
+              span_str = span_str .. string.rep(fill, w)
+              if i < span_info.span - 1 then span_str = span_str .. '*' end
+            end
+            span_str = span_str .. '+'
+            line = line .. span_str
+          end
+          col_idx = col_idx + span_info.span
+        end
+      end
+      table.insert(rendered_lines, line)
     else
       local logical_row = item
       local row_idx = logical_row.line
+      next_row_idx = row_idx + 1
       local phys_count = row_phys_lines[row_idx] or 1
 
       for l = 1, phys_count do
@@ -414,17 +457,15 @@ function Table:draw()
         local col_idx = 1
 
         while col_idx <= self.col_count do
-          local cell = nil
+          local active_cell = nil
           for _, c in ipairs(logical_row.cells) do
             if c.col_idx == col_idx then
-              cell = c
+              active_cell = c
               break
             end
           end
 
-          -- Reverse lookup multi-row cell content from previous bounded instances
-          local active_cell = cell
-          if cell and cell.rowspan == 0 then
+          if active_cell and active_cell.rowspan == 0 then
             for r = row_idx - 1, 1, -1 do
               for _, c in ipairs(self.rows[r].cells) do
                 if c.col_idx == col_idx and c.rowspan > 0 then
@@ -436,17 +477,11 @@ function Table:draw()
             end
           end
 
-          local rendered_in_prev_rows = 0
-          if active_cell and active_cell.row_idx < row_idx then
-            for r = active_cell.row_idx, row_idx - 1 do
-              rendered_in_prev_rows = rendered_in_prev_rows + (row_phys_lines[r] or 1)
-            end
-          end
-
           local text = ''
           if active_cell then
-            local line_index = rendered_in_prev_rows + l
-            text = active_cell.wrapped[line_index] or ''
+            local line_idx = cell_line_cursor[active_cell] or 1
+            text = active_cell.wrapped[line_idx] or ''
+            cell_line_cursor[active_cell] = line_idx + 1
           end
 
           local span = active_cell and active_cell.colspan or 1

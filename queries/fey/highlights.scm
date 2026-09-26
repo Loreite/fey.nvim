@@ -15,4 +15,6 @@
 (table . (row (cell (contents) @fey.table.heading)))
 (table (hr) @fey.table.delimiter)
 (table (cbo) @fey.table.delimiter)
-(table (cbi) @fey.table.delimiter)
+(table (cbi "+" @fey.table.delimiter (cbi_cell ["|" "div" "empty" "term"] @fey.table.delimiter)))
+; (table (cbi (cbi_cell (contents) @FeyParagraph)))
+
