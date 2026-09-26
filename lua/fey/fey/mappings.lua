@@ -1292,6 +1292,67 @@ function FeyMappings:_goto_heading(heading)
   vim.cmd([[normal! zv]])
 end
 
+---@param before boolean?
+function FeyMappings:table_create(before)
+  local count = vim.v.count
+  local w, h
+  if count == 0 then
+    vim.ui.input({
+      prompt = 'Table size (cols, rows): ',
+      scope = 'buffer',
+    }, function(input)
+      if not input then return end
+      w, h = unpack(vim.iter(input:gmatch('%d+')):map(tonumber):totable())
+      w = w or 2
+      h = h or w or 2
+    end)
+  else
+    w, h = count, count
+  end
+
+  if not w then return end
+  local lines = {}
+  for _ = 1, h do
+    table.insert(lines, ('|   '):rep(w) .. '|')
+  end
+
+  local line = vim.fn.line('.')
+  if before then line = line - 1 end
+  vim.fn.append(line, lines)
+end
+
+local BOUNDARY_CHARS = {
+  start = { t = 'v', m = '-' },
+  inner = { t = '+', m = '~' },
+  ['end'] = { t = '^', m = '-' },
+  div = { t = '+', m = '=' },
+}
+
+local function make_string(tbl, t, m)
+  local s = t
+  for i = 1, tbl.col_count do
+    s = s .. m:rep(tbl.col_widths[i] + 2) .. t
+  end
+  return s
+end
+
+---@param type string
+---@param before boolean?
+function FeyMappings:table_insert_boundary(type, before)
+  local tbl = tableops.get_ctx()
+  if not tbl then return end
+  tbl:calculate_widths()
+
+  local chars = BOUNDARY_CHARS[type]
+  if not chars then error(('table_insert_boundary: unknown boundary type %q'):format(type), 2) end
+
+  local newline = make_string(tbl, chars.t, chars.m)
+
+  local line = vim.fn.line('.')
+  if before then line = line - 1 end
+  vim.fn.append(line, newline)
+end
+
 function FeyMappings:table_reformat() tableops.reformat() end
 
 ---@param choice string

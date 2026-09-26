@@ -6,7 +6,7 @@ local ts_utils = require('fey.utils.treesitter')
 local TableOps = {}
 
 -- Helper to safely get the table and logical cell position at cursor
-local function get_ctx()
+function TableOps.get_ctx()
   local tbl = Table.from_current_node()
   if not tbl then return nil, 1, 1 end
 
@@ -281,12 +281,12 @@ local function swap_vmerge_blocks(tbl, c, r1, span1, r2, span2)
 end
 
 function TableOps.reformat()
-  local tbl = get_ctx()
+  local tbl = TableOps.get_ctx()
   if tbl then tbl:reformat() end
 end
 
 function TableOps.insert_row_after()
-  local tbl, r, _ = get_ctx()
+  local tbl, r, _ = TableOps.get_ctx()
   if not tbl then return end
 
   local new_row = TableRow:new({ table = tbl, line = r + 1 })
@@ -307,7 +307,7 @@ function TableOps.insert_row_after()
 end
 
 function TableOps.insert_row_before()
-  local tbl, r, _ = get_ctx()
+  local tbl, r, _ = TableOps.get_ctx()
   if not tbl then return end
 
   local new_row = TableRow:new({ table = tbl, line = r })
@@ -328,7 +328,7 @@ function TableOps.insert_row_before()
 end
 
 function TableOps.delete_row()
-  local tbl, r, _ = get_ctx()
+  local tbl, r, _ = TableOps.get_ctx()
   if not tbl or #tbl.rows <= 1 then return end
 
   table.remove(tbl.rows, r)
@@ -344,7 +344,7 @@ function TableOps.delete_row()
 end
 
 function TableOps.insert_col_before()
-  local tbl, _, c = get_ctx()
+  local tbl, _, c = TableOps.get_ctx()
   if not tbl then return end
 
   tbl.col_count = tbl.col_count + 1
@@ -375,7 +375,7 @@ function TableOps.insert_col_before()
 end
 
 function TableOps.insert_col_after()
-  local tbl, r, c = get_ctx()
+  local tbl, r, c = TableOps.get_ctx()
   if not tbl then return end
 
   local target_c = c + 1
@@ -414,7 +414,7 @@ function TableOps.insert_col_after()
 end
 
 function TableOps.move_col_left()
-  local tbl, _, c = get_ctx()
+  local tbl, _, c = TableOps.get_ctx()
   if not tbl or c <= 1 then return end
 
   local c2_start, c2_end = get_col_block(tbl, c)
@@ -439,7 +439,7 @@ function TableOps.move_col_left()
 end
 
 function TableOps.delete_col()
-  local tbl, _, c = get_ctx()
+  local tbl, _, c = TableOps.get_ctx()
   if not tbl then return end
   if tbl.col_count <= 1 then
     vim.notify('Fey: Cannot delete the last remaining column.', vim.log.levels.WARN)
@@ -469,7 +469,7 @@ function TableOps.delete_col()
 end
 
 function TableOps.move_col_right()
-  local tbl, _, c = get_ctx()
+  local tbl, _, c = TableOps.get_ctx()
   if not tbl or c >= tbl.col_count then return end
 
   local c1_start, c1_end = get_col_block(tbl, c)
@@ -494,7 +494,7 @@ function TableOps.move_col_right()
 end
 
 function TableOps.move_row_up()
-  local tbl, r, _ = get_ctx()
+  local tbl, r, _ = TableOps.get_ctx()
   if not tbl or r <= 1 then return end
 
   local r2_start, r2_end = get_row_block(tbl, r)
@@ -529,7 +529,7 @@ function TableOps.move_row_up()
 end
 
 function TableOps.move_row_down()
-  local tbl, r, _ = get_ctx()
+  local tbl, r, _ = TableOps.get_ctx()
   if not tbl or r >= #tbl.rows then return end
 
   local r1_start, r1_end = get_row_block(tbl, r)
@@ -564,7 +564,7 @@ function TableOps.move_row_down()
 end
 
 function TableOps.move_cell_left()
-  local tbl, r, c = get_ctx()
+  local tbl, r, c = TableOps.get_ctx()
   if not tbl then return end
 
   local r_start, span, cell = get_vmerge_block(tbl, r, c)
@@ -609,7 +609,7 @@ function TableOps.move_cell_left()
 end
 
 function TableOps.move_cell_right()
-  local tbl, r, c = get_ctx()
+  local tbl, r, c = TableOps.get_ctx()
   if not tbl then return end
 
   local r_start, span, cell = get_vmerge_block(tbl, r, c)
@@ -654,7 +654,7 @@ function TableOps.move_cell_right()
 end
 
 function TableOps.move_cell_up()
-  local tbl, r, c = get_ctx()
+  local tbl, r, c = TableOps.get_ctx()
   if not tbl or r <= 1 then return end
 
   local r2, span2, cell2 = get_vmerge_block(tbl, r, c)
@@ -674,7 +674,7 @@ function TableOps.move_cell_up()
 end
 
 function TableOps.move_cell_down()
-  local tbl, r, c = get_ctx()
+  local tbl, r, c = TableOps.get_ctx()
   if not tbl or r >= #tbl.rows then return end
 
   local r1, span1, cell1 = get_vmerge_block(tbl, r, c)
@@ -694,7 +694,7 @@ function TableOps.move_cell_down()
 end
 
 function TableOps.merge_cell_right()
-  local tbl, r, c = get_ctx()
+  local tbl, r, c = TableOps.get_ctx()
   if not tbl then return end
 
   local r_start, _, cell = get_vmerge_block(tbl, r, c)
@@ -746,7 +746,7 @@ function TableOps.merge_cell_right()
 end
 
 function TableOps.merge_cell_down()
-  local tbl, r, c = get_ctx()
+  local tbl, r, c = TableOps.get_ctx()
   if not tbl then return end
 
   local r_start, span, cell = get_vmerge_block(tbl, r, c)
@@ -773,7 +773,7 @@ function TableOps.merge_cell_down()
 end
 
 function TableOps.unmerge_cells()
-  local tbl, r, c = get_ctx()
+  local tbl, r, c = TableOps.get_ctx()
   if not tbl then return end
 
   local r_start, _, cell = get_vmerge_block(tbl, r, c)

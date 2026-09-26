@@ -350,6 +350,75 @@ return {
     -- END:
 
     -- BEGIN: Table Mappings
+    fey_table_create_before = m.action('fey_mappings.table_create', {
+      args = { true },
+      opts = {
+        desc = 'create table before',
+        help_desc = 'insert table before curent line using count or obtained input. default 2x2',
+      },
+    }),
+    fey_table_create_after = m.action('fey_mappings.table_create', {
+      opts = {
+        desc = 'create table after',
+        help_desc = 'insert table after current line using count or obtained input. default 2x2',
+      },
+    }),
+    fey_table_insert_boundary_start_before = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'start', true },
+      opts = {
+        desc = 'insert logical start boundary before',
+        help_desc = 'inserts a logical row bounary start line before the current row',
+      },
+    }),
+    fey_table_insert_boundary_inner_before = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'inner', true },
+      opts = {
+        desc = 'insert logical inner boundary before',
+        help_desc = 'inserts a logical row inner boundary line before the current row',
+      },
+    }),
+    fey_table_insert_boundary_end_before = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'end', true },
+      opts = {
+        desc = 'insert logical end boundary before',
+        help_desc = 'inserts a logical row bounary end line before the current row',
+      },
+    }),
+    fey_table_insert_section_divider_before = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'div', true },
+      opts = {
+        desc = 'insert section divider before',
+        help_desc = 'inserts a section divider line before the current row',
+      },
+    }),
+    fey_table_insert_boundary_start_after = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'start' },
+      opts = {
+        desc = 'insert logical start boundary after',
+        help_desc = 'inserts a logical row bounary start line after the current row',
+      },
+    }),
+    fey_table_insert_boundary_inner_after = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'inner' },
+      opts = {
+        desc = 'insert logical inner boundary after',
+        help_desc = 'inserts a logical row inner boundary line after the current row',
+      },
+    }),
+    fey_table_insert_boundary_end_after = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'end' },
+      opts = {
+        desc = 'insert logical end boundary after',
+        help_desc = 'inserts a logical row bounary end line after the current row',
+      },
+    }),
+    fey_table_insert_section_divider_after = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'div' },
+      opts = {
+        desc = 'insert section divider after',
+        help_desc = 'inserts a section divider line after the current row',
+      },
+    }),
     fey_table_reformat = m.action(
       'fey_mappings.table_reformat',
       { opts = { desc = 'reformat table', help_desc = 'reformat table, reflowing text and aligning to a grid' } }

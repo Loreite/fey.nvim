@@ -65,7 +65,6 @@ function Table.from_current_node(cursor)
 
     local logical_row = TableRow:new({ table = tbl, line = #tbl.rows + 1 })
 
-    -- local spans = (is_multi_line_mode and current_top_boundary and current_top_boundary.type ~= 'hr')
     local spans = (is_multi_line_mode and current_top_boundary) and current_top_boundary.spans or nil
 
     if not spans then
@@ -116,7 +115,6 @@ function Table.from_current_node(cursor)
         if prev_cell then
           prev_cell.rowspan = prev_cell.rowspan + 1
 
-          -- Extract and commit the multi-line content physically embedded on the $.cbi bound
           if span_info.content and vim.trim(span_info.content) ~= '' then
             table.insert(prev_cell.lines, vim.trim(span_info.content))
             span_info.content = nil
@@ -177,6 +175,18 @@ function Table.from_current_node(cursor)
         current_physical_rows = {}
         table.insert(tbl.logical_grid, { type = type })
       end
+    elseif type == 'cbe' then
+      commit_logical_row()
+      current_physical_rows = {}
+
+      while pending_hrs > 0 do
+        table.insert(tbl.logical_grid, { type = 'hr' })
+        pending_hrs = pending_hrs - 1
+      end
+
+      table.insert(tbl.logical_grid, { type = type })
+      is_multi_line_mode = false
+      current_top_boundary = nil
     elseif utils.set({ 'cbi', 'cbo' })[type] then
       commit_logical_row()
       current_physical_rows = {}
@@ -193,24 +203,31 @@ function Table.from_current_node(cursor)
       for i, cell in ipairs(child:field('cb_cell')) do
         span = span + 1
         local text = vim.treesitter.get_node_text(cell, bufnr)
+        local last_char = text:sub(-1, -1)
 
-        if text:sub(-1, -1) == '+' then
-          local vmerge = text:sub(1, 1) == '|' and text:sub(-2, -2) == '|'
+        if last_char == '+' or last_char == 'v' then
+          local vmerge = false
           local content = nil
 
-          if vmerge then
-            -- Mirror the column width constraint from the top boundary bounds
-            if current_top_boundary and current_top_boundary.spans then
-              local search_col = 1
-              for _, top_span in ipairs(current_top_boundary.spans) do
-                if search_col == current_col_idx then
-                  span = top_span.span
-                  break
+          -- Only scan for inner optional content if we are strictly on a cbi
+          if type == 'cbi' then
+            local fill = '~'
+            local inner_text = text:sub(1, -2)
+            vmerge = inner_text:match('[^' .. fill .. ']') ~= nil
+
+            if vmerge then
+              if current_top_boundary and current_top_boundary.spans then
+                local search_col = 1
+                for _, top_span in ipairs(current_top_boundary.spans) do
+                  if search_col == current_col_idx then
+                    span = top_span.span
+                    break
+                  end
+                  search_col = search_col + top_span.span
                 end
-                search_col = search_col + top_span.span
               end
+              content = vim.trim(inner_text)
             end
-            content = vim.trim(text:sub(2, -3))
           end
 
           table.insert(spans, { span = span, start = i, vmerge = vmerge, content = content })
@@ -223,11 +240,7 @@ function Table.from_current_node(cursor)
       table.insert(tbl.logical_grid, boundary)
       current_top_boundary = boundary
 
-      if type == 'cbo' and not is_multi_line_mode then
-        is_multi_line_mode = true
-      elseif type == 'cbo' and is_multi_line_mode then
-        is_multi_line_mode = false
-      end
+      if type == 'cbo' then is_multi_line_mode = true end
 
       if not has_seen_crown and #tbl.rows > 0 then has_seen_crown = true end
     end
@@ -246,15 +259,13 @@ function Table:calculate_widths(max_table_width)
   max_table_width = max_table_width or 120
   self.col_widths = {}
   for i = 1, self.col_count do
-    self.col_widths[i] = 1 -- Lowered base minimum to 1 character
+    self.col_widths[i] = 1
   end
 
   for _, row in ipairs(self.rows) do
     for _, cell in ipairs(row.cells) do
       if cell.colspan == 1 then
         local required = cell.display_len
-        -- Account for the 2 inner '|' characters eating space on the $.cbi bound
-        if cell.rowspan > 1 then required = required + 2 end
 
         if cell.config.minw and cell.config.minw > required then required = cell.config.minw end
         if cell.config.maxw and cell.config.maxw < required then required = cell.config.maxw end
@@ -267,8 +278,6 @@ function Table:calculate_widths(max_table_width)
     for _, cell in ipairs(row.cells) do
       if cell.colspan > 1 then
         local required = cell.display_len
-        -- Account for the 2 inner '|' characters eating space on the $.cbi bound
-        if cell.rowspan > 1 then required = required + 2 end
 
         local current_span_width = 0
         for c = cell.col_idx, cell.col_idx + cell.colspan - 1 do
@@ -303,7 +312,7 @@ function Table:calculate_widths(max_table_width)
           largest_idx = i
         end
       end
-      if largest_val <= 1 then break end -- Lowered degradation limit to 1
+      if largest_val <= 1 then break end
       self.col_widths[largest_idx] = self.col_widths[largest_idx] - 1
       excess = excess - 1
     end
@@ -356,7 +365,6 @@ function Table:draw()
     row_phys_lines[i] = 1
   end
 
-  -- Calculate the height distribution, injecting `cbi` boundary real estate into the available space
   for i, row in ipairs(self.rows) do
     for _, cell in ipairs(row.cells) do
       if cell.rowspan > 0 then
@@ -382,19 +390,27 @@ function Table:draw()
     end
   end
 
-  -- Global cursor sequentially tracking the next text line assigned out of a cell's `wrapped` block
   local cell_line_cursor = {}
   local next_row_idx = 1
 
   for _, item in ipairs(self.logical_grid) do
-    if item.type == 'hr' or item.type == 'cbo' or item.type == 'cbi' then
-      local chars = { hr = '=', cbo = '-', cbi = '~' }
+    if item.type == 'hr' or item.type == 'cbo' or item.type == 'cbi' or item.type == 'cbe' then
+      local chars = { hr = '=', cbo = '-', cbi = '~', cbe = '-' }
       local fill = chars[item.type] or '-'
-      local line = '+'
 
+      local line_char = '+'
+      if item.type == 'cbo' then
+        line_char = 'v'
+      elseif item.type == 'cbe' then
+        line_char = '^'
+      end
+
+      local line = line_char
+
+      -- Both hr and cbe gracefully fall in here since they don't have item.spans
       if not item.spans then
         for i = 1, self.col_count do
-          line = line .. string.rep(fill, self.col_widths[i] + 2) .. '+'
+          line = line .. string.rep(fill, self.col_widths[i] + 2) .. line_char
         end
       else
         local col_idx = 1
@@ -427,19 +443,22 @@ function Table:draw()
             total_chars = total_chars + span_info.span
 
             local text_w = vim.api.nvim_strwidth(text)
-            local pad_len = total_chars - text_w - 5
+            local pad_len = total_chars - text_w - 3
             if pad_len < 0 then pad_len = 0 end
 
-            line = line .. '| ' .. text .. string.rep(' ', pad_len) .. ' |+'
+            line = line .. ' ' .. text .. string.rep(' ', pad_len) .. ' ' .. line_char
           else
+            -- Cleaned up: cbo and cbi always use '*' for inner colspans
+            local inner_char = '*'
+
             local span_str = ''
             for i = 0, span_info.span - 1 do
               local c = col_idx + i
               local w = self.col_widths[c] + 2
               span_str = span_str .. string.rep(fill, w)
-              if i < span_info.span - 1 then span_str = span_str .. '*' end
+              if i < span_info.span - 1 then span_str = span_str .. inner_char end
             end
-            span_str = span_str .. '+'
+            span_str = span_str .. line_char
             line = line .. span_str
           end
           col_idx = col_idx + span_info.span
