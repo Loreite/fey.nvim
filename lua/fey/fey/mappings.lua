@@ -615,15 +615,21 @@ function FeyMappings:anonymize_or_enumerate_full_heading(enumerate)
   for i = s, e, d do
     local token, delim = get_segment_parts(data.segments[i], data.bufnr)
 
-    local enumerated = token ~= ''
+    local anon, enum = token:match(constants.segment_enumeration)
+    if not anon then
+      anon = ''
+      enum = token
+    end
+
+    local enumerated = enum ~= ''
     local convert = (enumerate and not enumerated) or (not enumerate and enumerated)
 
     if convert and data.converted < data.count then
       data.converted = data.converted + 1
       if enumerate then
-        token = enumerate_segment(data, true)
+        token = anon .. enumerate_segment(data, true)
       else
-        token = ''
+        token = anon
       end
     end
     local segment = token .. delim
@@ -647,15 +653,21 @@ function FeyMappings:anonymize_or_enumerate_heading(enumerate, from_start)
   for i = s, e, d do
     local token, delim = get_segment_parts(data.segments[i], data.bufnr)
 
-    local enumerated = token ~= ''
+    local anon, enum = token:match(constants.segment_enumeration)
+    if not anon then
+      anon = ''
+      enum = token
+    end
+
+    local enumerated = enum ~= ''
     local convert = (enumerate and not enumerated) or (not enumerate and enumerated)
 
     if convert and data.converted < data.count then
       data.converted = data.converted + 1
       if enumerate then
-        token = enumerate_segment(data, from_start)
+        token = anon .. enumerate_segment(data, from_start)
       else
-        token = ''
+        token = anon
       end
     end
     local segment = token .. delim
@@ -790,19 +802,54 @@ local function get_new_signature(data)
   return new_signature
 end
 
----@param subheading boolean?
-function FeyMappings:meta_return(suffix, subheading)
+---@param alternate boolean?
+function FeyMappings:meta_return(suffix, alternate)
   suffix = suffix or ''
+
+  -- Handle table cell context first
+  local tbl, r, c = tableops.get_ctx()
+  if tbl then
+    local active_cell = nil
+    for _, cl in ipairs(tbl.rows[r].cells) do
+      if cl.col_idx <= c and (cl.col_idx + cl.colspan - 1) >= c then
+        active_cell = cl
+        break
+      end
+    end
+
+    -- Resolve vertical merge shadow cells back to their root cell
+    if active_cell and active_cell.rowspan == 0 then
+      for root_r = r - 1, 1, -1 do
+        for _, root_c in ipairs(tbl.rows[root_r].cells) do
+          if root_c.col_idx <= c and (root_c.col_idx + root_c.colspan - 1) >= c and root_c.rowspan > 0 then
+            active_cell = root_c
+            break
+          end
+        end
+        if active_cell and active_cell.rowspan > 0 then break end
+      end
+    end
+
+    if active_cell then
+      if #active_cell.lines > 1 then
+        tableops.table_cell_line_flatten(alternate)
+      else
+        tableops.table_cell_content_merge('vertical', alternate)
+      end
+      return true
+    end
+  end
+
   local item = ts_utils.closest_item_or_heading_node()
 
   if not item then
-    self:_insert_heading_from_plain_line(suffix, subheading)
+    self:_insert_heading_from_plain_line(suffix, alternate)
     return vim.cmd([[startinsert!]])
   elseif item:type() == 'heading' then
     local linenr = vim.fn.line('.') or 0
     local signature = assert(item:field('signature')[1])
     local level = signature and signature:named_child_count()
-    local count = subheading and (level + vim.v.count1) or (vim.v.count > 0 and vim.v.count or level)
+    local count = alternate and (level + vim.v.count1) or (vim.v.count > 0 and vim.v.count or level)
 
     local new_signature = '  ' .. get_new_signature({ count, signature, level })
     local content = config:respect_blank_before_new_entry({ new_signature .. ' ' .. suffix })
@@ -813,7 +860,7 @@ function FeyMappings:meta_return(suffix, subheading)
   end
 
   -- item is a listitem here
-  return self:_insert_item_below(item, subheading)
+  return self:_insert_item_below(item, alternate)
 end
 
 ---@private
@@ -842,7 +889,14 @@ function FeyMappings:_insert_item_below(listitem, subheading)
 
   local token_text = vim.treesitter.get_node_text(token_node, 0) or ''
   local delim_text = vim.treesitter.get_node_text(delim_node, 0) or ''
-  local is_ordered = token_text ~= ''
+
+  local anon, enum = token_text:match(constants.segment_enumeration)
+  if not anon then
+    anon = ''
+    enum = token_text
+  end
+
+  local is_ordered = enum ~= ''
 
   local _, indent_len = segment:start()
   if subheading then indent_len = indent_len + vim.fn.shiftwidth() end
@@ -859,7 +913,7 @@ function FeyMappings:_insert_item_below(listitem, subheading)
   if not is_ordered then
     table.insert(text_edits, {
       range = range,
-      newText = indent_str .. delim_text .. spacing .. '\n',
+      newText = indent_str .. anon .. delim_text .. spacing .. '\n',
     })
   else
     local _, list_depth = ts_utils.closest_root_list_node()
@@ -871,7 +925,7 @@ function FeyMappings:_insert_item_below(listitem, subheading)
 
     table.insert(text_edits, {
       range = range,
-      newText = indent_str .. next_symbol .. delim_text .. spacing .. '\n',
+      newText = indent_str .. anon .. next_symbol .. delim_text .. spacing .. '\n',
     })
 
     -- TODO: Re-number subsequent siblings (only if NOT creating a new subheading level)
@@ -879,13 +933,6 @@ function FeyMappings:_insert_item_below(listitem, subheading)
 
   if #text_edits > 0 then
     vim.lsp.util.apply_text_edits(text_edits, vim.api.nvim_get_current_buf(), constants.default_offset_encoding)
-
-    -- if checkbox then
-    --   local new_listitem = self.files:get_closest_listitem()
-    --   if new_listitem then
-    --     new_listitem:update_checkbox('off')
-    --   end
-    -- end
 
     -- +1 for next line, go to end of line with arbitrary big column number
     vim.fn.cursor(end_row + 1 + (add_empty_line and 1 or 0), 99999)
@@ -1292,28 +1339,93 @@ function FeyMappings:_goto_heading(heading)
   vim.cmd([[normal! zv]])
 end
 
+---@param before boolean?
+function FeyMappings:table_create(before)
+  local count = vim.v.count
+  local w, h
+  if count == 0 then
+    vim.ui.input({
+      prompt = 'Table size (cols, rows): ',
+      scope = 'buffer',
+    }, function(input)
+      if not input then return end
+      w, h = unpack(vim.iter(input:gmatch('%d+')):map(tonumber):totable())
+      w = w or 2
+      h = h or w or 2
+    end)
+  else
+    w, h = count, count
+  end
+
+  if not w then return end
+  local lines = {}
+  for _ = 1, h do
+    table.insert(lines, ('|   '):rep(w) .. '|')
+  end
+
+  local line = vim.fn.line('.')
+  if before then line = line - 1 end
+  vim.fn.append(line, lines)
+end
+
+local BOUNDARY_CHARS = {
+  start = { t = 'v', m = '-' },
+  inner = { t = '+', m = '~' },
+  ['end'] = { t = '^', m = '-' },
+  div = { t = '+', m = '=' },
+}
+
+local function make_string(tbl, t, m)
+  local s = t
+  for i = 1, tbl.col_count do
+    s = s .. m:rep(tbl.col_widths[i] + 2) .. t
+  end
+  return s
+end
+
+---@param type string
+---@param before boolean?
+function FeyMappings:table_insert_boundary(type, before)
+  local tbl = tableops.get_ctx()
+  if not tbl then return end
+  tbl:calculate_widths()
+
+  local chars = BOUNDARY_CHARS[type]
+  if not chars then error(('table_insert_boundary: unknown boundary type %q'):format(type), 2) end
+
+  local newline = make_string(tbl, chars.t, chars.m)
+
+  local line = vim.fn.line('.')
+  if before then line = line - 1 end
+  vim.fn.append(line, newline)
+end
+
+---@param direction string
+---@param before boolean?
+function FeyMappings:table_merge_cell_content(direction, before) tableops.table_cell_content_merge(direction, before) end
+
 function FeyMappings:table_reformat() tableops.reformat() end
 
----@param choice string
+---@param choice string 'before' | 'after'
 function FeyMappings:table_insert_row(choice)
   ({ before = tableops.insert_row_before, after = tableops.insert_row_after })[choice]()
 end
 
----@param choice string
+---@param choice string 'up' | 'down'
 function FeyMappings:table_move_row(choice) ({ up = tableops.move_row_up, down = tableops.move_row_down })[choice]() end
 
----@param choice boolean?
+---@param choice string 'before' | 'after'
 function FeyMappings:table_insert_col(choice)
   ({ before = tableops.insert_col_before, after = tableops.insert_col_after })[choice]()
 end
 
----@param choice string
-function FeyMappings:table_move_col(choice) ({ left = tableops.move_col_left, righ = tableops.move_col_right })[choice]() end
+---@param choice string 'left' | 'right'
+function FeyMappings:table_move_col(choice) ({ left = tableops.move_col_left, right = tableops.move_col_right })[choice]() end
 
----@param choice string
+---@param choice string 'row' | 'col'
 function FeyMappings:table_delete(choice) ({ row = tableops.delete_row, col = tableops.delete_col })[choice]() end
 
----@param choice string
+---@param choice string 'up' | 'down' | 'left' | 'right'
 function FeyMappings:table_move_cell(choice)
   ({
     up = tableops.move_cell_up,
@@ -1323,12 +1435,24 @@ function FeyMappings:table_move_cell(choice)
   })[choice]()
 end
 
----@param choice string
+---@param choice string 'up' | 'down' | 'left' | 'right'
 function FeyMappings:table_merge_cell(choice)
   ({
+    up = tableops.merge_cell_up,
     down = tableops.merge_cell_down,
+    left = tableops.merge_cell_left,
     right = tableops.merge_cell_right,
     unmerge = tableops.unmerge_cells,
+  })[choice]()
+end
+
+---@param choice string 'up' | 'down' | 'left' | 'right'
+function FeyMappings:table_goto_cell(choice)
+  ({
+    up = tableops.goto_cell_up,
+    down = tableops.goto_cell_down,
+    left = tableops.goto_cell_left,
+    right = tableops.goto_cell_right,
   })[choice]()
 end
 

@@ -211,10 +211,11 @@ local DefaultConfig = {
       --
       fey_meta_return = '<Leader><CR>', -- Add heading, listitem, or row (context-dependent)
       fey_meta_sub_return = '<Leader><S-CR>', -- Add subheading, sublistitem, or row (context-dependent)
-      -- fey_return = '<CR>',
+      fey_return = '<CR>',
       fey_insert_heading_respect_content = '<prefix>ih', -- Add new heading after current heading block (same level)
       fey_insert_subheading_respect_content = '<prefix>iH', -- Add new subheading after current heading block (next level)
-      --
+
+      -- BEGIN: Table Mappings
       fey_table_insert_row_before = '<prefix>tiR',
       fey_table_insert_row_after = '<prefix>tir',
       fey_table_delete_row = '<prefix>tdr',
@@ -225,17 +226,41 @@ local DefaultConfig = {
       fey_table_insert_col_after = '<prefix>tic',
       fey_table_delete_col = '<prefix>tdc',
       fey_table_move_col_left = '<prefix>tmh',
-      fey_table_mvoe_col_right = '<prefix>tml',
+      fey_table_move_col_right = '<prefix>tml',
+      --
+      fey_goto_to_cell_above = '<prefix><c-k>',
+      fey_goto_to_cell_below = '<prefix><c-j>',
+      fey_goto_to_cell_prev = '<prefix><c-h>',
+      fey_goto_to_cell_next = '<prefix><c-l>',
       --
       fey_table_move_cell_up = '<prefix>tk',
       fey_table_move_cell_down = '<prefix>tj',
       fey_table_move_cell_left = '<prefix>th',
       fey_table_move_cell_right = '<prefix>tl',
       --
+      fey_table_merge_cell_up = '<prefix>tmD',
       fey_table_merge_cell_down = '<prefix>tmd',
+      fey_table_merge_cell_left = '<prefix>tmR',
       fey_table_merge_cell_right = '<prefix>tmr',
       fey_table_unmerge_cells = '<prefix>tu',
+      fey_table_merge_cell_content_from_left = '<prefix>tmV',
+      fey_table_merge_cell_content_from_right = '<prefix>tmv',
+      fey_table_merge_cell_content_from_above = '<prefix>tmS',
+      fey_table_merge_cell_content_from_below = '<prefix>tms',
+      --
       fey_table_reformat = '<prefix>tf',
+      fey_table_create_before = '<prefix>tC',
+      fey_table_create_after = '<prefix>tc',
+      --
+      fey_table_insert_boundary_start_before = '<prefix>tiS',
+      fey_table_insert_boundary_inner_before = '<prefix>tiI',
+      fey_table_insert_boundary_end_before = '<prefix>tiE',
+      fey_table_insert_section_divider_before = '<prefix>tiD',
+      fey_table_insert_boundary_start_after = '<prefix>tis',
+      fey_table_insert_boundary_inner_after = '<prefix>tii',
+      fey_table_insert_boundary_end_after = '<prefix>tie',
+      fey_table_insert_section_divider_after = '<prefix>tid',
+
       -- fey_insert_todo_heading = '<prefix>iT', -- Add new todo heading right after current heading (same level)
       -- fey_insert_todo_heading_respect_content = '<prefix>it', -- Add new todo heading after current heading block (same level)
       -- fey_export = '<prefix>e',

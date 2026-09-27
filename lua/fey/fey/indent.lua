@@ -82,6 +82,19 @@ local function get_indent_for_match(matches, linenr, mode, bufnr)
   return indent + get_indent_pad(linenr, bufnr)
 end
 
+local function get_listitem_overhang(node, matches)
+  local parent = node:parent()
+  while parent and parent:type() ~= 'listitem' and parent:type() ~= 'section' do
+    parent = parent:parent()
+  end
+  if parent and parent:type() == 'listitem' then
+    local parent_linenr = parent:start() + 1
+    local parent_match = matches[parent_linenr]
+    if parent_match then return parent_match.indent + (parent_match.overhang or 0) end
+  end
+  return nil
+end
+
 local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
   local tree = vim.treesitter.get_parser(bufnr, 'fey', {}):parse()
   if not tree or not #tree then return false end
@@ -129,22 +142,36 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
 
     if type == 'block' then
       opts.indent_type = 'block'
-      local head_indent = opts.indent
+
+      local listitem_indent = get_listitem_overhang(node, matches)
+      local old_indent = opts.indent
+      local head_indent = listitem_indent or opts.indent
 
       for i = range.start.line, range['end'].line - 1 do
-        local line_content = vim.api.nvim_buf_get_lines(bufnr, i, i+1, true)[1]
-        if line_content:match('^$') then goto continue end
-        local curr_indent = vim.fn.indent(i + 1)
+        local line_content = vim.api.nvim_buf_get_lines(bufnr, i, i + 1, true)[1]
+        local indent_diff
+
+        -- Instead of skipping blank lines (which breaks indent tracking for new lines),
+        -- we set their diff to 0 so they default to the base margin.
+        if line_content:match('^$') then
+          indent_diff = 0
+        else
+          local curr_indent = vim.fn.indent(i + 1)
+          indent_diff = curr_indent - old_indent
+        end
 
         matches[i + 1] = vim.tbl_extend('force', opts, {
-          indent = math.max(head_indent, curr_indent),
+          indent = head_indent + indent_diff,
         })
-        ::continue::
       end
-    elseif type == 'paragraph' or type == 'drawer' or type == 'property_drawer' then
+    elseif utils.set({ 'paragraph', 'drawer', 'property_drawer', 'table' })[type] then
       opts.indent_type = 'other'
 
       if opts.indent == 2 then opts.indent = 0 end
+
+      -- If inside a listitem, set base indent to listitem + overhang
+      local listitem_indent = get_listitem_overhang(node, matches)
+      if listitem_indent then opts.indent = listitem_indent end
 
       for i = range.start.line, range['end'].line - 1 do
         matches[i + 1] = opts
@@ -191,34 +218,47 @@ local function indentexpr(linenr, bufnr)
   if indentexpr_cache.matches == false then return -1 end
 
   local new_indent = get_indent_for_match(indentexpr_cache.matches, linenr, mode, bufnr)
-  -- local match = indentexpr_cache.matches[linenr]
+  local match = indentexpr_cache.matches[linenr]
 
-  -- if match then
-  --   -- Attempt to calculate indentation from the block filetype
-  --   if match.indent_type == 'block' and linenr > match.line_nr and linenr < match.line_end_nr then
-  --     local block_parameters = match.node:field('parameter')
-  --
-  --     if block_parameters and block_parameters[1] then
-  --       local block_ft = vim.treesitter.get_node_text(block_parameters[1], bufnr)
-  --
-  --       if block_ft and block_ft ~= vim.bo.filetype then
-  --         local curr_indentexpr = vim.filetype.get_option(block_ft, 'indentexpr') --[[@as string]]
-  --
-  --         if curr_indentexpr and curr_indentexpr ~= '' then
-  --           curr_indentexpr = curr_indentexpr:gsub('%(%)$', '')
-  --
-  --           local buf_shiftwidth = vim.bo.shiftwidth
-  --           vim.bo.shiftwidth = vim.filetype.get_option(block_ft, 'shiftwidth')
-  --           local ok, block_ft_indent = pcall(function() return vim.fn[curr_indentexpr]() end)
-  --           if ok then new_indent = math.max(block_ft_indent, vim.fn.indent(match.line_nr)) end
-  --
-  --           vim.bo.shiftwidth = buf_shiftwidth
-  --         end
-  --       end
-  --     end
-  --   end
-  --   match.indent = new_indent
-  -- end
+  if match then
+    -- Attempt to calculate indentation from the block filetype
+    if match.indent_type == 'block' and linenr > match.line_nr and linenr < match.line_end_nr then
+      local block_parameters = match.node:field('parameter')
+
+      if block_parameters and block_parameters[1] then
+        local block_ft = vim.treesitter.get_node_text(block_parameters[1], bufnr)
+
+        if block_ft and block_ft ~= vim.bo.filetype then
+          local curr_indentexpr = vim.filetype.get_option(block_ft, 'indentexpr') --[[@as string]]
+
+          if curr_indentexpr and curr_indentexpr ~= '' then
+            curr_indentexpr = curr_indentexpr:gsub('%(%)$', '')
+
+            local buf_shiftwidth = vim.bo.shiftwidth
+            vim.bo.shiftwidth = vim.filetype.get_option(block_ft, 'shiftwidth')
+            local ok, block_ft_indent = pcall(function() return vim.fn[curr_indentexpr]() end)
+
+            if ok then
+              if block_ft_indent == -1 then
+                -- Native indent says "keep current". We use match.indent which holds
+                -- our calculated 'head_indent + indent_diff' relative block shift.
+                new_indent = match.indent
+              else
+                -- Clamp the evaluated indent to the opening fence's true indentation
+                -- so it respects listitem overhangs as the left margin.
+
+                -- new_indent = math.max(block_ft_indent, vim.fn.indent(match.line_nr))
+                new_indent = math.max(block_ft_indent, match.indent)
+              end
+            end
+
+            vim.bo.shiftwidth = buf_shiftwidth
+          end
+        end
+      end
+    end
+    match.indent = new_indent
+  end
   indentexpr_cache.prev_linenr = linenr
   buf_indentexpr_cache[bufnr] = indentexpr_cache
   return new_indent

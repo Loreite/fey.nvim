@@ -220,7 +220,7 @@ function Fey._set_dot_repeat(cmd, args)
 
   for _, arg in ipairs(args or {}) do
     if type(arg) == 'string' then
-      table.insert(serialized_args, ('%q'):format(arg))
+      table.insert(serialized_args, ("'%s'"):format(arg))
     else
       table.insert(serialized_args, tostring(arg))
     end

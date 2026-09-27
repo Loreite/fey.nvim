@@ -350,6 +350,75 @@ return {
     -- END:
 
     -- BEGIN: Table Mappings
+    fey_table_create_before = m.action('fey_mappings.table_create', {
+      args = { true },
+      opts = {
+        desc = 'create table before',
+        help_desc = 'insert table before curent line using count or obtained input. default 2x2',
+      },
+    }),
+    fey_table_create_after = m.action('fey_mappings.table_create', {
+      opts = {
+        desc = 'create table after',
+        help_desc = 'insert table after current line using count or obtained input. default 2x2',
+      },
+    }),
+    fey_table_insert_boundary_start_before = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'start', true },
+      opts = {
+        desc = 'insert logical start boundary before',
+        help_desc = 'inserts a logical row bounary start line before the current row',
+      },
+    }),
+    fey_table_insert_boundary_inner_before = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'inner', true },
+      opts = {
+        desc = 'insert logical inner boundary before',
+        help_desc = 'inserts a logical row inner boundary line before the current row',
+      },
+    }),
+    fey_table_insert_boundary_end_before = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'end', true },
+      opts = {
+        desc = 'insert logical end boundary before',
+        help_desc = 'inserts a logical row bounary end line before the current row',
+      },
+    }),
+    fey_table_insert_section_divider_before = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'div', true },
+      opts = {
+        desc = 'insert section divider before',
+        help_desc = 'inserts a section divider line before the current row',
+      },
+    }),
+    fey_table_insert_boundary_start_after = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'start' },
+      opts = {
+        desc = 'insert logical start boundary after',
+        help_desc = 'inserts a logical row bounary start line after the current row',
+      },
+    }),
+    fey_table_insert_boundary_inner_after = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'inner' },
+      opts = {
+        desc = 'insert logical inner boundary after',
+        help_desc = 'inserts a logical row inner boundary line after the current row',
+      },
+    }),
+    fey_table_insert_boundary_end_after = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'end' },
+      opts = {
+        desc = 'insert logical end boundary after',
+        help_desc = 'inserts a logical row bounary end line after the current row',
+      },
+    }),
+    fey_table_insert_section_divider_after = m.action('fey_mappings.table_insert_boundary', {
+      args = { 'div' },
+      opts = {
+        desc = 'insert section divider after',
+        help_desc = 'inserts a section divider line after the current row',
+      },
+    }),
     fey_table_reformat = m.action(
       'fey_mappings.table_reformat',
       { opts = { desc = 'reformat table', help_desc = 'reformat table, reflowing text and aligning to a grid' } }
@@ -392,8 +461,25 @@ return {
       { args = { 'left' }, opts = { desc = 'move col left', help_desc = 'move the current table col under curosr left' } }
     ),
     fey_table_move_col_right = m.action(
-      'fey_mappings.',
+      'fey_mappings.table_move_col',
       { args = { 'right' }, opts = { desc = 'move col right', help_desc = 'move the current table col under curosr right' } }
+    ),
+    --
+    fey_goto_to_cell_above = m.action(
+      'fey_mappings.table_goto_cell',
+      { args = { 'up' }, opts = { desc = 'go to cell above', help_desc = 'move the cursor to the cell above' } }
+    ),
+    fey_goto_to_cell_below = m.action(
+      'fey_mappings.table_goto_cell',
+      { args = { 'down' }, opts = { desc = 'go to cell below', help_desc = 'move the cursor the cell below' } }
+    ),
+    fey_goto_to_cell_prev = m.action(
+      'fey_mappings.table_goto_cell',
+      { args = { 'left' }, opts = { desc = 'go to prev cell', help_desc = 'move the cursor to the previous cell' } }
+    ),
+    fey_goto_to_cell_next = m.action(
+      'fey_mappings.table_goto_cell',
+      { args = { 'right' }, opts = { desc = 'go to next cell', help_desc = 'move the curosr to the next cell' } }
     ),
     --
     fey_table_move_cell_up = m.action(
@@ -413,9 +499,17 @@ return {
       opts = { desc = 'move cell right', help_desc = 'swap current cell under cursor with cell to the right' },
     }),
     --
+    fey_table_merge_cell_up = m.action('fey_mappings.table_merge_cell', {
+      args = { 'up' },
+      opts = { desc = 'merge cell up', help_desc = 'combine current cell under cursor with cell above' },
+    }),
     fey_table_merge_cell_down = m.action('fey_mappings.table_merge_cell', {
       args = { 'down' },
       opts = { desc = 'merge cell down', help_desc = 'combine current cell under cursor with cell below' },
+    }),
+    fey_table_merge_cell_left = m.action('fey_mappings.table_merge_cell', {
+      args = { 'left' },
+      opts = { desc = 'merge cell left', help_desc = 'combine current cell under cursor with cell to the left' },
     }),
     fey_table_merge_cell_right = m.action('fey_mappings.table_merge_cell', {
       args = { 'right' },
@@ -425,7 +519,23 @@ return {
       args = { 'unmerge' },
       opts = { desc = 'unmerge cells', help_desc = 'break apart combined cells into individual cells' },
     }),
-
+    --
+    fey_table_merge_cell_content_from_left = m.action(
+      'fey_mappings.table_merge_cell_content',
+      { args = { 'horizontal', true }, opts = { desc = 'merge cell content from left', help_desc = '' } }
+    ),
+    fey_table_merge_cell_content_from_right = m.action(
+      'fey_mappings.table_merge_cell_content',
+      { args = { 'horizontal', false }, opts = { desc = 'merge cell content from right', help_desc = '' } }
+    ),
+    fey_table_merge_cell_content_from_above = m.action(
+      'fey_mappings.table_merge_cell_content',
+      { args = { 'vertical', true }, opts = { desc = 'merge cell content from above', help_desc = '' } }
+    ),
+    fey_table_merge_cell_content_from_below = m.action(
+      'fey_mappings.table_merge_cell_content',
+      { args = { 'vertical', false }, opts = { desc = 'merge cell content from below', help_desc = '' } }
+    ),
     -- END:
 
     --   fey_insert_todo_heading = m.action(
@@ -436,11 +546,11 @@ return {
     --     opts = { desc = 'fey insert todo (respect content)', help_desc = 'Add new TODO heading after current subtree' },
     --   }),
     --   fey_export = m.action('fey_mappings.export', { opts = { desc = 'fey export', help_desc = 'Open export options' } }),
-    --   fey_return = m.action('fey_mappings.fey_return', { modes = { 'i' }, opts = { desc = 'fey return' } }),
-    --   fey_next_visible_heading = m.action('fey_mappings.next_visible_heading', {
-    --     modes = { 'n', 'x' },
-    --     opts = { desc = 'fey next visible heading', help_desc = 'Go to next heading (any level)' },
-    --   }),
+    fey_return = m.action('fey_mappings.fey_return', { modes = { 'i' }, opts = { desc = 'fey return' } }),
+    -- fey_next_visible_heading = m.action('fey_mappings.next_visible_heading', {
+    --   modes = { 'n', 'x' },
+    --   opts = { desc = 'fey next visible heading', help_desc = 'Go to next heading (any level)' },
+    -- }),
     --   fey_previous_visible_heading = m.action('fey_mappings.previous_visible_heading', {
     --     modes = { 'n', 'x' },
     --     opts = { desc = 'fey prev visible heading', help_desc = 'Go to previous heading (any level)' },
