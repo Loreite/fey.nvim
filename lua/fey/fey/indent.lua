@@ -153,12 +153,12 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
 
         -- Instead of skipping blank lines (which breaks indent tracking for new lines),
         -- we set their diff to 0 so they default to the base margin.
-        if line_content:match('^$') then
-          indent_diff = 0
-        else
-          local curr_indent = vim.fn.indent(i + 1)
-          indent_diff = curr_indent - old_indent
-        end
+        -- if line_content:match('^$') then
+        --   indent_diff = 0
+        -- else
+        local curr_indent = vim.fn.indent(i + 1)
+        indent_diff = curr_indent - old_indent
+        -- end
 
         matches[i + 1] = vim.tbl_extend('force', opts, {
           indent = head_indent + indent_diff,

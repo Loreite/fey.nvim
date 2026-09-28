@@ -115,10 +115,10 @@ end
 ---Get block type (src, example, etc)
 ---@return string | nil
 function Block:get_type()
-  return 'src'
-  -- local name_node = self.node:field('parameter')[1]
-  -- if name_node then return self.file:get_node_text(name_node):lower() end
-  -- return nil
+  -- return 'src'
+  local name_node = self.node:field('name')[1]
+  if name_node then return self.file:get_node_text(name_node):lower() end
+  return nil
 end
 
 return Block

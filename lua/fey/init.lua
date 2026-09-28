@@ -44,6 +44,12 @@ function Fey:new()
   require('fey.fey.global')(self)
   self.initialized = false
   self.setup_called = false
+  vim.filetype.add({
+    extension = {
+      fey = 'fey',
+      fey_archive = 'fey',
+    },
+  })
   self:setup_autocmds()
   require('fey.config'):setup_ts_predicates()
   return self

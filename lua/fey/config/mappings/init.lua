@@ -221,14 +221,14 @@ return {
     --     'fey_mappings.toggle_heading',
     --     { opts = { desc = 'fey toggle heading', help_desc = 'Toggle current line to heading and vice versa' } }
     --   ),
-    --   fey_open_at_point = m.action(
-    --     'fey_mappings.open_at_point',
-    --     { opts = { desc = 'fey open', help_desc = 'Open hyperlink or date under cursor' } }
-    --   ),
-    --   fey_edit_special = m.action(
-    --     'fey_mappings.edit_special',
-    --     { opts = { desc = 'fey edit special', help_desc = 'Edit the source block under the cursor in another buffer' } }
-    --   ),
+    -- fey_open_at_point = m.action(
+    --   'fey_mappings.open_at_point',
+    --   { opts = { desc = 'fey open', help_desc = 'Open hyperlink or date under cursor' } }
+    -- ),
+    fey_edit_special = m.action(
+      'fey_mappings.edit_special',
+      { opts = { desc = 'fey edit special', help_desc = 'Edit the source block under the cursor in another buffer' } }
+    ),
     --   fey_add_note = m.action(
     --     'fey_mappings.add_note',
     --     { opts = { desc = 'fey add note', help_desc = 'Add a note to the current heading' } }

@@ -745,6 +745,19 @@ function FeyMappings:fey_return()
     if handled then return end
   end
 
+  -- Check if we are inside a standard paragraph node
+  local node = vim.treesitter.get_node()
+  if node and node:type() == 'paragraph' then
+    if node:parent() and node:parent():type() == 'listitem' then goto breakout end
+    local current_line = vim.api.nvim_get_current_line()
+    local indent_pad = current_line:match('^(%s*)') or ''
+
+    -- Feed <CR> followed by the previous line's exact leading indent
+    local keys = vim.api.nvim_replace_termcodes('<CR>' .. indent_pad, true, true, true)
+    return vim.api.nvim_feedkeys(keys, 'n', true)
+  end
+  ::breakout::
+
   local global_cr_keymap = utils.get_keymap({
     mode = 'i',
     lhs = '<CR>',

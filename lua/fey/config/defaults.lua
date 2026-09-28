@@ -16,6 +16,8 @@ local DefaultConfig = {
   fey_use_uppercase_for_hex_index = false,
   --
   fey_treesitter_local_install = '',
+  --
+  fey_reindex_fey_src_blocks = true,
 
   fey_agenda_files = '',
   fey_default_notes_file = '',
@@ -181,7 +183,7 @@ local DefaultConfig = {
       -- fey_toggle_checkbox = '<C-Space>',
       -- fey_toggle_heading = '<prefix>*',
       -- fey_open_at_point = '<prefix>o',
-      -- fey_edit_special = [[<prefix>']],
+      fey_edit_special = [[<prefix>']],
       -- fey_add_note = '<prefix>na',
       -- fey_cycle = '<TAB>',
       -- fey_global_cycle = '<S-TAB>',

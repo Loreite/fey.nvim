@@ -11,6 +11,9 @@
 (list (listitem (paragraph) @spell))
 (bullet) @fey.bullet
 
+;
+(block [ (fence) (expr) ] @fey.block)
+
 ; tables
 (table (row "|" @fey.table.delimiter))
 (table (row_block (row "|" @fey.table.delimiter)))

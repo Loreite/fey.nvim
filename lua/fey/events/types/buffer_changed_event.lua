@@ -2,7 +2,7 @@
 ---@field file FeyFile
 ---@field list boolean?
 local BufferChangedEvent = {
-  type = 'fey.heading_moved',
+  type = 'fey.buffer_changed',
 }
 
 ---@param file FeyFile

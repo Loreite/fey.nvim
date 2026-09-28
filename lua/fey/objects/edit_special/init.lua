@@ -45,25 +45,17 @@ function EditSpecial:_parse_position()
   return nearest_block_node_info
 end
 
-function EditSpecial:_set_context(bufnr, ctx)
-  vim.api.nvim_buf_set_var(bufnr, self.context_var, ctx)
-end
+function EditSpecial:_set_context(bufnr, ctx) vim.api.nvim_buf_set_var(bufnr, self.context_var, ctx) end
 
 function EditSpecial:get_context(bufnr)
   local exists, ctx = pcall(vim.api.nvim_buf_get_var, bufnr or self.fey_bufnr, self.context_var)
   ---@cast ctx table
-  if not exists then
-    error('Unable to find context for edit special action', 0)
-  end
+  if not exists then error('Unable to find context for edit special action', 0) end
 
-  if not vim.api.nvim_buf_is_valid(ctx.fey_bufnr) then
-    error('Fey buffer associated with edit special no longer valid', 0)
-  end
+  if not vim.api.nvim_buf_is_valid(ctx.fey_bufnr) then error('Fey buffer associated with edit special no longer valid', 0) end
 
   ctx.file = fey.files:get(ctx.filename)
-  if not ctx.file then
-    error('Edit special callback with invalid file: ' .. (ctx.filename or '?'), 0)
-  end
+  if not ctx.file then error('Edit special callback with invalid file: ' .. (ctx.filename or '?'), 0) end
 
   ctx.start_extmark_pos = vim.api.nvim_buf_get_extmark_by_id(ctx.fey_bufnr, ctx.extmark_ns, ctx.start_extmark, {})
   ctx.end_extmark_pos = vim.api.nvim_buf_get_extmark_by_id(ctx.fey_bufnr, ctx.extmark_ns, ctx.end_extmark, {})
@@ -79,9 +71,7 @@ end
 
 function EditSpecial:init()
   local position_info = self:_parse_position()
-  if not position_info then
-    return
-  end
+  if not position_info then return end
 
   local bufnr, ctx = self.block_types[self.block_type]
     :new({
@@ -100,9 +90,7 @@ function EditSpecial:init()
   vim.api.nvim_create_autocmd('BufWipeout', {
     buffer = bufnr,
     group = edit_special_augroup,
-    callback = function()
-      require('fey').action('fey_mappings._edit_special_callback')
-    end,
+    callback = function() require('fey').action('fey_mappings._edit_special_callback') end,
     once = true,
   })
 end
@@ -157,34 +145,25 @@ function EditSpecial:done()
 
   vim.schedule(function()
     local winid = vim.fn.bufwinid(ctx.fey_bufnr) or -1
-    if winid == -1 then
-      return
-    end
+    if winid == -1 then return end
 
-    if vim.api.nvim_win_get_tabpage(winid) == vim.api.nvim_get_current_tabpage() then
-      vim.api.nvim_set_current_win(winid)
-    end
+    if vim.api.nvim_win_get_tabpage(winid) == vim.api.nvim_get_current_tabpage() then vim.api.nvim_set_current_win(winid) end
   end)
 end
 
 function EditSpecial:_get_nearest_block_node()
   local current_node = self.file:get_node_at_cursor(self.fey_pos)
-  if not current_node then
-    return
-  end
+  if not current_node then return end
   local block_node = ts_utils.parents_until(current_node, 'block')
-  if not block_node then
-    return
-  end
+  if not block_node then return end
 
   -- Block might not have contents yet, which is fine
   local children_nodes = self.file:get_ts_matches(
     '(block name: (expr) @name parameter: (expr) @parameters contents: (contents)? @contents)',
+    -- '(block parameter: (expr) @parameters contents: (contents)? @contents)',
     block_node
   )[1]
-  if not children_nodes or not children_nodes.name or not children_nodes.parameters then
-    return
-  end
+  if not children_nodes or not children_nodes.name or not children_nodes.parameters then return end
 
   return {
     node = block_node,
