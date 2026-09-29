@@ -1,4 +1,4 @@
-*fey.txt*                          Fey clone written in Lua for Neovim
+*fey.txt*                          Fey Markup Language plugin in Lua for Neovim
 
 ==============================================================================
 Table of Contents                                  *fey-table-of-contents*

@@ -182,6 +182,16 @@ Config options which affect this indentation:
   -  fey_indent_mode_turns_on_hiding_signature = true,
 
 
+  II.D.ii. Edit Special
+
+Inside of a Block, you can use the keybind <leader>;' to edit the contents in a
+separate temporary buffer, with the changes updated in the block once you quit
+to close the buffer.
+
+search `:h fey-fey_edit_special` for more information.
+
+
+
   II.E. Currently Available Default Mappings
 
 This subsection won't always be present here in the README, as you can check the
