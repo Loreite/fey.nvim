@@ -35,6 +35,7 @@ function TableOps.get_ctx()
   return tbl, r, c
 end
 
+-- HELPER: Get the multi-column span block spanning consecutive spanned cells
 local function get_col_block(tbl, c)
   local start_c, end_c = c, c
   local changed = true
@@ -61,6 +62,7 @@ local function get_col_block(tbl, c)
   return start_c, end_c
 end
 
+-- HELPER: Get the multi-row span block spanning consecutive vmerges
 local function get_row_block(tbl, r)
   local start_r, end_r = r, r
   local changed = true
@@ -87,6 +89,7 @@ local function get_row_block(tbl, r)
   return start_r, end_r
 end
 
+-- HELPER: Grabs the top root of a vertical cell group regardless of cursor placement
 local function get_vmerge_block(tbl, r, c)
   local start_r = r
   local cell = nil
@@ -159,129 +162,6 @@ local function swap_vmerge_blocks(tbl, c_start, colspan, r1, span1, r2, span2)
       end
       table.insert(row.cells, ins_idx, ins_cl)
     end
-  end
-end
-
--- HELPER: Get the multi-column span block spanning consecutive spanned cells
-local function get_col_block(tbl, c)
-  local start_c, end_c = c, c
-  local changed = true
-  while changed do
-    changed = false
-    for _, row in ipairs(tbl.rows) do
-      for _, cell in ipairs(row.cells) do
-        if cell.colspan > 1 then
-          local c_start, c_end = cell.col_idx, cell.col_idx + cell.colspan - 1
-          if not (c_end < start_c or c_start > end_c) then
-            if c_start < start_c then
-              start_c = c_start
-              changed = true
-            end
-            if c_end > end_c then
-              end_c = c_end
-              changed = true
-            end
-          end
-        end
-      end
-    end
-  end
-  return start_c, end_c
-end
-
--- HELPER: Get the multi-row span block spanning consecutive vmerges
-local function get_row_block(tbl, r)
-  local start_r, end_r = r, r
-  local changed = true
-  while changed do
-    changed = false
-    for i, row in ipairs(tbl.rows) do
-      for _, cell in ipairs(row.cells) do
-        if cell.rowspan > 1 then
-          local c_start, c_end = i, i + cell.rowspan - 1
-          if not (c_end < start_r or c_start > end_r) then
-            if c_start < start_r then
-              start_r = c_start
-              changed = true
-            end
-            if c_end > end_r then
-              end_r = c_end
-              changed = true
-            end
-          end
-        end
-      end
-    end
-  end
-  return start_r, end_r
-end
-
--- HELPER: Grabs the top root of a vertical cell group regardless of cursor placement
-local function get_vmerge_block(tbl, r, c)
-  local start_r = r
-  local cell = nil
-  while start_r >= 1 do
-    for _, cl in ipairs(tbl.rows[start_r].cells) do
-      if cl.col_idx == c then
-        cell = cl
-        break
-      end
-    end
-    if cell and cell.rowspan > 0 then break end
-    start_r = start_r - 1
-  end
-  if not cell or cell.rowspan == 0 then return nil end
-  return start_r, cell.rowspan, cell
-end
-
--- HELPER: Shifts full blocks of cells vertically
-local function swap_vmerge_blocks(tbl, c, r1, span1, r2, span2)
-  local extracted = {}
-  for i = r1, r2 + span2 - 1 do
-    local row = tbl.rows[i]
-    local found_idx, cell
-    for j, cl in ipairs(row.cells) do
-      if cl.col_idx == c then
-        found_idx = j
-        cell = cl
-        break
-      end
-    end
-    table.remove(row.cells, found_idx)
-    table.insert(extracted, cell)
-  end
-
-  local blockA, blockB = {}, {}
-  for i = 1, span1 do
-    table.insert(blockA, extracted[i])
-  end
-  for i = 1, span2 do
-    table.insert(blockB, extracted[span1 + i])
-  end
-
-  for i, cell in ipairs(blockB) do
-    cell.row_idx = r1 + i - 1
-  end
-  for i, cell in ipairs(blockA) do
-    cell.row_idx = r1 + span2 + i - 1
-  end
-
-  local new_seq = {}
-  for _, cl in ipairs(blockB) do
-    table.insert(new_seq, cl)
-  end
-  for _, cl in ipairs(blockA) do
-    table.insert(new_seq, cl)
-  end
-
-  for i = r1, r2 + span2 - 1 do
-    local row = tbl.rows[i]
-    local ins_cl = new_seq[i - r1 + 1]
-    local ins_idx = 1
-    while ins_idx <= #row.cells and row.cells[ins_idx].col_idx < c do
-      ins_idx = ins_idx + 1
-    end
-    table.insert(row.cells, ins_idx, ins_cl)
   end
 end
 
@@ -566,6 +446,136 @@ function TableOps.move_row_down()
 
   tbl:sync_boundaries()
   tbl:reformat(r + (r2_end - r2_start + 1), c)
+end
+
+function TableOps.move_cell_up()
+  local tbl, r, c = TableOps.get_ctx()
+  if not tbl or r <= 1 then return end
+
+  local r_start, span, cell = get_vmerge_block(tbl, r, c)
+  if not r_start or r_start <= 1 then return end
+
+  local cell_c_end = cell.col_idx + cell.colspan - 1
+  local obstacle_r_end = r_start - 1
+  local target_r_start = obstacle_r_end
+  local changed = true
+
+  while changed do
+    changed = false
+    for cur_r = target_r_start, obstacle_r_end do
+      local row = tbl.rows[cur_r]
+      for _, cl in ipairs(row.cells) do
+        local cl_c_start = cl.col_idx
+        local cl_c_end = cl.col_idx + cl.colspan - 1
+        if cl.rowspan == 0 then
+          local _, _, root_c = get_vmerge_block(tbl, cur_r, cl.col_idx)
+          if root_c then
+            cl_c_start = root_c.col_idx
+            cl_c_end = root_c.col_idx + root_c.colspan - 1
+          end
+        end
+
+        if not (cl_c_end < cell.col_idx or cl_c_start > cell_c_end) then
+          local cl_r = get_vmerge_block(tbl, cur_r, cl.col_idx)
+          if cl_r and cl_r < target_r_start then
+            target_r_start = cl_r
+            changed = true
+          end
+        end
+      end
+    end
+  end
+
+  for cur_r = target_r_start, obstacle_r_end do
+    local row = tbl.rows[cur_r]
+    for _, cl in ipairs(row.cells) do
+      local cl_c_start = cl.col_idx
+      local cl_c_end = cl.col_idx + cl.colspan - 1
+      if cl.rowspan == 0 then
+        local _, _, root_c = get_vmerge_block(tbl, cur_r, cl.col_idx)
+        if root_c then
+          cl_c_start = root_c.col_idx
+          cl_c_end = root_c.col_idx + root_c.colspan - 1
+        end
+      end
+
+      if not (cl_c_end < cell.col_idx or cl_c_start > cell_c_end) then
+        if cl_c_start < cell.col_idx or cl_c_end > cell_c_end then
+          vim.notify('Fey: Cannot jump over cell that extends horizontally outside the moving bounds.', vim.log.levels.ERROR)
+          return
+        end
+      end
+    end
+  end
+
+  swap_vmerge_blocks(tbl, cell.col_idx, cell.colspan, target_r_start, obstacle_r_end - target_r_start + 1, r_start, span)
+  tbl:sync_boundaries()
+  tbl:reformat(target_r_start, cell.col_idx)
+end
+
+function TableOps.move_cell_down()
+  local tbl, r, c = TableOps.get_ctx()
+  if not tbl then return end
+
+  local r_start, span, cell = get_vmerge_block(tbl, r, c)
+  if not r_start or (r_start + span > #tbl.rows) then return end
+
+  local cell_c_end = cell.col_idx + cell.colspan - 1
+  local obstacle_r_start = r_start + span
+  local target_r_end = obstacle_r_start
+  local changed = true
+
+  while changed do
+    changed = false
+    for cur_r = obstacle_r_start, target_r_end do
+      local row = tbl.rows[cur_r]
+      for _, cl in ipairs(row.cells) do
+        local cl_c_start = cl.col_idx
+        local cl_c_end = cl.col_idx + cl.colspan - 1
+        if cl.rowspan == 0 then
+          local _, _, root_c = get_vmerge_block(tbl, cur_r, cl.col_idx)
+          if root_c then
+            cl_c_start = root_c.col_idx
+            cl_c_end = root_c.col_idx + root_c.colspan - 1
+          end
+        end
+
+        if not (cl_c_end < cell.col_idx or cl_c_start > cell_c_end) then
+          local cl_r, cl_span = get_vmerge_block(tbl, cur_r, cl.col_idx)
+          if cl_r and cl_r + cl_span - 1 > target_r_end then
+            target_r_end = cl_r + cl_span - 1
+            changed = true
+          end
+        end
+      end
+    end
+  end
+
+  for cur_r = obstacle_r_start, target_r_end do
+    local row = tbl.rows[cur_r]
+    for _, cl in ipairs(row.cells) do
+      local cl_c_start = cl.col_idx
+      local cl_c_end = cl.col_idx + cl.colspan - 1
+      if cl.rowspan == 0 then
+        local _, _, root_c = get_vmerge_block(tbl, cur_r, cl.col_idx)
+        if root_c then
+          cl_c_start = root_c.col_idx
+          cl_c_end = root_c.col_idx + root_c.colspan - 1
+        end
+      end
+
+      if not (cl_c_end < cell.col_idx or cl_c_start > cell_c_end) then
+        if cl_c_start < cell.col_idx or cl_c_end > cell_c_end then
+          vim.notify('Fey: Cannot jump over cell that extends horizontally outside the moving bounds.', vim.log.levels.ERROR)
+          return
+        end
+      end
+    end
+  end
+
+  swap_vmerge_blocks(tbl, cell.col_idx, cell.colspan, r_start, span, obstacle_r_start, target_r_end - obstacle_r_start + 1)
+  tbl:sync_boundaries()
+  tbl:reformat(r_start + target_r_end - obstacle_r_start + 1, cell.col_idx)
 end
 
 function TableOps.move_cell_left()

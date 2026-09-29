@@ -858,14 +858,6 @@ function Table:handle_cr()
 
   active_cell.lines = new_lines
 
-  while #active_cell.lines > 1 and active_cell.lines[1] == '' do
-    table.remove(active_cell.lines, 1)
-    target_line_idx = math.max(1, target_line_idx - 1)
-  end
-  while #active_cell.lines > 1 and active_cell.lines[#active_cell.lines] == '' do
-    table.remove(active_cell.lines)
-  end
-
   if active_cell.update_display_len then active_cell:update_display_len() end
 
   if tbl.sync_boundaries then tbl:sync_boundaries() end
