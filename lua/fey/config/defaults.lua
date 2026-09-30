@@ -17,7 +17,10 @@ local DefaultConfig = {
   --
   fey_treesitter_local_install = '',
   --
-  fey_reindex_fey_src_blocks = true,
+  -- fey_reindex_fey_src_blocks = true,
+  fey_nvim_config_tag_name = 'Neovim',
+  fey_use_cwd_config = false,
+  fey_use_buffer_config = true,
 
   fey_agenda_files = '',
   fey_default_notes_file = '',
@@ -120,6 +123,8 @@ local DefaultConfig = {
     fey_return_uses_meta_return = false,
     prefix = '<Leader>;',
     global = {
+      fey_toggle_use_cwd_config = '',
+      fey_toggle_use_buffer_config = '',
       --   fey_agenda = '<prefix>a',
       --   fey_capture = '<prefix>c',
     },

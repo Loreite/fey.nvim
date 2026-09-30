@@ -52,6 +52,7 @@ function Fey:new()
   })
   self:setup_autocmds()
   require('fey.config'):setup_ts_predicates()
+  require('fey.config.tags').setup()
   return self
 end
 

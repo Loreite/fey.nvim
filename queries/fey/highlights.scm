@@ -19,7 +19,8 @@
 (block [ (fence) (expr) ] @fey.block)
 
 ; tags
-[ (simple_line_tag) (simple_multi_tag) ] @fey.heading.level8
+; [ (simple_line_tag) (simple_multi_tag) ] @fey.heading.level8
+[ (simple_tag) ] @fey.heading.level8 ;TODO: set up universal colors
 
 ; tables
 (table (row "|" @fey.table.delimiter))

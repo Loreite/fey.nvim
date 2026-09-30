@@ -119,48 +119,6 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
       indent = vim.fn.indent(range.start.line + 1),
     }
 
-    if type == 'simple_multi_tag' then
-      opts.indent_type = 'tag'
-      local start_line = range.start.line + 1
-      if matches[start_line].is_listitem then
-        matches[start_line] = vim.tbl_extend('force', opts, {
-          indent = matches[start_line].indent,
-        })
-      else
-        matches[start_line] = opts
-      end
-
-      if range.start.line ~= range['end'].line then
-        local tag_start = node:child(0)
-        local name_node = node:field('name')[1]
-        local name_start_col = 0
-
-        if name_node then
-          _, name_start_col = name_node:start()
-        elseif tag_start then
-          local _, start_col = tag_start:start()
-          name_start_col = start_col + 2
-        else
-          _, name_start_col = node:start()
-        end
-
-        local inner_indent = name_start_col
-        local _, start_indent = unpack(tag_start and { tag_start:start() } or { false, opts.indent })
-
-        for i = start_line, range['end'].line - 1 do
-          matches[i + 1] = vim.tbl_extend('force', opts, {
-            indent = inner_indent,
-            is_tag_body = true,
-          })
-        end
-
-        matches[range['end'].line + 1] = vim.tbl_extend('force', opts, {
-          indent = start_indent,
-          is_tag_end = true,
-        })
-      end
-    end
-
     if type == 'heading' then
       local _, end_col = node:field('signature')[1]:end_()
       opts.signature = end_col
@@ -186,6 +144,51 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
       end
     end
 
+    if type == 'simple_tag' then
+      opts.indent_type = 'tag'
+      local start_line = range.start.line + 1
+      local list_match = matches[start_line]
+      local is_in_list = list_match and list_match.type == 'listitem'
+
+      -- Locate where the tag name starts
+      local tag_start = node:child(0)
+      local name_node = node:field('name')[1]
+      local name_start_col = 0
+
+      if name_node then
+        _, name_start_col = name_node:start()
+      elseif tag_start then
+        local _, start_col = tag_start:start()
+        name_start_col = start_col + 2
+      else
+        _, name_start_col = node:start()
+      end
+
+      -- If starting inside a listitem hanging line, account for list overhang
+      local base_indent = name_start_col
+
+      -- Preserve the listitem match for line 1 if the tag starts on a list line
+      if not is_in_list then matches[start_line] = opts end
+
+      if range.start.line ~= range['end'].line then
+        local _, tag_start_col = unpack(tag_start and { tag_start:start() } or { false, opts.indent })
+
+        -- Body lines of the tag
+        for i = start_line, range['end'].line - 1 do
+          matches[i + 1] = vim.tbl_extend('force', opts, {
+            indent = base_indent,
+            is_tag_body = true,
+          })
+        end
+
+        -- Closing line (#]) dedents to where [# started
+        matches[range['end'].line + 1] = vim.tbl_extend('force', opts, {
+          indent = tag_start_col,
+          is_tag_end = true,
+        })
+      end
+    end
+
     if type == 'block' then
       opts.indent_type = 'block'
 
@@ -195,16 +198,8 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
 
       for i = range.start.line, range['end'].line - 1 do
         local line_content = vim.api.nvim_buf_get_lines(bufnr, i, i + 1, true)[1]
-        local indent_diff
-
-        -- Instead of skipping blank lines (which breaks indent tracking for new lines),
-        -- we set their diff to 0 so they default to the base margin.
-        -- if line_content:match('^$') then
-        --   indent_diff = 0
-        -- else
         local curr_indent = vim.fn.indent(i + 1)
-        indent_diff = curr_indent - old_indent
-        -- end
+        local indent_diff = curr_indent - old_indent
 
         matches[i + 1] = vim.tbl_extend('force', opts, {
           indent = head_indent + indent_diff,
@@ -215,7 +210,6 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
 
       if opts.indent == 2 then opts.indent = 0 end
 
-      -- If inside a listitem, set base indent to listitem + overhang
       local listitem_indent = get_listitem_overhang(node, matches)
       if listitem_indent then opts.indent = listitem_indent end
 
