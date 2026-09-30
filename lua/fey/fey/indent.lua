@@ -12,6 +12,7 @@ local function get_indent_pad(linenr, bufnr)
     local _, end_col = heading:field('signature')[1]:end_()
     return end_col + 1
   end
+  -- return vim.fn.indent(linenr)
   return 0
 end
 
@@ -33,6 +34,7 @@ local function get_indent_for_match(matches, linenr, mode, bufnr)
     -- this is actually important for typing ':' because of neovim 'indentkeys' or 'cinkeys'
     return 2
   end
+
   if match.type == 'listitem' then
     -- We first figure out the indent of the first line of a listitem. Then we
     -- check if we're on the first line or a "hanging" line. In the latter
@@ -73,7 +75,8 @@ local function get_indent_for_match(matches, linenr, mode, bufnr)
     return indent
   end
 
-  if match.indent_type == 'block' or match.indent_type == 'other' then
+  if utils.set({ 'block', 'other', 'tag' })[match.indent_type] then
+    -- if match.indent_type == 'block' or match.indent_type == 'other' then
     -- if match.indent_type == 'other' then
     -- Blocks and paragraphs evaluate their own starting base indent via get_matches
     return match.indent
@@ -116,6 +119,48 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
       indent = vim.fn.indent(range.start.line + 1),
     }
 
+    if type == 'simple_multi_tag' then
+      opts.indent_type = 'tag'
+      local start_line = range.start.line + 1
+      if matches[start_line].is_listitem then
+        matches[start_line] = vim.tbl_extend('force', opts, {
+          indent = matches[start_line].indent,
+        })
+      else
+        matches[start_line] = opts
+      end
+
+      if range.start.line ~= range['end'].line then
+        local tag_start = node:child(0)
+        local name_node = node:field('name')[1]
+        local name_start_col = 0
+
+        if name_node then
+          _, name_start_col = name_node:start()
+        elseif tag_start then
+          local _, start_col = tag_start:start()
+          name_start_col = start_col + 2
+        else
+          _, name_start_col = node:start()
+        end
+
+        local inner_indent = name_start_col
+        local _, start_indent = unpack(tag_start and { tag_start:start() } or { false, opts.indent })
+
+        for i = start_line, range['end'].line - 1 do
+          matches[i + 1] = vim.tbl_extend('force', opts, {
+            indent = inner_indent,
+            is_tag_body = true,
+          })
+        end
+
+        matches[range['end'].line + 1] = vim.tbl_extend('force', opts, {
+          indent = start_indent,
+          is_tag_end = true,
+        })
+      end
+    end
+
     if type == 'heading' then
       local _, end_col = node:field('signature')[1]:end_()
       opts.signature = end_col
@@ -134,6 +179,7 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
       local prev_sibling = node:prev_sibling()
       opts.prev_sibling_linenr = prev_sibling and (prev_sibling:start() + 1)
       opts.nesting_parent_linenr = parent and (parent:start() + 1)
+      opts.is_listitem = true
 
       for i = range.start.line, range['end'].line - 1 do
         matches[i + 1] = opts

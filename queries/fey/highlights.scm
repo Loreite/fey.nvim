@@ -7,12 +7,19 @@
 (heading (signature) @signature (#fey-is-heading-level? @signature "6")) @fey.heading.level6
 (heading (signature) @signature (#fey-is-heading-level? @signature "7")) @fey.heading.level7
 (heading (signature) @signature (#fey-is-heading-level? @signature "8")) @fey.heading.level8
+
+; general
 (body (paragraph) @spell)
+
+; lists
 (list (listitem (paragraph) @spell))
 (bullet) @fey.bullet
 
-;
+; blocks
 (block [ (fence) (expr) ] @fey.block)
+
+; tags
+[ (simple_line_tag) (simple_multi_tag) ] @fey.heading.level8
 
 ; tables
 (table (row "|" @fey.table.delimiter))
