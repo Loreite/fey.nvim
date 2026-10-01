@@ -1,6 +1,7 @@
 local config = require('fey.config')
+local utils = require('fey.utils')
 
-local M = {}
+local Tags = {}
 
 ---@type vim.treesitter.Query
 local query = nil
@@ -14,13 +15,12 @@ local function set_backup(bufnr, key, val)
   end
 end
 
-M.key_handlers = {
-  colorscheme = function(bufnr, theme_name)
-    -- if not vim.b[bufnr].fey_config_backup.colorscheme then
-    --   vim.b[bufnr].fey_config_backup.colorscheme = vim.g.colors_name or 'default'
-    -- end
-    set_backup(bufnr, 'colorscheme', vim.g.colors_name or 'default')
-    if vim.api.nvim_get_current_buf() == bufnr then pcall(vim.cmd.colorscheme, theme_name) end
+Tags.key_handlers = {
+  colorscheme = function(bufnr, theme_name, ctx)
+    if not ctx.restore then ctx.set_backup(bufnr, 'colorscheme', vim.g.colors_name or 'default') end
+    if vim.api.nvim_get_current_buf() == bufnr and vim.g.colors_name ~= theme_name then
+      vim.schedule(function() pcall(vim.cmd.colorscheme, theme_name) end)
+    end
   end,
 
   -- Optional: run arbitrary neovim commands directly (e.g., cmd: "set number")
@@ -29,20 +29,13 @@ M.key_handlers = {
   end,
 }
 
--- local function is_valid_buf_option(bufnr, key)
---   return ok, val = pcall(function() return vim.bo[bufnr][key] end)
--- end
--- local function is_valid_buf_option(key)
---   local ok, info = pcall(vim.api.nvim_get_option_info2, key, { scope = 'local' })
---   -- Check if it exists and applies to buffer scope
---   return ok and (info.scope == 'buffer' or info.global_local)
--- end
-
-local function apply_config_key(bufnr, key, val)
-  vim.b[bufnr].fey_config_backup = vim.b[bufnr].fey_config_backup or {}
-  if M.key_handlers[key] then -- Key matches a special command handler
-    M.key_handlers[key](bufnr, val)
-  -- elseif is_valid_buf_option(bufnr, key) then -- Key is a valid buffer option (e.g., shiftwidth, tabstop)
+---@param restore boolean?
+local function apply_config_key(bufnr, key, val, restore)
+  val = utils.unquote(val)
+  if Tags.key_handlers[key] then
+    local ctx = { restore = restore, set_backup = set_backup }
+    local ok, err = pcall(Tags.key_handlers[key], bufnr, val, ctx)
+    if not ok then vim.notify(('fey: handler "%s" failed: %s'):format(key, err), vim.log.levels.WARN) end
   else
     local is_opt, current_val = pcall(function() return vim.bo[bufnr][key] end)
     if is_opt then
@@ -50,8 +43,7 @@ local function apply_config_key(bufnr, key, val)
       if val == 'false' then val = false end
       if tonumber(val) then val = tonumber(val) end
 
-      if vim.b[bufnr].fey_config_backup[key] == nil then vim.b[bufnr].fey_config_backup[key] = current_val end
-
+      if not restore then set_backup(bufnr, key, current_val) end
       pcall(function() vim.bo[bufnr][key] = val end)
     end
   end
@@ -93,18 +85,27 @@ local function parse_and_apply(bufnr)
   end
 end
 
-function M.setup()
+function Tags.setup(key_handlers)
+  key_handlers = key_handlers or {}
+  vim.validate('key_handlers', key_handlers, 'table')
+  for name, handler in pairs(key_handlers) do
+    vim.validate('key_handlers key', name, 'string')
+    vim.validate('key_handlers.' .. name, handler, 'function')
+  end
+  Tags.key_handlers = vim.tbl_deep_extend('force', Tags.key_handlers, key_handlers)
   query = query or vim.treesitter.query.get('fey', 'fey_tags')
 
   local group = vim.api.nvim_create_augroup('FeyBufferConfig', { clear = true })
 
-  vim.api.nvim_create_autocmd({ 'BufReadPost' }, {
+  -- vim.api.nvim_create_autocmd({ 'BufReadPost' }, {
+  -- vim.api.nvim_create_autocmd({ 'BufReadPost', 'FileType' }, {
+  vim.api.nvim_create_autocmd({ 'FileType' }, {
     group = group,
-    pattern = '*.fey',
+    pattern = 'fey',
     callback = function(args) parse_and_apply(args.buf) end,
   })
 
-  vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
+  vim.api.nvim_create_autocmd({ 'TextChanged', 'InsertLeave' }, {
     group = group,
     pattern = '*.fey',
     callback = function(args)
@@ -139,11 +140,12 @@ function M.setup()
 
       if vim.b[bufnr].fey_config_backup then
         for opt, val in pairs(vim.b[bufnr].fey_config_backup) do
-          apply_config_key(bufnr, opt, val)
+          apply_config_key(bufnr, opt, val, true)
         end
+        vim.b[bufnr].fey_config_backup = {}
       end
     end,
   })
 end
 
-return M
+return Tags

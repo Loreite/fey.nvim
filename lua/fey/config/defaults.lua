@@ -118,6 +118,7 @@ local DefaultConfig = {
   hyperlinks = {
     sources = {},
   },
+  neovim_opt_handlers = {},
   mappings = {
     disable_all = false,
     fey_return_uses_meta_return = false,

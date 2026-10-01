@@ -52,7 +52,6 @@ function Fey:new()
   })
   self:setup_autocmds()
   require('fey.config'):setup_ts_predicates()
-  require('fey.config.tags').setup()
   return self
 end
 
@@ -201,6 +200,7 @@ function Fey.setup(opts)
   instance = Fey:new()
   instance.setup_called = true
   instance:init()
+  require('fey.config.tags').setup(config.neovim_opt_handlers)
   vim.defer_fn(function()
     if config.notifications.enabled and #vim.api.nvim_list_uis() > 0 then
       Fey.files:load():next(vim.schedule_wrap(

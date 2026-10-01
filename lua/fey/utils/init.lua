@@ -557,4 +557,6 @@ function utils.set(set)
   end)
 end
 
+function utils.unquote(s) return (s:gsub([[^(["'`])(.*)%1$]], '%2')) end
+
 return utils
