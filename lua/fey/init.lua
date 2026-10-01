@@ -200,7 +200,7 @@ function Fey.setup(opts)
   instance = Fey:new()
   instance.setup_called = true
   instance:init()
-  require('fey.config.tags').setup(config.neovim_opt_handlers)
+  require('fey.files.elements.tags').setup(config.tag_handlers)
   vim.defer_fn(function()
     if config.notifications.enabled and #vim.api.nvim_list_uis() > 0 then
       Fey.files:load():next(vim.schedule_wrap(

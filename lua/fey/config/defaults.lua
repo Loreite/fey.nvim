@@ -118,7 +118,7 @@ local DefaultConfig = {
   hyperlinks = {
     sources = {},
   },
-  neovim_opt_handlers = {},
+  tag_handlers = {},
   mappings = {
     disable_all = false,
     fey_return_uses_meta_return = false,
@@ -175,6 +175,12 @@ local DefaultConfig = {
       --   fey_note_kill = '<prefix>k',
     },
     fey = {
+      fey_run_all_buffer_commands = '<prefix>!a',
+      fey_run_buffer_commands_at_tag = '<prefix>!t',
+      fey_toggle_run_all_buffer_commands_at_buffer_enter = '<prefix>!e',
+      fey_apply_all_settings = '<prefix>?a',
+      fey_apply_settings_at_tag = '<prefix>?t',
+      fey_toggle_apply_all_settings_at_buffer_enter = '<prefix>?e',
       -- fey_refile = '<prefix>r',
       -- fey_timestamp_up_day = '<S-UP>',
       -- fey_timestamp_down_day = '<S-DOWN>',
