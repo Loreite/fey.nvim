@@ -1,19 +1,24 @@
 local config = require('fey.config')
 local utils = require('fey.utils')
+local nvim_config = require('fey.files.elements.tags.handlers.nvim_config')
 
 ---@type vim.treesitter.Query
 local query = nil
 
 ---@class FeyTag
----@field key_values table
+---@field bufnr integer
+---@field name string
 ---@field values string[]
+---@field key_values table
 local Tag = {}
 
+---@param bufnr integer
 ---@param name string
 ---@param values string[]
 ---@param key_values table
-function Tag:new(name, values, key_values)
+function Tag:new(bufnr, name, values, key_values)
   local data = {
+    bufnr = bufnr,
     name = name,
     values = values,
     key_values = key_values,
@@ -22,6 +27,10 @@ function Tag:new(name, values, key_values)
   setmetatable(data, self)
   self.__index = self
   return data
+end
+
+function Tag:apply()
+  if Tag.handlers[self.name] then Tag.handlers[self.name](self.bufnr, self.values, self.key_values) end
 end
 
 function Tag.parse_tag_node(bufnr, node)
@@ -48,7 +57,7 @@ function Tag.parse_tag_node(bufnr, node)
     end
   end
 
-  return Tag:new(name_text, values, key_values)
+  return Tag:new(bufnr, name_text, values, key_values)
 end
 
 function Tag.parse_all_tags(bufnr)
@@ -63,25 +72,24 @@ function Tag.parse_all_tags(bufnr)
 
   local tags = {}
   for _, node in query:iter_captures(root, bufnr) do -- id, node: (root, bufnr, 0, -1)
-    table.insert(tags, Tag.parse_tag_node(node))
+    table.insert(tags, Tag.parse_tag_node(bufnr, node))
   end
 
   return tags
 end
 
-Tag.tag_handlers = {}
+Tag.handlers = {}
 
-function Tag.setup(tag_handlers)
-  tag_handlers = tag_handlers or {}
+function Tag.setup(handlers)
+  handlers = handlers or {}
   vim.validate('fey_nvim_config_tag_name', config.fey_nvim_config_tag_name, 'string')
-  vim.validate('key_handlers', tag_handlers, 'table')
-  for name, handler in pairs(tag_handlers) do
+  vim.validate('key_handlers', handlers, 'table')
+  for name, handler in pairs(handlers) do
     vim.validate('key_handlers key', name, 'string')
     vim.validate('key_handlers.' .. name, handler, 'function')
   end
-  local nvim_config = require('fey.files.elements.tags.handlers.nvim_config')
-  Tag.tag_handlers[config.fey_nvim_config_tag_name] = nvim_config.nvim_handler
-  Tag.tag_handlers = vim.tbl_deep_extend('force', Tag.tag_handlers, tag_handlers)
+  Tag.handlers[config.fey_nvim_config_tag_name] = nvim_config.nvim_handler
+  Tag.handlers = vim.tbl_deep_extend('force', Tag.handlers, handlers)
 
   query = query or vim.treesitter.query.get('fey', 'fey_tags')
 

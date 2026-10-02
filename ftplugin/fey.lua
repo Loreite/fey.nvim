@@ -1,6 +1,4 @@
-if vim.b.did_ftplugin or vim.b.fey_tmp_edit_window then
-  return
-end
+if vim.b.did_ftplugin or vim.b.fey_tmp_edit_window then return end
 ---@diagnostic disable-next-line: inject-field
 vim.b.did_ftplugin = true
 
@@ -14,11 +12,9 @@ config:setup_mappings('fey', bufnr)
 config:setup_mappings('text_objects', bufnr)
 config:setup_foldlevel()
 
-if config.fey_startup_indented then
-  require('fey.ui.virtual_indent'):new(bufnr):attach()
-end
+if config.fey_startup_indented then require('fey.ui.virtual_indent'):new(bufnr):attach() end
 
-vim.bo.modeline = false
+vim.bo.modeline = config.fey_allow_modeline
 vim.opt_local.fillchars:append('fold: ')
 vim.opt_local.foldmethod = 'expr'
 vim.opt_local.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
@@ -32,9 +28,7 @@ vim.opt_local.omnifunc = 'v:lua.fey.omnifunc'
 vim.opt_local.commentstring = '# %s'
 vim.bo.indentkeys = ('%s,%s'):format(vim.bo.indentkeys, '=~end_src,=~end_example,<:>')
 
-_G.fey.omnifunc = function(findstart, base)
-  return require('fey').completion:omnifunc(findstart, base)
-end
+_G.fey.omnifunc = function(findstart, base) return require('fey').completion:omnifunc(findstart, base) end
 
 local abbreviations = {
   [':today:'] = "require('fey.objects.date').today():to_wrapped_string(true)",
@@ -54,9 +48,7 @@ for _, char in ipairs({ '*', '=', '/', '+', '~', '_' }) do
   vim.keymap.set('o', 'a' .. char, ':normal va' .. char .. '<CR>', { buffer = true })
 end
 
-if config.fey_highlight_latex_and_related then
-  vim.bo[bufnr].syntax = 'ON'
-end
+if config.fey_highlight_latex_and_related then vim.bo[bufnr].syntax = 'ON' end
 
 vim.b.undo_ftplugin = table.concat({
   'setlocal',

@@ -5,7 +5,7 @@ local DefaultConfig = {
   -- TODO: Validate these! (vim.validate())
   fey_default_subheading_index_order = { 'roman_upper', 'alpha_upper', 'roman_lower', 'alpha_lower' },
   fey_default_sublist_index_order = { 'roman_upper', 'alpha_upper', 'roman_lower', 'alpha_lower' },
-  fey_default_subheading_delimiter_order = '.:;',
+  fey_default_subheading_delimiter_order = '',
   fey_default_subheading_delimiter = '.',
   --
   fey_subheadings_unique_segments_for_subtree = false,
@@ -18,9 +18,11 @@ local DefaultConfig = {
   fey_treesitter_local_install = '',
   --
   -- fey_reindex_fey_src_blocks = true,
-  fey_nvim_config_tag_name = 'Neovim',
+  fey_nvim_config_tag_name = 'nvim',
+  fey_comment_tag_name = 'comment',
   fey_use_cwd_config = false,
   fey_use_buffer_config = true,
+  fey_allow_modeline = true,
 
   fey_agenda_files = '',
   fey_default_notes_file = '',

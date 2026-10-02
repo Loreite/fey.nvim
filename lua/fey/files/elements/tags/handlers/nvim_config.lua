@@ -11,19 +11,23 @@ local key_handlers = {
     end
   end,
 
-  cmd = function(_, command_string)
+  buf_enter = function(_, command_string)
+    pcall(function(s) vim.cmd(s) end, command_string)
+  end,
+
+  buf_leave = function(_, command_string)
     pcall(function(s) vim.cmd(s) end, command_string)
   end,
 }
 
 local function set_backup(bufnr, key, val)
-  local backup = vim.b[bufnr].fey_config_backup or {}
-  backup[key] = val
-  vim.b[bufnr].fey_config_backup = backup
-  -- if backup[key] == nil then
-  --   backup[key] = val
-  --   vim.b[bufnr].fey_config_backup = backup
-  -- end
+  local backup = vim.b[bufnr].fey_nvim_config_backup or {}
+  -- backup[key] = val
+  -- vim.b[bufnr].fey_nvim_config_backup = backup
+  if backup[key] == nil then
+    backup[key] = val
+    vim.b[bufnr].fey_nvim_config_backup = backup
+  end
 end
 
 ---@param restore boolean?
@@ -46,28 +50,50 @@ local function apply_config_key(bufnr, key, val, restore)
 end
 
 function M.nvim_handler(bufnr, _, key_values, _)
+  local nvim_config = vim.b[bufnr].fey_nvim_config or {}
   for key, val in pairs(key_values) do
+    nvim_config[key] = val
     apply_config_key(bufnr, key, val)
   end
+  vim.b[bufnr].fey_nvim_config = nvim_config
 end
 
 function M.setup_nvim_query(parse_tags)
   local group = vim.api.nvim_create_augroup('FeyBufferConfig', { clear = true })
 
-  local apply_all = function(args)
+  local apply_all_tags = function(args)
+    vim.b[args.buf].fey_nvim_config = {}
     local tags = parse_tags(args.buf)
-    vim.iter(tags):filter(function(tag) return tag.name == config.fey_nvim_config_tag_name end)
+    local ok, filtered = pcall(function() return vim.iter(tags) end)
+    if not ok then
+      vim.notify('fey: failed to parse tags', vim.log.levels.WARN)
+      return
+    end
+    tags = filtered:filter(function(tag) return tag.name == config.fey_nvim_config_tag_name end):totable()
     for _, tag in ipairs(tags) do
-      for key, value in pairs(tag.key_values) do
-        apply_config_key(args.buf, key, value)
+      tag:apply()
+    end
+  end
+
+  local apply_config = function(bufnr, config_name, filter, clear_restore)
+    if vim.b[bufnr][config_name] then
+      local opts = vim.iter(vim.b[bufnr][config_name])
+      if filter then opts:filter(filter) end
+      for opt, val in opts do
+        apply_config_key(bufnr, opt, val, clear_restore)
       end
+      if clear_restore then vim.b[bufnr][config_name] = {} end
     end
   end
 
   vim.api.nvim_create_autocmd({ 'FileType' }, {
     group = group,
     pattern = 'fey',
-    callback = apply_all,
+    callback = function(args)
+      if vim.b[args.buf].fey_buffer_is_loaded then return end
+      vim.b[args.buf].fey_buffer_is_loaded = true
+      apply_all_tags(args)
+    end,
   })
 
   vim.api.nvim_create_autocmd({ 'TextChanged', 'InsertLeave' }, {
@@ -76,7 +102,10 @@ function M.setup_nvim_query(parse_tags)
     callback = function(args)
       local bufnr = args.buf
       if timers[bufnr] then timers[bufnr]:stop() end
-      timers[bufnr] = vim.defer_fn(apply_all, 300)
+      timers[bufnr] = vim.defer_fn(function()
+        apply_config(bufnr, 'fey_nvim_config_backup', nil, false)
+        apply_all_tags(args)
+      end, 300)
     end,
   })
 
@@ -84,15 +113,7 @@ function M.setup_nvim_query(parse_tags)
     group = group,
     pattern = '*.fey',
     callback = function(args)
-      local bufnr = args.buf
-
-      if vim.b[bufnr].fey_config then
-        for _, tag in ipairs(vim.b[bufnr].fey_config) do
-          for opt, val in pairs(tag) do
-            apply_config_key(bufnr, opt, val)
-          end
-        end
-      end
+      apply_config(args.buf, 'fey_nvim_config', function(key, _) return key ~= 'buf_leave' end, false)
     end,
   })
 
@@ -101,14 +122,8 @@ function M.setup_nvim_query(parse_tags)
     group = group,
     pattern = '*.fey',
     callback = function(args)
-      local bufnr = args.buf
-
-      if vim.b[bufnr].fey_config_backup then
-        for opt, val in pairs(vim.b[bufnr].fey_config_backup) do
-          apply_config_key(bufnr, opt, val, true)
-        end
-        vim.b[bufnr].fey_config_backup = {}
-      end
+      apply_config(args.buf, 'fey_nvim_config', function(key, _) return key == 'buf_leave' end, false)
+      apply_config(args.buf, 'fey_nvim_config_backup', nil, true)
     end,
   })
 end
