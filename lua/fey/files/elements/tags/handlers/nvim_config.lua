@@ -107,7 +107,7 @@ function M.setup_query(parse_tags)
     callback = function(args)
       if vim.b[args.buf].fey_buffer_is_loaded then return end
       vim.b[args.buf].fey_buffer_is_loaded = true
-      apply_all_tags(args)
+      vim.defer_fn(function() apply_all_tags(args) end, 300)
     end,
   })
 
@@ -124,7 +124,9 @@ function M.setup_query(parse_tags)
     group = group,
     pattern = '*.fey',
     callback = function(args)
-      apply_config(args.buf, 'fey_nvim_config', function(key, _) return key ~= 'buf_leave' end, false)
+      vim.defer_fn(function()
+        apply_config(args.buf, 'fey_nvim_config', function(key, _) return key ~= 'buf_leave' end, false)
+      end, 300)
     end,
   })
 
@@ -133,8 +135,10 @@ function M.setup_query(parse_tags)
     group = group,
     pattern = '*.fey',
     callback = function(args)
-      apply_config(args.buf, 'fey_nvim_config', function(key, _) return key == 'buf_leave' end, false)
-      apply_config(args.buf, 'fey_nvim_config_backup', nil, true)
+      vim.defer_fn(function()
+        apply_config(args.buf, 'fey_nvim_config', function(key, _) return key == 'buf_leave' end, false)
+        apply_config(args.buf, 'fey_nvim_config_backup', nil, true)
+      end, 300)
     end,
   })
 end

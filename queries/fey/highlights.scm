@@ -19,7 +19,6 @@
 (block [ (fence) (expr) ] @fey.block)
 
 ; tags
-; [ (simple_line_tag) (simple_multi_tag) ] @fey.heading.level8
 [ (scope_tag) ] @fey.heading.level8 ;TODO: set up universal color defaults
 [ (block_tag) ] @fey.heading.level6
 [ (line_tag) ] @fey.heading.level5

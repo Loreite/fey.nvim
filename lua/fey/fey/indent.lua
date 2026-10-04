@@ -140,11 +140,11 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
       opts.is_listitem = true
 
       for i = range.start.line, range['end'].line - 1 do
-        matches[i + 1] = opts
+        matches[i + 1] = (i == range.start.line) and opts or setmetatable({}, { __index = opts })
       end
     end
 
-    if type == 'simple_tag' then
+    if type == 'scope_tag' then
       opts.indent_type = 'tag'
       local start_line = range.start.line + 1
       local list_match = matches[start_line]
