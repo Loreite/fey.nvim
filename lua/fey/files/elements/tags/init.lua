@@ -7,6 +7,8 @@ local query = nil
 
 ---@class FeyTag
 ---@field node TSNode
+---@field head TSNode
+---@field body TSNode
 ---@field bufnr integer
 ---@field type string
 ---@field name string
@@ -38,17 +40,19 @@ function Tag:apply()
 end
 
 function Tag.parse_tag_node(bufnr, node)
-  local name = node:field('name')[1]
+  local head = node:type() == 'pair_tag' and node:field('open')[1] or node
+  local name = head:field('name')[1]
   local name_text = vim.treesitter.get_node_text(name, bufnr)
+  local body = node:type() == 'scope_tag' and node:parent() or node:field('body')[1]
 
   local values = {}
-  for _, value in ipairs(node:field('value')) do
+  for _, value in ipairs(head:field('value')) do
     local text = vim.treesitter.get_node_text(value, bufnr)
     table.insert(values, text:match('^%s*(.-)%s*$'))
   end
 
   local key_values = {}
-  for _, kv in ipairs(node:field('key_value')) do
+  for _, kv in ipairs(head:field('key_value')) do
     local key = kv:field('key')[1]
     local value = kv:field('value')[1]
 
@@ -64,6 +68,8 @@ function Tag.parse_tag_node(bufnr, node)
 
   local opts = {
     node = node,
+    head = head,
+    body = body,
     bufnr = bufnr,
     type = node:type(),
     name = name_text,

@@ -141,13 +141,13 @@ function M.setup_query(parse_tags)
   })
 end
 
-local function skip_test(tag) print('Skipped! name: ' .. tag.name .. ', type: ' .. tag.type) end
+-- local function skip_test(tag) print('Skipped! name: ' .. tag.name .. ', type: ' .. tag.type) end
 
 M.handlers = {
   scope_tag = M.scope_handler,
   -- line_tag = skip_test,
   -- block_tag = skip_test,
-  -- pair_open = skip_test,
+  -- pair_tag = skip_test,
 }
 
 return M
