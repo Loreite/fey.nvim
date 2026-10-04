@@ -39,8 +39,8 @@ function Tag.parse_tag_node(bufnr, node)
 
   local values = {}
   for _, value in ipairs(node:field('value')) do
-    local text = vim.treesitter.get_node_text(bufnr, value)
-    table.insert(values, utils.unquote(text))
+    local text = vim.treesitter.get_node_text(value, bufnr)
+    table.insert(values, text:match('^%s*(.-)%s*$'))
   end
 
   local key_values = {}
@@ -52,7 +52,8 @@ function Tag.parse_tag_node(bufnr, node)
       local key_text = vim.treesitter.get_node_text(key, bufnr)
       local value_text = vim.treesitter.get_node_text(value, bufnr)
 
-      value_text = utils.unquote(value_text)
+      -- value_text = utils.unquote(value_text)
+      value_text = value_text:match('^%s*(.-)%s*$')
       key_values[key_text] = value_text
     end
   end
@@ -88,12 +89,12 @@ function Tag.setup(handlers)
     vim.validate('key_handlers key', name, 'string')
     vim.validate('key_handlers.' .. name, handler, 'function')
   end
-  Tag.handlers[config.fey_nvim_config_tag_name] = nvim_config.nvim_handler
+  Tag.handlers[config.fey_nvim_config_tag_name] = nvim_config.handler
   Tag.handlers = vim.tbl_deep_extend('force', Tag.handlers, handlers)
 
   query = query or vim.treesitter.query.get('fey', 'fey_tags')
 
-  nvim_config.setup_nvim_query(Tag.parse_all_tags)
+  nvim_config.setup_query(Tag.parse_all_tags)
 end
 
 return Tag

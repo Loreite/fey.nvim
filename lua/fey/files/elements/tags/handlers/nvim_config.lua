@@ -6,8 +6,8 @@ local timers = {}
 local key_handlers = {
   colorscheme = function(bufnr, theme_name, ctx)
     if not ctx.restore then ctx.set_backup(bufnr, 'colorscheme', vim.g.colors_name or 'default') end
-    if vim.api.nvim_get_current_buf() == bufnr and vim.g.colors_name ~= theme_name then
-      vim.schedule(function() pcall(vim.cmd.colorscheme, theme_name) end)
+    if ctx.restore or vim.api.nvim_get_current_buf() == bufnr then
+      if vim.g.colors_name ~= theme_name then pcall(vim.cmd.colorscheme, theme_name) end
     end
   end,
 
@@ -49,7 +49,15 @@ local function apply_config_key(bufnr, key, val, restore)
   end
 end
 
-function M.nvim_handler(bufnr, _, key_values, _)
+local function restore_key(bufnr, key)
+  local backup = vim.b[bufnr].fey_nvim_config_backup or {}
+  if backup[key] == nil then return end
+  apply_config_key(bufnr, key, backup[key], true)
+  backup[key] = nil
+  vim.b[bufnr].fey_nvim_config_backup = backup
+end
+
+function M.handler(bufnr, _, key_values, _)
   local nvim_config = vim.b[bufnr].fey_nvim_config or {}
   for key, val in pairs(key_values) do
     nvim_config[key] = val
@@ -58,20 +66,27 @@ function M.nvim_handler(bufnr, _, key_values, _)
   vim.b[bufnr].fey_nvim_config = nvim_config
 end
 
-function M.setup_nvim_query(parse_tags)
+function M.setup_query(parse_tags)
   local group = vim.api.nvim_create_augroup('FeyBufferConfig', { clear = true })
 
   local apply_all_tags = function(args)
-    vim.b[args.buf].fey_nvim_config = {}
-    local tags = parse_tags(args.buf)
-    local ok, filtered = pcall(function() return vim.iter(tags) end)
-    if not ok then
-      vim.notify('fey: failed to parse tags', vim.log.levels.WARN)
-      return
-    end
-    tags = filtered:filter(function(tag) return tag.name == config.fey_nvim_config_tag_name end):totable()
+    local bufnr = args.buf
+    if not vim.api.nvim_buf_is_valid(bufnr) then return end
+
+    local old = vim.b[bufnr].fey_nvim_config or {}
+    local tags = parse_tags(bufnr)
+    -- parse error (e.g. mid-typing): leave current state untouched
+    if not tags then return end
+
+    vim.b[bufnr].fey_nvim_config = {}
     for _, tag in ipairs(tags) do
-      tag:apply()
+      if tag.name == config.fey_nvim_config_tag_name then tag:apply() end
+    end
+
+    -- only restore keys that were removed from the tag(s)
+    local new = vim.b[bufnr].fey_nvim_config or {}
+    for key in pairs(old) do
+      if new[key] == nil then restore_key(bufnr, key) end
     end
   end
 
@@ -100,12 +115,8 @@ function M.setup_nvim_query(parse_tags)
     group = group,
     pattern = '*.fey',
     callback = function(args)
-      local bufnr = args.buf
-      if timers[bufnr] then timers[bufnr]:stop() end
-      timers[bufnr] = vim.defer_fn(function()
-        apply_config(bufnr, 'fey_nvim_config_backup', nil, false)
-        apply_all_tags(args)
-      end, 300)
+      if timers[args.buf] then timers[args.buf]:stop() end
+      timers[args.buf] = vim.defer_fn(function() apply_all_tags(args) end, 300)
     end,
   })
 
