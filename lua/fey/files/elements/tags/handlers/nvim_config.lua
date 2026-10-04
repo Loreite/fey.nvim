@@ -22,8 +22,6 @@ local key_handlers = {
 
 local function set_backup(bufnr, key, val)
   local backup = vim.b[bufnr].fey_nvim_config_backup or {}
-  -- backup[key] = val
-  -- vim.b[bufnr].fey_nvim_config_backup = backup
   if backup[key] == nil then
     backup[key] = val
     vim.b[bufnr].fey_nvim_config_backup = backup
@@ -57,13 +55,13 @@ local function restore_key(bufnr, key)
   vim.b[bufnr].fey_nvim_config_backup = backup
 end
 
-function M.handler(bufnr, _, key_values, _)
-  local nvim_config = vim.b[bufnr].fey_nvim_config or {}
-  for key, val in pairs(key_values) do
+function M.scope_handler(tag)
+  local nvim_config = vim.b[tag.bufnr].fey_nvim_config or {}
+  for key, val in pairs(tag.key_values) do
     nvim_config[key] = val
-    apply_config_key(bufnr, key, val)
+    apply_config_key(tag.bufnr, key, val)
   end
-  vim.b[bufnr].fey_nvim_config = nvim_config
+  vim.b[tag.bufnr].fey_nvim_config = nvim_config
 end
 
 function M.setup_query(parse_tags)
@@ -142,5 +140,14 @@ function M.setup_query(parse_tags)
     end,
   })
 end
+
+local function skip_test(tag) print('Skipped! name: ' .. tag.name .. ', type: ' .. tag.type) end
+
+M.handlers = {
+  scope_tag = M.scope_handler,
+  -- line_tag = skip_test,
+  -- block_tag = skip_test,
+  -- pair_open = skip_test,
+}
 
 return M
