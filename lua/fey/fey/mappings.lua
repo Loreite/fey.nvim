@@ -1152,41 +1152,183 @@ end
 
 function FeyMappings:export() return require('fey.export').prompt() end
 
----Find and move cursor to next visible heading.
+-- ---------------------------------------------------------------------------
+-- Heading navigation over the Fey AST
+--
+--   document := body? section*                 (field 'subsection')
+--   section  := heading body? section* _end     (fields 'heading', 'body', 'subsection')
+--
+-- Headings are never found by text search: the cursor's section comes from
+-- ts_utils.closest_heading_node(), and every move after that is a walk over
+-- sibling / parent / 'subsection' links between `section` nodes.
+-- ---------------------------------------------------------------------------
+
+---Nearest `section` sibling in the given direction, skipping any non-section
+---named siblings (the parent's `heading` and `body`, ERROR nodes, ...).
+---@param section TSNode
+---@param forward boolean
+---@return TSNode|nil
+local function sibling_section(section, forward)
+  -- Explicit if/else, not `forward and a() or b()`: when a() returns nil
+  -- that idiom falls through to b() and walks the wrong way.
+  local function step(node)
+    if forward then return node:next_named_sibling() end
+    return node:prev_named_sibling()
+  end
+
+  local sib = step(section)
+  while sib and sib:type() ~= 'section' do
+    sib = step(sib)
+  end
+  return sib
+end
+
+---Enclosing section, or nil at the top level (parent is the document).
+---@param section TSNode
+---@return TSNode|nil
+local function parent_section(section)
+  local parent = section:parent()
+  if parent and parent:type() == 'section' then return parent end
+  return nil
+end
+
+---Deepest last descendant: the last heading inside `section`'s subtree.
+---@param section TSNode
+---@return TSNode
+local function last_descendant_section(section)
+  local children = section:field('subsection')
+  while #children > 0 do
+    section = children[#children]
+    children = section:field('subsection')
+  end
+  return section
+end
+
+---Next section in document (pre-)order.
+---@param section TSNode
+---@return TSNode|nil
+local function next_section_in_order(section)
+  local child = section:field('subsection')[1]
+  if child then return child end
+  ---@type TSNode|nil
+  local current = section
+  while current do
+    local sib = sibling_section(current, true)
+    if sib then return sib end
+    current = parent_section(current)
+  end
+  return nil
+end
+
+---Previous section in document (pre-)order.
+---@param section TSNode
+---@return TSNode|nil
+local function prev_section_in_order(section)
+  local sib = sibling_section(section, false)
+  if sib then return last_descendant_section(sib) end
+  return parent_section(section)
+end
+
+---1-indexed line of a section's heading.
+---@param section TSNode
 ---@return integer
-function FeyMappings:next_visible_heading() return vim.fn.search([[^\*\+\s\+]], 'W', 0, 0, self._skip_invisible_heading) end
+local function heading_lnum(section)
+  local node = section:field('heading')[1] or section
+  local row = node:start()
+  return row + 1
+end
+
+---A heading is visible unless it sits inside a closed fold it does not start.
+---@param lnum integer
+---@return boolean
+local function is_line_visible(lnum)
+  local fold = vim.fn.foldclosed(lnum)
+  return fold == -1 or fold == lnum
+end
+
+---@param section TSNode
+---@return integer lnum
+local function goto_section(section)
+  local lnum = heading_lnum(section)
+  vim.fn.cursor(lnum, 1)
+  return lnum
+end
+
+---The section that owns the cursor, or nil in the document's root body.
+---@return TSNode|nil
+local function cursor_section()
+  local heading = ts_utils.closest_heading_node()
+  return heading and heading:parent()
+end
+
+---Find and move cursor to next visible heading.
+---@return integer lnum of the heading jumped to, 0 if none
+function FeyMappings:next_visible_heading()
+  local section = cursor_section()
+  local target
+  if section then
+    target = next_section_in_order(section)
+  else
+    -- Root body (before the first heading): the first top-level section.
+    target = ts_utils.parse_current_file()[1]:root():field('subsection')[1]
+  end
+
+  while target and not is_line_visible(heading_lnum(target)) do
+    target = next_section_in_order(target)
+  end
+
+  if not target then return 0 end
+  return goto_section(target)
+end
 
 ---Find and move cursor to previous visible heading.
----@return integer
-function FeyMappings:previous_visible_heading() return vim.fn.search([[^\*\+\s\+]], 'bW', 0, 0, self._skip_invisible_heading) end
+---@return integer lnum of the heading jumped to, 0 if none
+function FeyMappings:previous_visible_heading()
+  local section = cursor_section()
+  if not section then return 0 end
 
----Check if heading is visible. If not, skip it.
----@return integer
-function FeyMappings:_skip_invisible_heading()
-  local fold = vim.fn.foldclosed('.')
-  if fold == -1 or vim.fn.line('.') == fold then return 0 end
-  return 1
+  -- Inside the section's body the previous heading is its own; on the
+  -- heading line itself, step back one section in document order.
+  ---@type TSNode|nil
+  local target = section
+  if vim.fn.line('.') == heading_lnum(section) then target = prev_section_in_order(section) end
+
+  while target and not is_line_visible(heading_lnum(target)) do
+    target = prev_section_in_order(target)
+  end
+
+  if not target then return 0 end
+  return goto_section(target)
 end
 
 function FeyMappings:forward_heading_same_level()
-  local item = self.files:get_closest_heading()
-  local next_heading_same_level = item:get_next_heading_same_level()
-  if not next_heading_same_level then return end
-  return vim.fn.cursor(next_heading_same_level:get_range().start_line, 1)
+  local section = cursor_section()
+  local target = section and sibling_section(section, true)
+  if not target then return end
+  return goto_section(target)
 end
 
 function FeyMappings:backward_heading_same_level()
-  local item = self.files:get_closest_heading()
-  local prev_heading_same_level = item:get_prev_heading_same_level()
-  if not prev_heading_same_level then return end
-  return vim.fn.cursor(prev_heading_same_level:get_range().start_line, 1)
+  local section = cursor_section()
+  local target = section and sibling_section(section, false)
+  if not target then return end
+  return goto_section(target)
 end
 
 function FeyMappings:outline_up_heading()
-  local item = self.files:get_closest_heading()
-  local parent = item:get_parent_heading()
+  local section = cursor_section()
+  local parent = section and parent_section(section)
   if not parent then return utils.echo_info('Already at top level of the outline') end
-  return vim.fn.cursor(parent:get_range().start_line, 1)
+  return goto_section(parent)
+end
+
+---Jump to the last direct child heading of the section under the cursor.
+function FeyMappings:last_child_heading()
+  local section = cursor_section()
+  if not section then return end
+  local children = section:field('subsection')
+  if #children == 0 then return utils.echo_info('Heading has no child headings') end
+  return goto_section(children[#children])
 end
 
 function FeyMappings:fey_deadline()

@@ -547,26 +547,30 @@ return {
     --   }),
     --   fey_export = m.action('fey_mappings.export', { opts = { desc = 'fey export', help_desc = 'Open export options' } }),
     fey_return = m.action('fey_mappings.fey_return', { modes = { 'i' }, opts = { desc = 'fey return' } }),
-    -- fey_next_visible_heading = m.action('fey_mappings.next_visible_heading', {
-    --   modes = { 'n', 'x' },
-    --   opts = { desc = 'fey next visible heading', help_desc = 'Go to next heading (any level)' },
-    -- }),
-    --   fey_previous_visible_heading = m.action('fey_mappings.previous_visible_heading', {
-    --     modes = { 'n', 'x' },
-    --     opts = { desc = 'fey prev visible heading', help_desc = 'Go to previous heading (any level)' },
-    --   }),
-    --   fey_forward_heading_same_level = m.action(
-    --     'fey_mappings.forward_heading_same_level',
-    --     { opts = { desc = 'fey next heading (same level)', help_desc = 'Go to next heading at the same level' } }
-    --   ),
-    --   fey_backward_heading_same_level = m.action(
-    --     'fey_mappings.backward_heading_same_level',
-    --     { opts = { desc = 'fey prev heading (same level)', help_desc = 'Go to previous heading at the same level' } }
-    --   ),
-    --   outline_up_heading = m.action(
-    --     'fey_mappings.outline_up_heading',
-    --     { opts = { desc = 'fey goto parent heading', help_desc = 'Go to parent heading' } }
-    --   ),
+    fey_next_visible_heading = m.action('fey_mappings.next_visible_heading', {
+      modes = { 'n', 'x' },
+      opts = { desc = 'fey next visible heading', help_desc = 'Go to next heading (any level)' },
+    }),
+    fey_previous_visible_heading = m.action('fey_mappings.previous_visible_heading', {
+      modes = { 'n', 'x' },
+      opts = { desc = 'fey prev visible heading', help_desc = 'Go to previous heading (any level)' },
+    }),
+    fey_forward_heading_same_level = m.action(
+      'fey_mappings.forward_heading_same_level',
+      { opts = { desc = 'fey next heading (same level)', help_desc = 'Go to next heading at the same level' } }
+    ),
+    fey_backward_heading_same_level = m.action(
+      'fey_mappings.backward_heading_same_level',
+      { opts = { desc = 'fey prev heading (same level)', help_desc = 'Go to previous heading at the same level' } }
+    ),
+    outline_up_heading = m.action(
+      'fey_mappings.outline_up_heading',
+      { opts = { desc = 'fey goto parent heading', help_desc = 'Go to parent heading' } }
+    ),
+    last_child_heading = m.action(
+      'fey_mappings.last_child_heading',
+      { opts = { desc = 'fey goto last child heading', help_desc = 'Go to last child heading' } }
+    ),
     --   fey_deadline = m.action(
     --     'fey_mappings.fey_deadline',
     --     { opts = { desc = 'fey deadline', help_desc = 'Insert/Update deadline date' } }

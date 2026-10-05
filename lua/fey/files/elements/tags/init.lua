@@ -60,7 +60,6 @@ function Tag.parse_tag_node(bufnr, node)
       local key_text = vim.treesitter.get_node_text(key, bufnr)
       local value_text = vim.treesitter.get_node_text(value, bufnr)
 
-      -- value_text = utils.unquote(value_text)
       value_text = value_text:match('^%s*(.-)%s*$')
       key_values[key_text] = value_text
     end

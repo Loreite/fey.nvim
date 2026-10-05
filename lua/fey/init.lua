@@ -201,6 +201,9 @@ function Fey.setup(opts)
   instance.setup_called = true
   instance:init()
   require('fey.files.elements.tags').setup(config.tag_handlers)
+  require('fey.ui.navigator').setup()
+  vim.keymap.set('n', '<leader>;;', function() require('fey.ui.navigator').open() end, { desc = 'open fey navigator' })
+  vim.keymap.set('n', '<leader>;:', function() require('fey.ui.navigator').resume() end, { desc = 'reopen fey navigator' })
   vim.defer_fn(function()
     if config.notifications.enabled and #vim.api.nvim_list_uis() > 0 then
       Fey.files:load():next(vim.schedule_wrap(
