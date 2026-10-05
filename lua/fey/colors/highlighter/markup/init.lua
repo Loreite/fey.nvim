@@ -52,9 +52,7 @@ function FeyMarkup:_get_highlights(bufnr, line, tree, use_cache)
 
   local result = self:get_node_highlights(tree:root(), bufnr, line)
 
-  if not self.cache[bufnr] then
-    self.cache[bufnr] = {}
-  end
+  if not self.cache[bufnr] then self.cache[bufnr] = {} end
 
   self.cache[bufnr][line] = {
     line_content = line_content,
@@ -87,69 +85,84 @@ function FeyMarkup:get_node_highlights(root_node, source, line)
     end
   end
 
-  if #entries == 0 then
-    return result
-  end
+  if #entries == 0 then return result end
 
+  -- Open spans, keyed by the id their closer will seek.
   ---@type table<string, FeyMarkupNode>
   local seek = {}
-  local last_seek = nil
+  -- The open non-nestable span (code, verbatim, quote), if any. Its inside
+  -- is literal: nothing may open or close there except its own closer.
+  ---@type FeyMarkupNode?
+  local literal = nil
 
   local is_valid_start_item = function(item)
-    if last_seek and not last_seek.nestable then
-      return false
-    end
-    if not self:has_valid_parent(item) then
-      return false
-    end
-    return self.parsers[item.type]:is_valid_start_node(item, source)
+    return self:has_valid_parent(item) and self.parsers[item.type]:is_valid_start_node(item, source)
   end
 
   local is_valid_end_item = function(item)
-    if not self:has_valid_parent(item) then
-      return false
-    end
-
-    return self.parsers[item.type]:is_valid_end_node(item, source)
+    return self:has_valid_parent(item) and self.parsers[item.type]:is_valid_end_node(item, source)
   end
 
-  for _, item in ipairs(entries) do
-    local from = seek[item.seek_id]
+  local push = function(item, from_range)
+    table.insert(result[item.type], {
+      id = item.id,
+      char = item.char,
+      from = from_range,
+      to = item.range,
+      metadata = item.metadata,
+    })
+  end
 
-    if not from and not item.self_contained then
-      if is_valid_start_item(item) then
-        seek[item.id] = item
-        last_seek = item
-      end
-      goto continue
+  -- A literal span opens only if its closer exists later on the line, so a
+  -- stray backtick or apostrophe cannot switch off the rest of the line.
+  local has_closer = function(index, item)
+    for j = index + 1, #entries do
+      local other = entries[j]
+      if other.seek_id == item.id and is_valid_end_item(other) then return true end
     end
+    return false
+  end
 
-    if is_valid_end_item(item) then
-      table.insert(result[item.type], {
-        id = item.id,
-        char = item.char,
-        from = item.self_contained and item.range or from.range,
-        to = item.range,
-        metadata = item.metadata,
-      })
-
-      if last_seek and last_seek.type == item.type then
-        last_seek = nil
-      end
-    end
+  for index, item in ipairs(entries) do
+    if literal and item.seek_id ~= literal.id then goto continue end
 
     if item.self_contained then
+      if is_valid_end_item(item) then push(item, item.range) end
       goto continue
     end
 
-    seek[item.seek_id] = nil
-    for t, pos in pairs(seek) do
-      if
-        pos.range.line == from.range.line
-        and pos.range.start_col > from.range.end_col
-        and pos.range.start_col < item.range.start_col
-      then
-        seek[t] = nil
+    local from = seek[item.seek_id]
+
+    -- Close the open span. A marker that cannot close it (`!a b!c d!`: the
+    -- middle `!` has a letter after it) is ignored, so the span stays open
+    -- for a later closer.
+    if from then
+      if is_valid_end_item(item) then
+        push(item, from.range)
+        seek[item.seek_id] = nil
+        if literal == from then literal = nil end
+        -- spans opened inside this one and never closed cannot cross its end
+        for t, pos in pairs(seek) do
+          if
+            pos.range.line == from.range.line
+            and pos.range.start_col > from.range.end_col
+            and pos.range.start_col < item.range.start_col
+          then
+            seek[t] = nil
+          end
+        end
+      end
+      goto continue
+    end
+
+    if is_valid_start_item(item) then
+      if item.nestable == false then
+        if has_closer(index, item) then
+          seek[item.id] = item
+          literal = item
+        end
+      else
+        seek[item.id] = item
       end
     end
 
@@ -179,18 +192,12 @@ end
 ---@param heading FeyHeading
 ---@return FeyMarkupPreparedHighlight[]
 function FeyMarkup:_prepare_ts_highlights(heading)
-  local heading_item_node = heading:node():field('item')[1]
-  if not heading_item_node then
-    return {}
-  end
+  local heading_item_node = heading:node():field('title')[1]
+  if not heading_item_node then return {} end
   local result = {}
   for node in heading_item_node:iter_children() do
-    if node:type() == 'link' or node:type() == 'link_desc' then
-      self:_prepare_link_higlight(heading, node, result)
-    end
-    if node:type() == 'timestamp' then
-      self:_prepare_date_highlight(node, result)
-    end
+    if node:type() == 'link' or node:type() == 'link_desc' then self:_prepare_link_higlight(heading, node, result) end
+    if node:type() == 'timestamp' then self:_prepare_date_highlight(node, result) end
   end
   return result
 end
@@ -265,9 +272,7 @@ function FeyMarkup:_prepare_date_highlight(node, result)
   })
 end
 
-function FeyMarkup:on_detach(bufnr)
-  self.cache[bufnr] = nil
-end
+function FeyMarkup:on_detach(bufnr) self.cache[bufnr] = nil end
 
 ---@param node TSNode
 ---@param source number | string
@@ -297,40 +302,35 @@ function FeyMarkup:node_to_range(node)
   }
 end
 
+-- Where running text lives in the fey grammar. Emphasis is only parsed there,
+-- so fenced block contents, block names/parameters and tag heads stay plain.
+--   paragraph   body text, list items, block-tag and pair-tag bodies
+--   title       heading titles
+--   contents    table cells (`cell`) and row-block cells (`cbi_cell`)
+local TEXT_PARENTS = {
+  paragraph = true,
+  title = true,
+}
+local CELL_PARENTS = {
+  cell = true,
+  cbi_cell = true,
+}
+
 ---@param item FeyMarkupNode
 ---@return boolean
 function FeyMarkup:has_valid_parent(item)
-  -- expr
-  local parent = item.node:parent()
-  if not parent then
-    return false
-  end
+  -- marker token -> expr -> the node holding the text
+  local expr = item.node:parent()
+  if not expr or expr:type() ~= 'expr' then return false end
 
-  parent = parent:parent()
-  if not parent then
-    return false
-  end
+  local parent = expr:parent()
+  if not parent then return false end
 
-  if parent:type() == 'paragraph' or parent:type() == 'link_desc' then
-    return true
-  end
+  if TEXT_PARENTS[parent:type()] then return true end
 
-  local p = parent:parent()
-
-  if parent:type() == 'item' and p then
-    return p:type() == 'heading'
-  end
-
-  if parent:type() == 'contents' and p then
-    return p:type() == 'drawer' or p:type() == 'cell'
-  end
-
-  if parent:type() == 'description' and p and p:type() == 'fndef' then
-    return true
-  end
-
-  if parent:type() == 'value' then
-    return p and p:type() == 'property' or false
+  if parent:type() == 'contents' then
+    local p = parent:parent()
+    return p ~= nil and CELL_PARENTS[p:type()] == true
   end
 
   return false
@@ -343,9 +343,7 @@ end
 
 function FeyMarkup:get_links_for_line(bufnr, line)
   local cache = self.cache[bufnr]
-  if not cache or not cache[line] then
-    return
-  end
+  if not cache or not cache[line] then return end
   return cache[line].highlights.link
 end
 
