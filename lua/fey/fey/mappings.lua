@@ -1050,7 +1050,31 @@ function FeyMappings:store_link()
   return utils.echo_info('Stored: ' .. heading:get_title())
 end
 
+---@param direction 'up'|'down'
+---@return boolean handled true if the cursor is on a list item (moved or not)
+function FeyMappings:_move_listitem(direction)
+  vim.cmd([[normal! _]])
+  local node = ts_utils.get_node_at_cursor()
+  local set = utils.set({ 'listitem', 'bullet', 'segment', 'list' })
+  if not (node and set[node:type()]) then return false end
+  local listitem = self.files:get_closest_listitem()
+  if not listitem then return false end
+
+  if not listitem:move(direction) then
+    utils.echo_warning('Cannot move past superior level.')
+    return true
+  end
+
+  local bufnr = vim.api.nvim_get_current_buf()
+  local feyfile = FeyFile:new({ filename = vim.api.nvim_buf_get_name(bufnr), buf = bufnr })
+  EventManager.dispatch(events.BufferChanged:new(feyfile, true))
+  return true
+end
+
 function FeyMappings:move_subtree_up()
+  local win_view = vim.fn.winsaveview() or {}
+  if self:_move_listitem('up') then return end
+  vim.fn.winrestview(win_view)
   local item = self.files:get_closest_heading()
   local prev_heading = item:get_prev_heading_same_level()
   if not prev_heading then return utils.echo_warning('Cannot move past superior level.') end
@@ -1065,6 +1089,9 @@ function FeyMappings:move_subtree_up()
 end
 
 function FeyMappings:move_subtree_down()
+  local win_view = vim.fn.winsaveview() or {}
+  if self:_move_listitem('down') then return end
+  vim.fn.winrestview(win_view)
   local item = self.files:get_closest_heading()
   local next_heading = item:get_next_heading_same_level()
   if not next_heading then return utils.echo_warning('Cannot move past superior level.') end

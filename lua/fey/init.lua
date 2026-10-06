@@ -147,44 +147,54 @@ function Fey:setup_autocmds()
     pattern = 'fey',
     group = fey_augroup,
     callback = function(event)
-      local reindexing = {}
-      local reindex_pending = {}
+      local buf = event.buf
+      local reindexing = false
+      local reindex_pending = false
 
-      local function do_reindex(buf)
-        if not vim.api.nvim_buf_is_valid(buf) then return end
-        if undotree.was_undo_or_redo(buf) then return end
-        reindexing[buf] = true
-        pcall(function() vim.cmd('undojoin') end)
-        local feyfile = FeyFile:new({ filename = event.file, buf = event.buf })
-        pcall(EventManager.dispatch, events.BufferChanged:new(feyfile))
-        pcall(EventManager.dispatch, events.BufferChanged:new(feyfile, true))
-        reindexing[buf] = nil
+      -- Per-buffer group so a repeated FileType doesn't stack duplicate autocmds, and so
+      -- re-running setup_autocmds() (which clears `fey_augroup`) doesn't wipe them.
+      local reindex_augroup = vim.api.nvim_create_augroup('fey_nvim_reindex_' .. buf, { clear = true })
+
+      local function dispatch(...)
+        local ok, err = pcall(EventManager.dispatch, ...)
+        if not ok then vim.notify('fey: reindex failed: ' .. tostring(err), vim.log.levels.WARN) end
       end
 
-      local function schedule_reindex(buf)
-        if reindex_pending[buf] then return end
-        reindex_pending[buf] = true
+      local function do_reindex()
+        if not vim.api.nvim_buf_is_valid(buf) then return end
+        if undotree.was_undo_or_redo(buf) then return end
+        reindexing = true
+        pcall(function() vim.cmd('undojoin') end)
+        local feyfile = FeyFile:new({ filename = vim.api.nvim_buf_get_name(buf), buf = buf })
+        dispatch(events.BufferChanged:new(feyfile))
+        dispatch(events.BufferChanged:new(feyfile, true))
+        reindexing = false
+      end
+
+      local function schedule_reindex()
+        if reindex_pending then return end
+        reindex_pending = true
         vim.schedule(function()
-          reindex_pending[buf] = nil
-          do_reindex(buf)
+          reindex_pending = false
+          do_reindex()
         end)
       end
 
       vim.api.nvim_create_autocmd({ 'InsertLeave', 'TextChanged' }, {
-        group = fey_augroup,
-        buffer = event.buf,
+        group = reindex_augroup,
+        buffer = buf,
         callback = function()
-          if reindexing[event.buf] then return end
-          schedule_reindex(event.buf)
+          if reindexing then return end
+          schedule_reindex()
         end,
       })
 
       vim.api.nvim_create_autocmd('BufWritePre', {
-        group = fey_augroup,
-        buffer = event.buf,
+        group = reindex_augroup,
+        buffer = buf,
         callback = function()
-          reindex_pending[event.buf] = nil
-          do_reindex(event.buf)
+          reindex_pending = false
+          do_reindex()
         end,
       })
     end,

@@ -195,4 +195,51 @@ function Listitem:demote(include_childs)
   self:_adjust_lines(target_indent - current_indent, include_childs)
 end
 
+---@param node TSNode
+---@return number start_row, number end_row 0-indexed, end exclusive
+local function get_row_span(node)
+  local start_row, _, end_row, end_col = node:range()
+  if end_col > 0 then end_row = end_row + 1 end
+  return start_row, end_row
+end
+
+---@param direction 'prev'|'next'
+---@return TSNode|nil
+function Listitem:_get_sibling_listitem(direction)
+  local sibling = direction == 'prev' and self.listitem:prev_sibling() or self.listitem:next_sibling()
+  while sibling and sibling:type() ~= 'listitem' do
+    sibling = direction == 'prev' and sibling:prev_sibling() or sibling:next_sibling()
+  end
+  return sibling
+end
+
+--- Swap this listitem (with its sublist) with its previous/next sibling.
+---@param direction 'up'|'down'
+---@return boolean moved
+function Listitem:move(direction)
+  local sibling = self:_get_sibling_listitem(direction == 'up' and 'prev' or 'next')
+  if not sibling then return false end
+
+  local start_row, end_row = get_row_span(self.listitem)
+  local sib_start, sib_end = get_row_span(sibling)
+  local first_start, first_end, second_start, second_end
+  if direction == 'up' then
+    first_start, first_end, second_start, second_end = sib_start, sib_end, start_row, end_row
+  else
+    first_start, first_end, second_start, second_end = start_row, end_row, sib_start, sib_end
+  end
+  if first_end ~= second_start then return false end
+
+  local first = vim.api.nvim_buf_get_lines(0, first_start, first_end, false)
+  local second = vim.api.nvim_buf_get_lines(0, second_start, second_end, false)
+  local lines = vim.list_extend(vim.deepcopy(second), first)
+  vim.api.nvim_buf_set_lines(0, first_start, second_end, false, lines)
+
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local offset = cursor[1] - 1 - start_row
+  local new_start = direction == 'up' and sib_start or (start_row + (sib_end - sib_start))
+  vim.api.nvim_win_set_cursor(0, { new_start + offset + 1, cursor[2] })
+  return true
+end
+
 return Listitem

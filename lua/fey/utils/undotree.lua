@@ -20,7 +20,8 @@ function M.was_undo_or_redo(buf)
     return false -- first observation, nothing to compare against
   end
 
-  return ut.seq_last <= prev_seq_last
+  -- seq_last only grows on a fresh edit; a drop means the undo history was reset (e.g. buffer reload)
+  return ut.seq_last == prev_seq_last
 end
 
 return M
