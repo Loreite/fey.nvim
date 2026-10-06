@@ -74,6 +74,16 @@ local function marker_info(char)
   }
 end
 
+--- Highlight group of an emphasis marker: one marker character, or the same
+--- character twice for the double (banner) form.
+---@param marker string
+---@return string?
+function FeyEmphasis.marker_hl_name(marker)
+  if #marker < 1 or #marker > 2 or marker:sub(1, 1) ~= marker:sub(-1) then return nil end
+  local info = marker_info(marker)
+  return info and info.hl_name or nil
+end
+
 -- ---- surrounding characters ---------------------------------------------
 
 ---@param source number | string

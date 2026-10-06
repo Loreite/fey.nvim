@@ -19,6 +19,7 @@ local DefaultConfig = {
   --
   -- fey_reindex_fey_src_blocks = true,
   fey_nvim_config_tag_name = 'nvim',
+  fey_hl_tag_name = 'hl',
   fey_comment_tag_name = 'comment',
   fey_use_cwd_config = false,
   fey_use_buffer_config = true,
@@ -206,6 +207,7 @@ local DefaultConfig = {
       -- fey_toggle_archive_tag = '<prefix>A',
       fey_change_all_delimiters_from_start = '<prefix>hds',
       fey_change_all_delimiters_from_end = '<prefix>hde',
+      fey_change_list_delimiters = '<prefix>ld',
       --
       fey_enumerate_heading_from_start = '<prefix>hes',
       fey_enumerate_heading_from_end = '<prefix>hee',

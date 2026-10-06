@@ -607,6 +607,44 @@ function FeyMappings:change_all_delimiters(from_start)
   submit_heading_change(data)
 end
 
+function FeyMappings:change_list_delimiters()
+  local listitem = self.files:get_closest_listitem()
+  if not listitem then return end
+  local list = assert(listitem.listitem:parent())
+  local bufnr = vim.api.nvim_get_current_buf()
+
+  local input = vim.fn.input('Delimiter: ')
+  input = input:gsub('[^.,:;!?/\\\'"`%-+*=~^@&#$%%%[%](){}<>]', '')
+  if input == '' then return end
+
+  local edits = {}
+  local counter = 0
+  for _, item in ipairs(list:named_children()) do
+    if item:type() == 'listitem' then
+      local bullet = item:field('bullet')[1]
+      local segment = bullet and bullet:named_child(0)
+      local delim_node = segment and segment:child(1)
+      if delim_node then
+        local idx = (counter % #input) + 1
+        local new_delim = input:sub(idx, idx)
+        counter = counter + 1
+        if vim.treesitter.get_node_text(delim_node, bufnr) ~= new_delim then
+          table.insert(edits, { r = { delim_node:range() }, text = new_delim })
+        end
+      end
+    end
+  end
+
+  for i = #edits, 1, -1 do
+    local e = edits[i]
+    vim.api.nvim_buf_set_text(bufnr, e.r[1], e.r[2], e.r[3], e.r[4], { e.text })
+  end
+
+  -- trigger reindex
+  local feyfile = FeyFile:new({ filename = vim.api.nvim_buf_get_name(bufnr), buf = bufnr })
+  EventManager.dispatch(events.BufferChanged:new(feyfile, true))
+end
+
 function FeyMappings:anonymize_or_enumerate_full_heading(enumerate)
   local data = setup_heading_func(self)
   local s, e, d = setup_reversible_loop(true, #data.segments)

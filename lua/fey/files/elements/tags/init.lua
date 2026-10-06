@@ -1,6 +1,7 @@
 local config = require('fey.config')
 local utils = require('fey.utils')
 local nvim_config = require('fey.files.elements.tags.handlers.nvim_config')
+local hl = require('fey.files.elements.tags.handlers.hl')
 
 ---@type vim.treesitter.Query
 local query = nil
@@ -20,6 +21,8 @@ local Tag = {}
 function Tag:new(opts)
   local data = {
     node = opts.node,
+    head = opts.head,
+    body = opts.body,
     bufnr = opts.bufnr,
     type = opts.type,
     name = opts.name,
@@ -43,7 +46,17 @@ function Tag.parse_tag_node(bufnr, node)
   local head = node:type() == 'pair_tag' and node:field('open')[1] or node
   local name = head:field('name')[1]
   local name_text = vim.treesitter.get_node_text(name, bufnr)
-  local body = node:type() == 'scope_tag' and node:parent() or node:field('body')[1]
+  local body
+  if node:type() == 'scope_tag' then
+    body = node:parent()
+  elseif node:type() == 'line_tag' then
+    -- the line tag body is an unnamed child rather than a field
+    for child in node:iter_children() do
+      if child:type() == 'body' then body = child end
+    end
+  else
+    body = node:field('body')[1]
+  end
 
   local values = {}
   for _, value in ipairs(head:field('value')) do
@@ -61,7 +74,7 @@ function Tag.parse_tag_node(bufnr, node)
       local value_text = vim.treesitter.get_node_text(value, bufnr)
 
       value_text = value_text:match('^%s*(.-)%s*$')
-      key_values[key_text] = value_text
+      key_values[vim.trim(key_text)] = value_text
     end
   end
 
@@ -107,12 +120,15 @@ function Tag.setup(handlers)
     vim.validate('key_handlers key', name, 'string')
     vim.validate('key_handlers.' .. name, handler, 'function')
   end
+  vim.validate('fey_hl_tag_name', config.fey_hl_tag_name, 'string')
   Tag.handlers[config.fey_nvim_config_tag_name] = nvim_config.handlers
+  Tag.handlers[config.fey_hl_tag_name] = hl.handlers
   Tag.handlers = vim.tbl_deep_extend('force', Tag.handlers, handlers)
 
   query = query or vim.treesitter.query.get('fey', 'fey_tags')
 
   nvim_config.setup_query(Tag.parse_all_tags)
+  hl.setup_query(Tag.parse_all_tags)
 end
 
 return Tag

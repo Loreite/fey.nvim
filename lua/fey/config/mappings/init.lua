@@ -272,6 +272,12 @@ return {
         help_desc = 'update all delimiters to prompted value from start',
       },
     }),
+    fey_change_list_delimiters = m.action('fey_mappings.change_list_delimiters', {
+      opts = {
+        desc = 'change list delimiters',
+        help_desc = 'update all delimiters of current list (not sublists) to prompted value',
+      },
+    }),
     fey_anonymize_heading_from_end = m.action('fey_mappings.anonymize_or_enumerate_heading', {
       args = { false, false },
       opts = {
