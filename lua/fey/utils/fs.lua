@@ -123,4 +123,51 @@ function M.trim_common_root(paths)
   return result
 end
 
+---@class FeyFsEntry
+---@field path string path relative to the scanned root, always '/' separated
+---@field mtime integer modification time in milliseconds
+---@field size integer
+
+---@class FeyFsScanOpts
+---@field ignore? string[] directory/file names to skip, besides hidden (dot) directories
+---@field is_file? fun(name: string): boolean defaults to `utils.is_fey_file`
+
+---Recursively list Fey files under `root`.
+---Hidden directories (and anything in `opts.ignore`) are not entered, and symlinked
+---directories are not followed so cycles can't happen. Symlinked files are listed.
+---@param root string
+---@param opts? FeyFsScanOpts
+---@return table<string, FeyFsEntry> entries keyed by relative path
+function M.scan_fey_files(root, opts)
+  opts = opts or {}
+  local is_file = opts.is_file or utils.is_fey_file
+  local ignored = {}
+  for _, name in ipairs(opts.ignore or {}) do
+    ignored[name] = true
+  end
+
+  local entries = {}
+  local iter = vim.fs.dir(root, {
+    depth = math.huge,
+    skip = function(dir)
+      local name = vim.fs.basename(dir)
+      return not (ignored[name] or name:sub(1, 1) == '.')
+    end,
+  })
+  for name, kind in iter do
+    local base = vim.fs.basename(name)
+    if kind ~= 'directory' and not ignored[base] and is_file(base) then
+      local stat = vim.uv.fs_stat(vim.fs.joinpath(root, name))
+      if stat and stat.type == 'file' then
+        entries[name] = {
+          path = name,
+          mtime = stat.mtime.sec * 1000 + math.floor(stat.mtime.nsec / 1e6),
+          size = stat.size,
+        }
+      end
+    end
+  end
+  return entries
+end
+
 return M

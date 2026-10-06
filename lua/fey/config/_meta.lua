@@ -183,6 +183,17 @@
 ---@field input? { use_vim_ui: boolean } Input configuration
 ---@field agenda? { preview_window?: vim.lsp.util.open_floating_preview.Opts } Agenda preview window option
 
+---@class FeyVaultConfig
+---@field enabled? boolean Index `./.fey/` directories on startup and when the cwd changes. Default: true
+---@field dirname? string Name of the vault directory. Default: '.fey'
+---@field db_name? string Database file inside the vault directory. Default: 'vault.db'
+---@field ignore? string[] Directory/file names that are never indexed. Default: { 'node_modules' }
+---@field label_tags? string[] Tag names whose values are labels. Default: { 'label', 'labels' }
+---@field link_tags? string[] Tag names that reference a file or section. Default: { 'link', 'section' }
+---@field time_budget_ms? integer Longest time one indexing slice may block the editor. Default: 10
+---@field run_on_load? boolean Update `query` and `feydb` tags when a buffer first loads. Default: true
+---@field db_open_mode? 'split'|'vsplit'|'tab'|'current' How database views open. Default: 'vsplit'
+
 ---@class FeyMappingsConfig
 ---@field disable_all? boolean Disable all mappings. Default: false
 ---@field fey_return_uses_meta_return? boolean When true, `<CR>` will act as `<Leader><CR>` when applicable. Default: false
@@ -196,6 +207,12 @@
 ---@field text_objects? FeyMappingsTextObjects
 
 ---@class FeyConfigOpts
+---@field fey_query_tag_name? string Tag name of query tags. Default: 'query'
+---@field fey_link_tag_name? string Tag name of file/URL links. Default: 'link'
+---@field fey_section_tag_name? string Tag name of links to headings by signature. Default: 'section'
+---@field fey_db_tag_name? string Tag name of tags that import a database view. Default: 'feydb'
+---@field fey_db_result_tag_name? string Tag name of the pair tag that holds an imported view. Default: 'feydb_result'
+---@field fey_query_result_tag_name? string Tag name of the pair tag that holds a query's result. Default: 'query_result'
 ---@field fey_agenda_files? string | string[] Path(s) to fey files. Can be a glob pattern (example: `~/fey/**/*`). Default: {}
 ---@field fey_default_notes_file? string Path to default file for captures. Default: ''
 ---@field fey_todo_keywords? string[] List of todo/done states, separated by `|`. Default: { 'TODO', '|', 'DONE' }
@@ -260,4 +277,5 @@
 ---@field mappings? FeyMappingsConfig Mappings configuration
 ---@field emacs_config? FeyEmacsConfig Emacs cnfiguration
 ---@field ui? FeyUiConfig UI configuration
+---@field vault? FeyVaultConfig Vault (per directory metadata index) configuration
 ---@field hyperlinks? FeyHyperlinksConfig  Custom sources for hyperlinks

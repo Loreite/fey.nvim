@@ -148,6 +148,7 @@ function Fey:setup_autocmds()
     group = fey_augroup,
     callback = function(event)
       local buf = event.buf
+      require('fey.links.section').snapshot(buf)
       local reindexing = false
       local reindex_pending = false
 
@@ -212,6 +213,9 @@ function Fey.setup(opts)
   instance:init()
   require('fey.files.elements.tags').setup(config.tag_handlers)
   require('fey.ui.navigator').setup()
+  require('fey.vault').setup()
+  require('fey.query').setup()
+  require('fey.db').setup()
   vim.keymap.set('n', '<leader>;;', function() require('fey.ui.navigator').open() end, { desc = 'open fey navigator' })
   vim.keymap.set('n', '<leader>;:', function() require('fey.ui.navigator').resume() end, { desc = 'reopen fey navigator' })
   vim.defer_fn(function()

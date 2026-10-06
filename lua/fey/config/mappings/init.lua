@@ -221,10 +221,10 @@ return {
     --     'fey_mappings.toggle_heading',
     --     { opts = { desc = 'fey toggle heading', help_desc = 'Toggle current line to heading and vice versa' } }
     --   ),
-    -- fey_open_at_point = m.action(
-    --   'fey_mappings.open_at_point',
-    --   { opts = { desc = 'fey open', help_desc = 'Open hyperlink or date under cursor' } }
-    -- ),
+    fey_open_at_point = m.action(
+      'fey_mappings.open_at_point',
+      { opts = { desc = 'fey open', help_desc = 'Follow the link or section tag under the cursor' } }
+    ),
     fey_edit_special = m.action(
       'fey_mappings.edit_special',
       { opts = { desc = 'fey edit special', help_desc = 'Edit the source block under the cursor in another buffer' } }
@@ -233,11 +233,11 @@ return {
     --     'fey_mappings.add_note',
     --     { opts = { desc = 'fey add note', help_desc = 'Add a note to the current heading' } }
     --   ),
-    --   fey_cycle = m.action('fey_mappings.cycle', { opts = { desc = 'fey toggle fold', help_desc = 'Toggle folding' } }),
-    --   fey_global_cycle = m.action(
-    --     'fey_mappings.global_cycle',
-    --     { opts = { desc = 'fey toggle fold (whole file)', help_desc = 'Toggle folding (whole file)' } }
-    --   ),
+    fey_cycle = m.action('fey_mappings.cycle', { opts = { desc = 'fey toggle fold', help_desc = 'Toggle folding' } }),
+    fey_global_cycle = m.action(
+      'fey_mappings.global_cycle',
+      { opts = { desc = 'fey toggle fold (whole file)', help_desc = 'Toggle folding (whole file)' } }
+    ),
     --   fey_archive_subtree = m.action(
     --     'fey_mappings.archive',
     --     { opts = { desc = 'fey archive subtree', help_desc = 'Archive subtree to archive file' } }
@@ -271,6 +271,39 @@ return {
         desc = 'change all heading delimiters from start',
         help_desc = 'update all delimiters to prompted value from start',
       },
+    }),
+    fey_query_run_at_tag = m.custom([[<Cmd>lua require('fey.query').run_at_cursor()<CR>]], {
+      opts = {
+        desc = 'run query at cursor',
+        help_desc = 'Run the query tag under the cursor and write its result as a table or list below it',
+      },
+    }),
+    fey_query_run_all = m.custom([[<Cmd>lua require('fey.query').run_all()<CR>]], {
+      opts = {
+        desc = 'run all queries',
+        help_desc = 'Run every query tag in the buffer and write their results',
+      },
+    }),
+    fey_vault_init = m.custom([[<Cmd>lua require('fey.vault').init()<CR>]], {
+      opts = { desc = 'init vault', help_desc = 'Create a .fey directory in the cwd and index its Fey files' },
+    }),
+    fey_vault_reindex = m.custom([[<Cmd>lua require('fey.vault').reindex()<CR>]], {
+      opts = { desc = 'reindex vault', help_desc = 'Update the vault index' },
+    }),
+    fey_db_new = m.custom([[<Cmd>lua require('fey.db').new()<CR>]], {
+      opts = { desc = 'new database', help_desc = 'Open a new database view of all files in the vault' },
+    }),
+    fey_db_new_split = m.custom([[<Cmd>lua require('fey.db').new('split')<CR>]], {
+      opts = { desc = 'new database (split)', help_desc = 'Open a new database view in a horizontal split' },
+    }),
+    fey_db_new_vsplit = m.custom([[<Cmd>lua require('fey.db').new('vsplit')<CR>]], {
+      opts = { desc = 'new database (vsplit)', help_desc = 'Open a new database view in a vertical split' },
+    }),
+    fey_db_new_tab = m.custom([[<Cmd>lua require('fey.db').new('tab')<CR>]], {
+      opts = { desc = 'new database (tab)', help_desc = 'Open a new database view in a new tab' },
+    }),
+    fey_db_pick = m.custom([[<Cmd>lua require('fey.db').pick()<CR>]], {
+      opts = { desc = 'pick database', help_desc = 'Pick an existing database to open' },
     }),
     fey_change_list_delimiters = m.action('fey_mappings.change_list_delimiters', {
       opts = {

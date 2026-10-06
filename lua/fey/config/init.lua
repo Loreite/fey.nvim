@@ -373,6 +373,25 @@ function Config:setup_ts_predicates()
 
   local fey_cycle_separator_lines = math.max(self.opts.fey_cycle_separator_lines, 0)
 
+  -- Block and pair tags fold their body only: the fold starts on the line after the head
+  -- (so the open tag stays visible) and, for pair tags, stops before the closer line.
+  vim.treesitter.query.add_directive('fey-fold-tag-body!', function(match, _, _, pred, metadata)
+    local capture_id = pred[2]
+    local node = match[capture_id]
+    node = node and node[#node]
+    if not capture_id or not node then
+      return
+    end
+    metadata[capture_id] = metadata[capture_id] or {}
+    local first, last = require('fey.fey.folds').body_range(node)
+    if not first then
+      local row = (node:start())
+      metadata[capture_id].range = { row, 0, row, 0 } -- nothing to fold
+      return
+    end
+    metadata[capture_id].range = { first, 0, last + 1, 0 }
+  end, { force = true })
+
   vim.treesitter.query.add_directive('fey-set-fold-offset!', function(match, _, bufnr, pred, metadata)
     if fey_cycle_separator_lines == 0 then
       return

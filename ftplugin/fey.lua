@@ -48,6 +48,11 @@ for _, char in ipairs({ '*', '=', '/', '+', '~', '_' }) do
   vim.keymap.set('o', 'a' .. char, ':normal va' .. char .. '<CR>', { buffer = true })
 end
 
+-- fold commands that also work from the head (and the closer of a pair tag) of a tag
+for _, op in ipairs({ 'za', 'zo', 'zc' }) do
+  vim.keymap.set('n', op, function() require('fey.fey.folds').fold_op(op) end, { buffer = bufnr, desc = 'fey fold ' .. op })
+end
+
 if config.fey_highlight_latex_and_related then vim.bo[bufnr].syntax = 'ON' end
 
 vim.b.undo_ftplugin = table.concat({

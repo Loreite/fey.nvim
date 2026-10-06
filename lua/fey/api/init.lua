@@ -1,119 +1,140 @@
----@diagnostic disable: invisible
-local FeyFile = require('fey.api.file')
-local FeyHeading = require('fey.api.heading')
-local fey = require('fey')
-local Promise = require('fey.utils.promise')
-local Buffers = require('fey.state.buffers')
-
----@class FeyApiRefileOpts
----@field source FeyApiHeading
----@field destination FeyApiFile | FeyApiHeading
+local FeyVault = require('fey.api.vault')
 
 ---@class FeyApi
 local FeyApi = {}
 
----@param name? string|string[] specific file names to return (absolute path). If ommitted, returns all loaded files
----@return FeyApiFile|FeyApiFile[]
-function FeyApi.load(name)
-  vim.validate('name', name, { 'string', 'table' }, true)
-  if not name then
-    return vim.tbl_map(function(file)
-      return FeyFile._build_from_internal_file(file)
-    end, fey.files:all())
-  end
-
-  if type(name) == 'string' then
-    local file = fey.files:get(name)
-    return FeyFile._build_from_internal_file(file)
-  end
-
-  if type(name) == 'table' then
-    local list = {}
-    for _, file in ipairs(fey.files:all()) do
-      if file.filename == name then
-        table.insert(list, FeyFile._build_from_internal_file(file))
-      end
-    end
-
-    return list
-  end
-  error('Invalid argument to FeyApi.load', 0)
-end
-
---- Get current fey buffer file
----@return FeyApiFile
-function FeyApi.current()
-  if vim.bo.filetype ~= 'fey' then
-    error('Not an fey buffer.', 0)
-  end
-  local name = vim.api.nvim_buf_get_name(0)
-  return FeyApi.load(name)
-end
-
----Refile heading to another file or heading
----If executed from capture buffer, it will close the capture buffer
----@param opts FeyApiRefileOpts
----@return FeyPromise<boolean>
-function FeyApi.refile(opts)
-  vim.validate('source', opts.source, 'table')
-  vim.validate('destination', opts.destination, 'table')
-
-  if getmetatable(opts.source) ~= FeyHeading then
-    error('Source must be an FeyApiHeading', 0)
-  end
-
-  local is_file = getmetatable(opts.destination) == FeyFile
-  local is_heading = getmetatable(opts.destination) == FeyHeading
-
-  if not is_file and not is_heading then
-    error('Destination must be an FeyApiFile or FeyApiHeading', 0)
-  end
-
-  local refile_opts = {
-    source_file = opts.source._section.file,
-    source_heading = opts.source._section,
-  }
-
-  if is_file then
-    refile_opts.destination_file = opts.destination._file
+---The vault that holds a path (default: the current buffer), else the vault of the cwd
+---@param path? string
+---@return FeyApiVault|nil
+function FeyApi.vault(path)
+  local registry = require('fey.vault')
+  local vault
+  if path then
+    vault = registry.for_path(path)
   else
-    refile_opts.destination_file = opts.destination._section.file
-    refile_opts.destination_heading = opts.destination._section
+    local name = vim.api.nvim_buf_get_name(0)
+    vault = (name ~= '' and registry.for_path(name)) or nil
   end
-
-  local source_bufnr = Buffers.get_buffer_by_filename(opts.source.file.filename)
-  local is_capture = source_bufnr > -1 and vim.b[source_bufnr].fey_capture
-  if is_capture then
-    local capture_window = fey.capture._windows[vim.b[source_bufnr].fey_capture_window_id]
-    if capture_window then
-      refile_opts.template = capture_window.template
-      refile_opts.capture_window = capture_window
-    end
-  end
-
-  return Promise.resolve()
-    :next(function()
-      if is_capture then
-        return fey.capture:_refile_from_capture_buffer(refile_opts)
-      end
-      return fey.capture:_refile_from_fey_file(refile_opts)
-    end)
-    :next(function()
-      return true
-    end)
+  vault = vault or registry.current()
+  return vault and FeyVault._new(vault) or nil
 end
 
---- Insert a link to a given location at the current cursor position
----
---- The expected format is
---- <protocol>:<location>::<in_file_location>
----
---- If <in_file_location> is *<heading>, <heading> is used as prefilled description for the link.
---- If <protocol> is id, this format can also be used to pass a prefilled description.
---- @param link_location string
---- @return FeyPromise<boolean>
-function FeyApi.insert_link(link_location)
-  return fey.links:insert_link(link_location)
+---The vault of the cwd (the one the vault module attached on startup or `cd`)
+---@return FeyApiVault|nil
+function FeyApi.current_vault()
+  local vault = require('fey.vault').current()
+  return vault and FeyVault._new(vault) or nil
 end
+
+---Create a vault (a `.fey` directory) in `dir`, default the cwd, and index it
+---@param dir? string
+---@return FeyApiVault|nil
+function FeyApi.init_vault(dir)
+  local vault = require('fey.vault').init(dir)
+  return vault and FeyVault._new(vault) or nil
+end
+
+---A file of the current vault by vault relative or absolute path
+---@param path string
+---@return FeyApiFile|nil
+function FeyApi.file(path)
+  local vault = FeyApi.vault(path:sub(1, 1) == '/' and path or nil)
+  return vault and vault:file(path) or nil
+end
+
+---The file of the current buffer
+---@return FeyApiFile|nil
+function FeyApi.current()
+  if vim.bo.filetype ~= 'fey' then error('Not a fey buffer.', 0) end
+  local name = vim.api.nvim_buf_get_name(0)
+  return FeyApi.file(vim.fn.fnamemodify(name, ':p'))
+end
+
+---Run a query (see `FeyApiVault:run_query`) in the current vault
+---@param src string
+---@param opts? { this?: string }
+---@return FeyQueryResult
+function FeyApi.query(src, opts)
+  local vault = FeyApi.vault()
+  if not vault then error('No vault here (run :FeyVaultInit)', 0) end
+  return vault:run_query(src, opts)
+end
+
+---The Fey source lines a query result is written as (a table or a list)
+---@param src string
+---@param opts? { this?: string }
+---@return string[]
+function FeyApi.query_lines(src, opts) return require('fey.query.render').lines(FeyApi.query(src, opts)) end
+
+---Subscribe to vault events
+---  `indexed`       a scan finished, `data` is `{ root, stats }`
+---  `file_indexed`  one file was re-indexed (saved), `data` is `{ root, path }`
+---@param event 'indexed'|'file_indexed'
+---@param callback fun(data: table)
+---@return integer id autocmd id, pass it to `vim.api.nvim_del_autocmd` to unsubscribe
+function FeyApi.on(event, callback)
+  local pattern = ({ indexed = 'FeyVaultIndexed', file_indexed = 'FeyVaultFileIndexed' })[event]
+  if not pattern then error('Unknown event: ' .. tostring(event), 0) end
+  return vim.api.nvim_create_autocmd('User', {
+    pattern = pattern,
+    callback = function(args) callback(args.data or {}) end,
+  })
+end
+
+---@param s string
+local function head_text(s) return (s:gsub('\\', '\\\\'):gsub(',', '\\,'):gsub(';', '\\;')) end
+
+---Text of a link tag: `{@ link, path; desc: Title; section: I.A. @}`
+---@param target string path (relative to the vault or the file) or URL
+---@param opts? { desc?: string, section?: string }
+---@return string
+function FeyApi.link_text(target, opts)
+  opts = opts or {}
+  local parts = { 'link, ', head_text(target) }
+  if opts.desc and opts.desc ~= '' then parts[#parts + 1] = '; desc: ' .. head_text(opts.desc) end
+  if opts.section and opts.section ~= '' then parts[#parts + 1] = '; section: ' .. head_text(opts.section) end
+  return '{@ ' .. table.concat(parts) .. ' @}'
+end
+
+---Text of a section tag: `{@ section, I.A., notes/a.fey, 2 @}`
+---@param signature string
+---@param file? string
+---@param n? integer
+---@return string
+function FeyApi.section_text(signature, file, n)
+  local parts = { 'section, ', head_text(signature) }
+  if file and file ~= '' then parts[#parts + 1] = ', ' .. head_text(file) end
+  if n then
+    parts[#parts + 1] = (file and file ~= '') and (', ' .. n) or ('; n: ' .. n)
+  end
+  return '{@ ' .. table.concat(parts) .. ' @}'
+end
+
+---Insert text at the cursor
+---@param text string
+local function insert_at_cursor(text)
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  vim.api.nvim_buf_set_text(0, row - 1, col, row - 1, col, { text })
+  vim.api.nvim_win_set_cursor(0, { row, col + #text })
+end
+
+---Insert a link tag to a file at the cursor. A path inside the vault is written relative to the
+---vault root.
+---@param target string
+---@param opts? { desc?: string, section?: string }
+function FeyApi.insert_link(target, opts)
+  local vault = FeyApi.vault()
+  if vault and target:sub(1, 1) == '/' then target = vim.fs.relpath(vault.root, target) or target end
+  insert_at_cursor(FeyApi.link_text(target, opts))
+end
+
+---Insert a section tag at the cursor
+---@param signature string
+---@param file? string
+---@param n? integer
+function FeyApi.insert_section_link(signature, file, n) insert_at_cursor(FeyApi.section_text(signature, file, n)) end
+
+---Follow the link or section tag under the cursor
+function FeyApi.follow() require('fey.links').open_at_cursor() end
 
 return FeyApi

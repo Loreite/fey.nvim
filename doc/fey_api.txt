@@ -1,308 +1,239 @@
-FeyApiRefileOpts                                              *FeyApiRefileOpts*
+*fey_api.txt*                     Lua API of the Fey plugin for Neovim
 
-    Fields: ~
-        {source}       (FeyApiHeading)
-        {destination}  (FeyApiFile|FeyApiHeading)
+==============================================================================
+Contents                                                      *fey-api-contents*
 
+1. Overview ................................................ |fey-api-overview|
+2. Module functions ......................................... |fey-api-module|
+3. FeyApiVault ............................................... |fey-api-vault|
+4. FeyApiFile ................................................. |fey-api-file|
+5. FeyApiHeading ........................................... |fey-api-heading|
+6. Events ................................................... |fey-api-events|
+7. The index schema ........................................ |fey-api-schema|
 
-FeyApi                                                                  *FeyApi*
+==============================================================================
+1. Overview                                                   *fey-api-overview*
 
+The API reads the vault index: a SQLite database (`.fey/vault.db`) with the
+metadata of every Fey file below a directory that contains a `.fey/` folder. It
+is built from the syntax tree and refreshed when the cwd changes, when a file is
+saved and by |FeyApiVault:reindex()|. Writes go to the Fey files themselves and
+the index follows.
 
-FeyApi.load({name?})                                               *FeyApi.load*
+>lua
+    local fey = require('fey.api')
+    local vault = fey.current_vault()
+    if vault and vault:wait() then
+      for _, file in ipairs(vault:files_with_label('design')) do
+        print(file.path, file:property('rating'))
+      end
+    end
+<
 
-    Parameters: ~
-        {name?}  (string|string[])  specific file names to return (absolute path). If ommitted, returns all loaded files
+Terminology: a "tag" is always a Fey syntactic tag. Topical categories are called
+"labels".
 
-    Returns: ~
-        (FeyApiFile|FeyApiFile[])
+==============================================================================
+2. Module functions                                             *fey-api-module*
 
+`require('fey.api')`
 
-FeyApi.current()                                                *FeyApi.current*
-     Get current fey buffer file
+vault({path?})                                                  *fey.api.vault()*
+    The vault that holds `path` (default: the current buffer), else the vault of
+    the cwd. Returns |FeyApiVault| or nil.
 
-    Returns: ~
-        (FeyApiFile)
+current_vault()                                         *fey.api.current_vault()*
+    The vault of the cwd. Returns |FeyApiVault| or nil.
 
+init_vault({dir?})                                        *fey.api.init_vault()*
+    Create a `.fey` directory in `dir` (default: the cwd) and index it.
 
-FeyApi.refile({opts})                                            *FeyApi.refile*
-    Refile heading to another file or heading
-    If executed from capture buffer, it will close the capture buffer
+file({path})                                                    *fey.api.file()*
+    A |FeyApiFile| by vault relative or absolute path, or nil.
 
-    Parameters: ~
-        {opts}  (FeyApiRefileOpts)  @return FeyPromise<boolean>
+current()                                                    *fey.api.current()*
+    The |FeyApiFile| of the current buffer (errors for other filetypes).
 
+query({src}, {opts?})                                          *fey.api.query()*
+    Run a query-language query in the current vault and return its result:
+    `type` ("table" or "list"), `count`, and `headers` and `rows` (table) or
+    `items` (list). `opts.this` is the vault relative path of the note the query
+    lives in.
 
-FeyApi.insert_link()                                        *FeyApi.insert_link*
-     Insert a link to a given location at the current cursor position
+query_lines({src}, {opts?})                              *fey.api.query_lines()*
+    The query as the lines of Fey source that a `query` tag writes.
 
-     The expected format is
-     <protocol>:<location>::<in_file_location>
+on({event}, {callback})                                           *fey.api.on()*
+    Subscribe to a vault event, see |fey-api-events|. Returns an autocmd id.
 
-     If <in_file_location> is *<heading>, <heading> is used as prefilled description for the link.
-     If <protocol> is id, this format can also be used to pass a prefilled description.
-     @param link_location string
-     @return FeyPromise<boolean>
+link_text({target}, {opts?})                               *fey.api.link_text()*
+    `{@ link, target; desc: ...; section: ... @}`. `opts` has `desc`, `section`.
 
+section_text({signature}, {file?}, {n?})                *fey.api.section_text()*
+    `{@ section, signature, file, n @}` (N is written as `n:` without a file).
 
-FeyApiFile                                                          *FeyApiFile*
+insert_link({target}, {opts?})                           *fey.api.insert_link()*
+    Insert a link tag at the cursor. Absolute paths inside the vault become
+    vault relative.
 
-    Fields: ~
-        {category}         (string)            current file category name. By default it's only filename without extension unless defined differently via #+CATEGORY directive
-        {filename}         (string)            absolute path of the current file
-        {headings}        (FeyApiHeading[])
-        {is_archive_file}  (boolean)
+insert_section_link({signature}, {file?}, {n?})   *fey.api.insert_section_link()*
+    Insert a section tag at the cursor.
 
+follow()                                                     *fey.api.follow()*
+    Follow the link or section tag under the cursor.
 
-FeyFile:reload()                                                *FeyFile:reload*
-     Return refreshed instance of the file
+==============================================================================
+3. FeyApiVault                                                  *fey-api-vault*
 
-    Returns: ~
-        (FeyApiFile)
+Fields: ~
+    {root}  (string)  folder that holds `.fey`
+    {dir}   (string)  the `.fey` directory
 
+FeyApiVault:state()                                       *FeyApiVault:state()*
+    `idle`, `indexing`, `ready` or `error`.
 
-FeyFile:get_closest_heading()                    *FeyFile:get_closest_heading*
-     Return closest heading, or nil if there are no headings found
-     If cursor is not provided, it will use current cursor position
-     @param cursor? { line: number, col: number } (1, 0)-indexed cursor position, same as returned from `vim.api.nvim_win_get_cursor(0)`
-     @return FeyApiHeading | nil
+FeyApiVault:revision()                                 *FeyApiVault:revision()*
+    A counter that changes whenever the index changes. Use it as a cache key.
 
+FeyApiVault:wait({timeout?})                               *FeyApiVault:wait()*
+    Block until the index is ready (default 10000 ms). Returns a boolean.
 
-                                                  *FeyFile:get_heading_on_line*
-FeyFile:get_heading_on_line({line_number})
+FeyApiVault:reindex({opts?}, {on_done?})                *FeyApiVault:reindex()*
+    Update the index. `{ full = true }` rebuilds it. `on_done(stats, err)`
+    receives `total`, `indexed`, `removed` and `failed`.
 
-    Parameters: ~
-        {line_number}  (number)
+FeyApiVault:index_path({path})                        *FeyApiVault:index_path()*
+    Re-index one file right now (absolute path).
+
+FeyApiVault:query({sql}, {params?})                       *FeyApiVault:query()*
+    Run SQL against the index and get a list of rows (tables keyed by column).
+    Parameters are named: `:name` in the SQL, `{ name = value }` in `params`.
+
+FeyApiVault:files()                                       *FeyApiVault:files()*
+    All files, ordered by path, as |FeyApiFile|.
+
+FeyApiVault:file({path})                                   *FeyApiVault:file()*
+    One file by vault relative or absolute path.
 
-    Returns: ~
-        (FeyApiHeading|nil)
+FeyApiVault:files_with_label({label})           *FeyApiVault:files_with_label()*
+    Files with a label. Case insensitive, `a` also matches `a/b`.
 
+FeyApiVault:files_with_property({name}, {value?})
+                                              *FeyApiVault:files_with_property()*
+    Files whose document data has the property (and the given value).
 
-FeyFile:get_link()                                            *FeyFile:get_link*
-     Get a link destination as string
+FeyApiVault:labels()                                     *FeyApiVault:labels()*
+    Every label with the number of files using it: `{ label, count }`.
 
-     Depending if fey_id_link_to_fey_use_id is set the format is
+FeyApiVault:tags({name})                                   *FeyApiVault:tags()*
+    Every use of a tag name: `path`, `line`, `kind`, `vals`, `attrs`.
 
-     id:<uuid>::*title and the id is created if not existing
-     or
-     file:<filepath>::*title
+FeyApiVault:headings({path})                           *FeyApiVault:headings()*
+    The heading rows of a file, `data` decoded.
 
-     The result is meant to be used as link_location for FeyApi.insert_link.
-     @return string
+FeyApiVault:links({path})                                 *FeyApiVault:links()*
+    Links and section tags written in a file.
 
+FeyApiVault:backlinks({path}, {signature?})           *FeyApiVault:backlinks()*
+    Links that point at a file, or at a heading of it. Only the tokens of the
+    signature count (`I.A.`, `I,A,` and `I:A` are the same).
 
-FeyApiHeading                                                  *FeyApiHeading*
+FeyApiVault:databases()                               *FeyApiVault:databases()*
+    Names of the databases in `.fey/dbs`.
 
-    Fields: ~
-        {title}        (string)                heading title without todo keyword, tags and priority. Ex. `* TODO I am a heading  :SOMETAG:` returns `I am a heading`
-        {line}         (string)                full heading line
-        {level}        (number)                heading level (number of asterisks). Example: 1
-        {todo_value?}  (string)                todo keyword of the heading (Example: TODO, DONE)
-        {todo_type?}   ("TODO"|"DONE"|"")
-        {tags}         (string[])              List of own tags
-        {deadline}     (FeyDate|nil)
-        {scheduled}    (FeyDate|nil)
-        {properties}   (table<string,string>)  Table containing all properties. All keys are lowercased
-        {closed}       (FeyDate|nil)
-        {dates}        (FeyDate[])             List of all dates that are not "plan" dates
-        {position}     (FeyRange)
-        {all_tags}     (string[])              List of all tags (own + inherited)
-        {file}         (FeyApiFile)
-        {parent}       (FeyApiHeading|nil)
-        {priority}     (string|nil)
-        {is_archived}  (boolean)               heading marked with the `:ARCHIVE:` tag
-        {headings}    (FeyApiHeading[])
+FeyApiVault:database({name}, {view?})                  *FeyApiVault:database()*
+    Rows of a database view as it shows them: `{ columns, props, rows, total }`.
+    `rows` holds query-language values (dates, links, lists ...).
 
+FeyApiVault:run_query({src}, {opts?})                  *FeyApiVault:run_query()*
+    Same as |fey.api.query()| for this vault.
 
-FeyHeading:reload()                                        *FeyHeading:reload*
-     Return updated version of heading
+==============================================================================
+4. FeyApiFile                                                    *fey-api-file*
 
-    Returns: ~
-        (FeyApiHeading)
+Fields: ~
+    {vault}   (FeyApiVault)
+    {path}    (string)    relative to the vault root
+    {abs}     (string)    absolute path
+    {title}   (string)    the `title` data key, else the first heading, else the name
+    {mtime}   (integer)   milliseconds, when it was indexed
+    {size}    (integer)
+    {errors}  (string[]?) problems found while indexing
 
+Lazy fields (read from the index on first access): ~
+    {data}       the document data value (usually a table)
+    {labels}     (string[])
+    {headings}   (FeyApiHeading[])
+    {tags}       every tag of the file
+    {links}      links and section tags written in the file
+    {backlinks}  links from other files to this file
 
-FeyHeading:set_tags({tags})                              *FeyHeading:set_tags*
-     Set tags on the heading. This replaces all current tags with provided ones
+FeyApiFile:property({key})                              *FeyApiFile:property()*
+    A top level property (key of the document data).
 
-    Parameters: ~
-        {tags}  (string[])
+FeyApiFile:set_property({key}, {value})             *FeyApiFile:set_property()*
+    Write a property into the file and update the index. `nil` removes it.
+    Values are strings, numbers, booleans or lists of those. The value is written
+    where the property already is (a `table` tag attribute, a bullet of its
+    body, a `{# value #}` section). New properties are added to the first
+    `table` tag, or as a `[ table #]` block at the top. Returns `ok, err`.
+    If the file is open in an unmodified buffer, it is edited and written.
 
-    Returns: ~
-        (FeyPromise)
+FeyApiFile:remove_property({key})                *FeyApiFile:remove_property()*
+    Same as `set_property(key, nil)`.
 
+FeyApiFile:add_label({label})                            *FeyApiFile:add_label()*
+FeyApiFile:remove_label({label})                      *FeyApiFile:remove_label()*
+    Edit the `labels` property. Labels written as `{# labels, ... #}` tags are
+    not touched.
 
-FeyHeading:priority_up()                              *FeyHeading:priority_up*
-     Increase priority on a heading
+FeyApiFile:reload()                                          *FeyApiFile:reload()*
+    Drop what was read, so the next access reads the index again.
 
-    Returns: ~
-        (FeyPromise)
+FeyApiFile:read()                                              *FeyApiFile:read()*
+    The source text (from the buffer when the file is open).
 
+FeyApiFile:open({mode?})                                       *FeyApiFile:open()*
+    `split`, `vsplit`, `tab` or `current` (default).
 
-FeyHeading:priority_down()                          *FeyHeading:priority_down*
-     Decrease priority on a heading
+==============================================================================
+5. FeyApiHeading                                              *fey-api-heading*
 
-    Returns: ~
-        (FeyPromise)
+Fields: ~
+    {file}, {ord}, {parent_ord}, {level}, {signature}, {title}, {path}
+    {line}, {end_line}  1-based, `end_line` includes subsections
+    {data}              data of a section without subsections
+    {labels}            labels given inside the section
 
+FeyApiHeading:parent()                                  *FeyApiHeading:parent()*
+FeyApiHeading:children()                              *FeyApiHeading:children()*
+FeyApiHeading:backlinks()                            *FeyApiHeading:backlinks()*
+FeyApiHeading:jump({mode?})                              *FeyApiHeading:jump()*
+    Open the file and put the cursor on the heading.
 
-FeyHeading:set_priority({priority})                  *FeyHeading:set_priority*
-     Set specific priority on a heading. Empty string clears the priority
+==============================================================================
+6. Events                                                      *fey-api-events*
 
-    Parameters: ~
-        {priority}  (string)
+`User` autocmds (`vim.api.nvim_create_autocmd('User', ...)`, or |fey.api.on()|):
 
-    Returns: ~
-        (FeyPromise)
+    `FeyVaultIndexed`      a scan finished. `data = { root, stats }`
+    `FeyVaultFileIndexed`  one file was re-indexed. `data = { root, path }`
 
+==============================================================================
+7. The index schema                                            *fey-api-schema*
 
-FeyHeading:set_deadline({date?})                     *FeyHeading:set_deadline*
-     Set deadline date
+All `path` columns are relative to the vault root; JSON columns hold JSON text.
 
-    Parameters: ~
-        {date?}  (FeyDate|string|nil)  If ommited, opens the datepicker. Empty string removes the date. String must follow fey date convention (YYYY-MM-DD HH:mm...)
+    files       id, path, mtime, size, title, data (JSON), errors (JSON), indexed_at
+    headings    file_id, ord, parent_ord, level, signature, title, path, line,
+                end_line, data (JSON)
+    tags        file_id, heading_ord, kind, name, line, vals (JSON), attrs (JSON)
+    links       file_id, heading_ord, kind, target, target_file, target_sig,
+                description, line, meta (JSON)
+    labels      file_id, heading_ord, label
+    properties  file_id, name, value (JSON): the top level keys of the data
 
-    Returns: ~
-        (FeyPromise)
+`heading_ord` is NULL for entries outside any section. `target_sig` is the
+signature as tokens joined by dots (`I.A.` is stored as `I.A`).
 
-
-FeyHeading:set_scheduled({date?})                   *FeyHeading:set_scheduled*
-     Set scheduled date
-
-    Parameters: ~
-        {date?}  (FeyDate|string|nil)  If ommited, opens the datepicker. Empty string removes the date. String must follow fey date convention (YYYY-MM-DD HH:mm...)
-
-    Returns: ~
-        (FeyPromise)
-
-
-                                                      *FeyHeading:set_property*
-FeyHeading:set_property({key}, {value?})
-     Set property on a heading. Setting value to nil removes the property
-
-    Parameters: ~
-        {key}     (string)
-        {value?}  (string)
-
-
-FeyHeading:get_property({key})                       *FeyHeading:get_property*
-     Get heading property
-
-    Parameters: ~
-        {key}  (string)
-
-    Returns: ~
-        (string|nil)
-
-
-FeyHeading:id_get_or_create()                    *FeyHeading:id_get_or_create*
-     Get heading id or create a new one if it doesn't exist
-     @return string
-
-
-FeyHeading:get_link()                                    *FeyHeading:get_link*
-     Get a link destination as string
-
-     Depending if fey_id_link_to_fey_use_id is set the format is
-
-     id:<uuid>::*title and the id is created if not existing
-     or
-     file:<filepath>::*title
-
-     The result is meant to be used as link_location for FeyApi.insert_link.
-     @return string
-
-
-FeyApiAgenda                                                      *FeyApiAgenda*
-
-
-FeyApiAgendaFilter                                          *FeyApiAgendaFilter*
-
-    Type: ~
-        string
-
-
-FeyApiAgendaOpts                                              *FeyApiAgendaOpts*
-
-    Fields: ~
-        {filters?}                            (FeyApiAgendaFilter)
-        {header?}                             (string)
-        {fey_agenda_files?}                   (string[])
-        {fey_agenda_tag_filter_preset?}       (string)
-        {fey_agenda_category_filter_preset?}  (string)
-        {fey_agenda_sorting_strategy?}        (FeyAgendaSortingStrategy[])
-        {fey_agenda_remove_tags?}             (boolean)
-
-
-FeyApiAgendaOptions : FeyApiAgendaOpts                     *FeyApiAgendaOptions*
-
-    Fields: ~
-        {from?}  (string|FeyDate)
-        {span?}  (FeyAgendaSpan)
-
-
-FeyAgenda.agenda({options?})                                  *FeyAgenda.agenda*
-
-    Parameters: ~
-        {options?}  (FeyApiAgendaOptions)
-
-
-                                                      *FeyApiAgendaTodosOptions*
-FeyApiAgendaTodosOptions : FeyApiAgendaOpts
-
-
-FeyAgenda.todos({options?})                                    *FeyAgenda.todos*
-
-    Parameters: ~
-        {options?}  (FeyApiAgendaTodosOptions)
-
-
-                                                   *FeyApiAgendaTagsTodoOptions*
-FeyApiAgendaTagsTodoOptions : FeyApiAgendaOpts
-
-    Fields: ~
-        {match_query?}                       (string)                             Match query to find the todos
-        {fey_agenda_todo_ignore_scheduled?}  (FeyAgendaTodoIgnoreScheduledTypes)
-        {fey_agenda_todo_ignore_deadlines?}  (FeyAgendaTodoIgnoreDeadlinesTypes)
-
-
-FeyAgenda.tags_todo({options?})                            *FeyAgenda.tags_todo*
-
-    Parameters: ~
-        {options?}  (FeyApiAgendaTagsOptions)
-
-
-                                                       *FeyApiAgendaTagsOptions*
-FeyApiAgendaTagsOptions : FeyApiAgendaTagsTodoOptions
-
-    Fields: ~
-        {todo_only?}  (boolean)
-
-
-FeyAgenda.tags({options?})                                      *FeyAgenda.tags*
-
-    Parameters: ~
-        {options?}  (FeyApiAgendaTagsOptions)
-
-
-FeyAgenda.open_by_key({key})                             *FeyAgenda.open_by_key*
-
-    Parameters: ~
-        {key}  (string)  Key in the agenda prompt (for example: "a", "t", "m", "M")
-
-
-FeyAgenda.get_heading_at_cursor()            *FeyAgenda.get_heading_at_cursor*
-    Get the heading at the cursor position in the agenda view
-
-    Returns: ~
-        (FeyApiHeading|nil)
-
-
-FeyPosition                                                        *FeyPosition*
-
-    Fields: ~
-        {start_line}  (number)  start line number
-        {end_line}    (number)  end line number
-        {start_col}   (number)  start column number
-        {end_col}     (number)  end column number
-
-
-vim:tw=78:ts=8:noet:ft=help:norl:
+ vim:tw=78:ts=8:ft=help:norl:

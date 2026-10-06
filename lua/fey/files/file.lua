@@ -185,6 +185,7 @@ function FeyFile:reindex_headings()
     firsts = {},
     counters = {},
     last_depth = 0,
+    entries = {},
   }
 
   local function assemble_signature(segments)
@@ -247,6 +248,12 @@ function FeyFile:reindex_headings()
 
     local new_signature = assemble_signature(segments)
     if new_signature ~= signature_text then table.insert(data.edits, { r = range, text = new_signature }) end
+    local title_node = node:field('heading')[1]:field('title')[1]
+    table.insert(data.entries, {
+      title = title_node and vim.trim(vim.treesitter.get_node_text(title_node, buf)) or '',
+      old = vim.trim(signature_text),
+      new = vim.trim(new_signature),
+    })
 
     data.last_depth = depth
 
@@ -268,6 +275,12 @@ function FeyFile:reindex_headings()
   for i = #root_data.edits, 1, -1 do
     local e = root_data.edits[i]
     vim.api.nvim_buf_set_text(buf, e.r[1], e.r[2], e.r[3], e.r[4], { e.text })
+  end
+
+  -- section tags follow the headings they point at
+  local name = vim.api.nvim_buf_get_name(buf)
+  if name ~= '' then
+    require('fey.links.section').on_reindex(vim.fn.fnamemodify(name, ':p'), root_data.entries)
   end
 end
 

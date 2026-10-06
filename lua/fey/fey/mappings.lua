@@ -99,42 +99,49 @@ function FeyMappings:toggle_archive_tag()
   schedule_fold_update(range)
 end
 
+---Does the section have anything to fold?
+---@param section TSNode
+local function is_expandable(section)
+  if #section:field('subsection') > 0 then return true end
+  local body = section:field('body')[1]
+  return body ~= nil and vim.treesitter.get_node_text(body, 0):find('%S') ~= nil
+end
+
+---Toggle the fold under the cursor. On a heading it cycles like org-mode: a closed section
+---opens (children stay folded), an open one with open children folds those first, otherwise
+---it closes. On the head or closer of a block or pair tag, or inside its body, it toggles the
+---fold of the tag.
 function FeyMappings:cycle()
-  local file = self.files:get_current_file()
-  if not file then return end
+  local bufnr = vim.api.nvim_get_current_buf()
   local line = vim.fn.line('.') or 0
   if not vim.wo.foldenable then
     vim.wo.foldenable = true
     vim.cmd([[silent! norm!zx]])
   end
-  local level = vim.fn.foldlevel(line)
-  if level == 0 then return utils.echo_info('No fold') end
-  local is_fold_closed = vim.fn.foldclosed(line) ~= -1
-  if is_fold_closed then return vim.cmd([[silent! norm!zo]]) end
-  local section = file:get_closest_heading_or_nil({ line, 0 })
 
-  if not section then
-    -- Toggle drawers
-    if vim.fn.getline(line):match('^%s*:[^:]*:%s*$') then vim.cmd([[silent! norm!za]]) end
-    return
-  end
+  local folds = require('fey.fey.folds')
+  local tag = folds.tag_at_line(bufnr, line)
+  if tag then return folds.apply(tag, 'za') end
 
-  local is_expandable = function(heading) return heading:has_child_headings() or not heading:is_one_line() end
+  if vim.fn.foldlevel(line) == 0 then return utils.echo_info('No fold') end
+  if vim.fn.foldclosed(line) ~= -1 then return vim.cmd([[silent! norm!zo]]) end
 
-  -- Skip one liner
+  ts_utils.parse_current_file()
+  local section = ts_utils.closest_node(ts_utils.get_node_at_cursor({ line, 0 }), 'section')
+  if not section then return end
   if not is_expandable(section) then return end
 
-  local children = section:get_child_headings()
+  local children = section:field('subsection')
   local close = #children == 0
 
   if not close then
     local has_nested_children = false
     for _, child in ipairs(children) do
-      local is_child_expandable = is_expandable(child)
-      if not has_nested_children and is_child_expandable then has_nested_children = true end
-      local child_range = child:get_range()
-      if is_child_expandable and vim.fn.foldclosed(child_range.start_line) == -1 then
-        vim.cmd(string.format('silent! keepjumps norm!%dggzc', child_range.start_line))
+      local expandable = is_expandable(child)
+      if expandable then has_nested_children = true end
+      local child_line = child:start() + 1
+      if expandable and vim.fn.foldclosed(child_line) == -1 then
+        vim.cmd(string.format('silent! keepjumps norm!%dggzc', child_line))
         close = true
       end
     end
@@ -1163,20 +1170,7 @@ function FeyMappings:add_note()
   end)
 end
 
-function FeyMappings:open_at_point()
-  local link = FeyHyperlink.at_cursor()
-
-  if link then return self.links:follow(link.url:to_string()) end
-
-  local date = self:_get_date_under_cursor()
-  if date then return self.agenda:open_day(date) end
-
-  local footnote = Footnote.at_cursor()
-  if footnote then
-    if footnote.is_reference then return self:_jump_to_footnote_definition(footnote) end
-    return self:_jump_to_footnote_reference(footnote)
-  end
-end
+function FeyMappings:open_at_point() return require('fey.links').open_at_cursor() end
 
 function FeyMappings:_jump_to_footnote_reference(footnote_definition)
   local file = self.files:get_current_file()

@@ -222,6 +222,129 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
   return matches
 end)
 
+-- Block and pair tags -----------------------------------------------------------------
+--
+-- Both are laid out from the head of the tag:
+--
+--   * a multi-line head behaves like a multi-line scope tag: its lines align with the tag
+--     name and its last line starts where the tag starts
+--   * the body of a pair tag keeps the indentation its lines have
+--   * the body of a block tag keeps its relative indentation, but the least indented line
+--     is placed two columns right of the tag head
+--
+-- The result for every affected line is computed in one pass from the indentation the lines
+-- have at that moment and cached briefly: re-indenting a region (`=`) changes lines one by one,
+-- and the lines still to come must be laid out from the original text.
+local tag_query
+local tag_cache = {}
+local TAG_CACHE_MS = 300
+
+---@class FeyTagLine
+---@field kind 'head'|'body'|'blank'|'closer'
+---@field indent integer
+
+---@param bufnr integer
+---@return table<integer, FeyTagLine>|nil lines keyed by 1-based line number
+local function scan_tags(bufnr)
+  tag_query = tag_query or vim.treesitter.query.parse('fey', '[(block_tag) (pair_tag)] @tag')
+  local trees = vim.treesitter.get_parser(bufnr, 'fey', {}):parse()
+  local tree = trees and trees[1]
+  if not tree then return nil end
+  local root = tree:root()
+  if root:has_error() then return nil end
+
+  local lines = {}
+  local function line_text(row) return vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or '' end
+
+  for _, node in tag_query:iter_captures(root, bufnr) do
+    local is_pair = node:type() == 'pair_tag'
+    local head = is_pair and node:field('open')[1] or node
+    local closures = head and head:field('tag_closure') or {}
+    local tag_end = closures[#closures]
+    local name = head and head:field('name')[1]
+
+    if tag_end and name then
+      local sr, sc = node:start()
+      local head_end_row, head_end_col = tag_end:end_()
+      local starts_line = line_text(sr):sub(1, sc):match('^%s*$') ~= nil
+      -- a pair tag whose opener is followed by more text is inline: leave it to the paragraph
+      local block_form = not is_pair or line_text(head_end_row):sub(head_end_col + 1):match('^%s*$') ~= nil
+
+      if starts_line and block_form then
+        local head_indent = lines[sr + 1] and lines[sr + 1].indent or sc
+        local _, name_col = name:start()
+
+        -- head: like a multi-line scope tag
+        for row = sr + 1, head_end_row do
+          lines[row + 1] = { kind = 'head', indent = head_indent + (name_col - sc) }
+        end
+        if head_end_row > sr then lines[head_end_row + 1].indent = head_indent end
+
+        local first, last
+        if is_pair then
+          local close = node:field('close')[1]
+          if close then
+            local close_row = close:start()
+            last = close_row - 1
+            if close:type() == 'pair_close' and close_row > head_end_row then
+              lines[close_row + 1] = { kind = 'closer', indent = head_indent }
+            end
+          end
+          first = head_end_row + 1
+        else
+          local body = node:field('body')[1]
+          if body then
+            local body_row = body:start()
+            local er, ec = body:end_()
+            last = ec == 0 and er - 1 or er
+            first = math.max(body_row, head_end_row + 1) -- text on the head line stays there
+          end
+        end
+
+        if first and last and last >= first then
+          local least
+          if not is_pair then
+            for row = first, last do
+              local text = line_text(row)
+              if text:find('%S') then
+                local ind = vim.fn.indent(row + 1)
+                least = least and math.min(least, ind) or ind
+              end
+            end
+          end
+          local shift = (not is_pair and least) and (head_indent + 2 - least) or 0
+          local previous = is_pair and head_indent or head_indent + 2
+          for row = first, last do
+            if line_text(row):find('%S') then
+              previous = vim.fn.indent(row + 1) + shift
+              lines[row + 1] = { kind = 'body', indent = previous }
+            else
+              lines[row + 1] = { kind = 'blank', indent = previous }
+            end
+          end
+        end
+      end
+    end
+  end
+  return lines
+end
+
+---@param bufnr integer
+---@param mode string
+---@return table<integer, FeyTagLine>|nil
+local function tag_lines(bufnr, mode)
+  local now = vim.uv.hrtime() / 1e6
+  local cached = tag_cache[bufnr]
+  local typing = mode:match('^[iR]') ~= nil
+  if cached and not typing and now - cached.time < TAG_CACHE_MS then
+    cached.time = now
+    return cached.lines
+  end
+  local ok, lines = pcall(scan_tags, bufnr)
+  tag_cache[bufnr] = { time = now, lines = ok and lines or nil }
+  return ok and lines or nil
+end
+
 -- Some explanation as to the caching insanity inside of this function. The `get_matches` function
 -- is memoized, but that only goes so far. When a user wants to indent a large region, say with
 -- `norm! 0gg=G` every indent operation will call `get_matches` and get *new* matches. For the most
@@ -249,6 +372,17 @@ local function indentexpr(linenr, bufnr)
   -- The buffer might be invalid, which can happen, if the function is implicitly called through
   -- refile operations. In this case we fallback to autoindent.
   if bufnr == -1 or not vim.api.nvim_buf_is_valid(bufnr) then return -1 end
+
+  local tags = tag_lines(bufnr, mode)
+  if tags then
+    local entry = tags[linenr]
+    if entry then return entry.indent end
+    -- a fresh blank line right under the body of a tag continues that body
+    local above = tags[linenr - 1]
+    if above and (above.kind == 'body' or above.kind == 'blank') and not vim.fn.getline(linenr):find('%S') then
+      return above.indent
+    end
+  end
 
   local indentexpr_cache = buf_indentexpr_cache[bufnr] or { prev_linenr = -1 }
   indentexpr_cache.matches = get_matches(bufnr)

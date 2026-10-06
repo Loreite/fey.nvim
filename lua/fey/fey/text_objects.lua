@@ -1,143 +1,91 @@
 local ts_utils = require('fey.utils.treesitter')
 local TextObjects = {}
 
-local function get_range_for_node_range(start_line, end_line, end_col)
-  -- Node ranges are 0 indexed
-  local start_range = start_line + 1
-  local end_range = end_line + 1
-  -- Sections range ends on next line with col value of 0, and we need to subtract 1 to get correct end line
-  if end_col == 0 and start_line ~= end_line then
-    end_range = end_range - 1
+---Last 1-indexed line covered by a node (a zero-width end at column 0 belongs to the previous line)
+---@param node TSNode
+---@return number
+local function last_line(node)
+  local _, _, end_row, end_col = node:range()
+  if end_col == 0 then end_row = end_row - 1 end
+  return end_row + 1
+end
+
+---@return TSNode|nil
+local function current_section()
+  return ts_utils.closest_node(ts_utils.get_node_at_cursor(), 'section')
+end
+
+---@param section TSNode
+---@return TSNode
+local function root_section(section)
+  local parent = section:parent()
+  while parent and parent:type() == 'section' do
+    section = parent
+    parent = section:parent()
   end
-  return { start_range = start_range, end_range = end_range }
+  return section
 end
 
-local function get_current_section_range()
-  local node = ts_utils.get_node_at_cursor()
-  if not node then
-    return
+---Last line of the section's own content, i.e. up to its first subsection
+---@param section TSNode
+---@return number
+local function heading_last_line(section)
+  for _, child in ipairs(ts_utils.get_named_children(section)) do
+    if child:type() == 'section' then return child:start() end -- 0-indexed row == previous 1-indexed line
   end
-  while node and node:type() ~= 'section' do
-    node = node:parent()
-  end
-  if not node then
-    return
-  end
-  local start_line, _, end_line, end_col = node:range()
-  local children = ts_utils.get_named_children(node)
-  if children[#children]:type() == 'section' then
-    for _, child in ipairs(children) do
-      if child:type() == 'section' then
-        local s, _, _, ec = child:range()
-        end_line = s
-        end_col = ec
-        break
-      end
-    end
-  end
-
-  return get_range_for_node_range(start_line, end_line, end_col)
+  return last_line(section)
 end
 
----@param ranges table
----@param exclude_signature boolean
-local function do_selection(ranges, exclude_signature)
-  local start_range = ranges.start_range
-  local end_range = ranges.end_range
-  local col = 1
-  if exclude_signature then
-    local _, offset = vim.fn.getline(start_range):find('^%*+%s*')
-    col = col + offset
+---Column (0-indexed) where the title of the section's heading starts
+---@param section TSNode
+---@return number
+local function title_col(section)
+  local heading = section:field('heading')[1]
+  local title = heading and heading:field('title')[1]
+  if title then
+    local _, col = title:range()
+    return col
   end
-  vim.fn.cursor({ start_range, col })
-  local down_motion = ''
-  if (end_range - start_range) > 0 then
-    down_motion = string.format('%dgg', end_range)
+  local sig = heading and heading:field('signature')[1]
+  if sig then
+    local _, _, _, col = sig:range()
+    return col
   end
-  local visual_mode = exclude_signature and 'v' or 'V'
-  local goto_line_end = exclude_signature and '$' or ''
-  vim.cmd(string.format('norm!%s%s%s', visual_mode, down_motion, goto_line_end))
+  return 0
 end
 
-local function current_heading(exclude_signature)
-  local range = get_current_section_range()
-  if range then
-    do_selection(range, exclude_signature)
+---@param start_row number 1-indexed
+---@param end_row number 1-indexed
+---@param inner_col? number 0-indexed column to start a charwise selection on `start_row`
+local function select_range(start_row, end_row, inner_col)
+  vim.fn.cursor({ start_row, (inner_col or 0) + 1 })
+  local motion = end_row > start_row and ('%dgg'):format(end_row) or ''
+  if inner_col then
+    vim.cmd(('norm!v%s$'):format(motion))
+  else
+    vim.cmd(('norm!V%s'):format(motion))
   end
 end
 
-local function current_subtree(exclude_signature)
-  local node = ts_utils.closest_node(ts_utils.get_node_at_cursor(), 'section')
-  if not node then
-    return
-  end
-  local start_range, _, end_range, end_col = node:range()
-  do_selection(get_range_for_node_range(start_range, end_range, end_col), exclude_signature)
+---@param inner boolean exclude the signature
+---@param from_root boolean start from the root section instead of the current one
+---@param subtree boolean include subsections
+local function select_section(inner, from_root, subtree)
+  local section = current_section()
+  if not section then return end
+  local start_node = from_root and root_section(section) or section
+  local end_row = subtree and last_line(from_root and root_section(section) or section) or heading_last_line(section)
+  local start_row = start_node:start() + 1
+  select_range(start_row, end_row, inner and title_col(start_node) or nil)
 end
 
-local function current_heading_from_root(exclude_signature)
-  local end_range = get_current_section_range().end_range
-  local node = ts_utils.get_node_at_cursor()
-  if not node then
-    return
-  end
-  while node do
-    local parent = node:parent()
-    if not parent or parent:type() == 'document' then
-      break
-    end
-    node = parent
-  end
-  local start_range, _, _, end_col = node:range()
-  do_selection(get_range_for_node_range(start_range, end_range, end_col), exclude_signature)
-end
-
-local function current_subtree_from_root(exclude_signature)
-  local node = ts_utils.get_node_at_cursor()
-  if not node then
-    return
-  end
-  while node do
-    local parent = node:parent()
-    if not parent or parent:type() == 'document' then
-      break
-    end
-    node = parent
-  end
-  local start_range, _, end_range, end_col = node:range()
-  do_selection(get_range_for_node_range(start_range, end_range, end_col), exclude_signature)
-end
-
-function TextObjects.inner_heading()
-  current_heading(true)
-end
-
-function TextObjects.around_heading()
-  current_heading(false)
-end
-
-function TextObjects.inner_subtree()
-  current_subtree(true)
-end
-
-function TextObjects.around_subtree()
-  current_subtree(false)
-end
-
-function TextObjects.inner_heading_from_root()
-  current_heading_from_root(true)
-end
-
-function TextObjects.around_heading_from_root()
-  current_heading_from_root(false)
-end
-
-function TextObjects.inner_subtree_from_root()
-  current_subtree_from_root(true)
-end
-
-function TextObjects.around_subtree_from_root()
-  current_subtree_from_root(false)
-end
+function TextObjects.inner_heading() select_section(true, false, false) end
+function TextObjects.around_heading() select_section(false, false, false) end
+function TextObjects.inner_subtree() select_section(true, false, true) end
+function TextObjects.around_subtree() select_section(false, false, true) end
+function TextObjects.inner_heading_from_root() select_section(true, true, false) end
+function TextObjects.around_heading_from_root() select_section(false, true, false) end
+function TextObjects.inner_subtree_from_root() select_section(true, true, true) end
+function TextObjects.around_subtree_from_root() select_section(false, true, true) end
 
 return TextObjects

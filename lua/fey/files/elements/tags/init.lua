@@ -2,6 +2,10 @@ local config = require('fey.config')
 local utils = require('fey.utils')
 local nvim_config = require('fey.files.elements.tags.handlers.nvim_config')
 local hl = require('fey.files.elements.tags.handlers.hl')
+local query_handler = require('fey.files.elements.tags.handlers.query')
+local feydb_handler = require('fey.files.elements.tags.handlers.feydb')
+local link_handler = require('fey.files.elements.tags.handlers.link')
+local section_handler = require('fey.files.elements.tags.handlers.section')
 
 ---@type vim.treesitter.Query
 local query = nil
@@ -121,8 +125,13 @@ function Tag.setup(handlers)
     vim.validate('key_handlers.' .. name, handler, 'function')
   end
   vim.validate('fey_hl_tag_name', config.fey_hl_tag_name, 'string')
+  vim.validate('fey_query_tag_name', config.fey_query_tag_name, 'string')
   Tag.handlers[config.fey_nvim_config_tag_name] = nvim_config.handlers
   Tag.handlers[config.fey_hl_tag_name] = hl.handlers
+  Tag.handlers[config.fey_query_tag_name] = query_handler.handlers
+  Tag.handlers[config.fey_db_tag_name] = feydb_handler.handlers
+  Tag.handlers[config.fey_link_tag_name] = link_handler.handlers
+  Tag.handlers[config.fey_section_tag_name] = section_handler.handlers
   Tag.handlers = vim.tbl_deep_extend('force', Tag.handlers, handlers)
 
   query = query or vim.treesitter.query.get('fey', 'fey_tags')
