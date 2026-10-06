@@ -207,13 +207,10 @@ function FeyMappings:_adjust_date_part(direction, amount, fallback)
   local do_replacement = function(date)
     local col = vim.fn.col('.') or 0
     local char = vim.fn.getline('.'):sub(col, col)
-    local raw_date_value = vim.fn.getline('.'):sub(date.range.start_col + 1, date.range.end_col - 1)
-    if col == date.range.start_col or col == date.range.end_col then
-      date.active = not date.active
-      return self:_replace_date(date)
-    end
-    local col_from_start = col - date.range.start_col
-    local parts = Date.from_string(raw_date_value):parse_parts()
+    if col < date.range.start_col or col > date.range.end_col then return false end
+    -- the range is the text of the date itself, parts are counted from 1
+    local col_from_start = col - date.range.start_col + 1
+    local parts = date:parse_parts()
     local adj = nil
     local modify_end_time = false
     local part = nil
@@ -1416,6 +1413,7 @@ function FeyMappings:fey_schedule()
     end)
 end
 
+---Change the date under the cursor, or insert a date tag after the cursor
 ---@param inactive boolean
 function FeyMappings:fey_time_stamp(inactive)
   local date = self:_get_date_under_cursor()
@@ -1427,17 +1425,19 @@ function FeyMappings:fey_time_stamp(inactive)
     end)
   end
 
-  local date_start = self:_get_date_under_cursor(-1)
-
   return Calendar.new({ date = Date.today() }):open():next(function(new_date)
     if not new_date then return nil end
-    local date_string = new_date:to_wrapped_string(not inactive)
-    if date_start then
-      date_string = '--' .. date_string
-      vim.cmd('norm!x')
-    end
-    vim.cmd(string.format('norm!a%s', date_string))
+    vim.api.nvim_put({ new_date:to_tag_text({ active = not inactive }) }, 'c', true, true)
   end)
+end
+
+---Show or hide the tag syntax around todo keywords, priorities and labels in headings (this buffer)
+function FeyMappings:toggle_conceal_task_tags()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local enabled = not require('fey.colors.highlighter.task_tags').enabled(bufnr)
+  vim.b[bufnr].fey_conceal_task_tags = enabled
+  vim.api.nvim__redraw({ buf = bufnr, valid = false })
+  utils.echo_info('Task tags are ' .. (enabled and 'concealed' or 'shown'))
 end
 
 function FeyMappings:fey_toggle_timestamp_type()
@@ -1486,33 +1486,49 @@ function FeyMappings:_change_todo_state(direction, use_fast_access)
   return true
 end
 
+---Write a date back where it was read from: its text is replaced in place, the `active` key of its tag
+---follows the date
 ---@param date FeyDate
 function FeyMappings:_replace_date(date)
-  local line = vim.fn.getline(date.range.start_line)
+  local edit = require('fey.files.elements.tags.edit')
+  local bufnr = vim.api.nvim_get_current_buf()
+  local range = date.range
   local view = vim.fn.winsaveview() or {}
-  vim.fn.setline(
-    date.range.start_line,
-    string.format('%s%s%s', line:sub(1, date.range.start_col - 1), date:to_wrapped_string(), line:sub(date.range.end_col + 1))
+  vim.api.nvim_buf_set_text(
+    bufnr,
+    range.start_line - 1,
+    range.start_col - 1,
+    range.end_line - 1,
+    range.end_col,
+    { date:to_string() }
   )
+  local tag = edit.at(bufnr, range.start_line - 1, range.start_col - 1)
+  if tag then
+    local default_active = date.type ~= 'CLOSED'
+    local current = tag.key_values.active
+    if date.active ~= default_active then
+      edit.set_key(tag, 'active', tostring(date.active))
+    elseif current ~= nil then
+      edit.set_key(tag, 'active', nil)
+    end
+  end
   vim.fn.winrestview(view)
   return true
 end
 
+---The date of the date or planning tag around the cursor. In a range the end counts from its first
+---character on.
 ---@return FeyDate|nil
-function FeyMappings:_get_date_under_cursor(col_offset)
-  col_offset = col_offset or 0
-  local col = vim.fn.col('.') + col_offset
-  local line = vim.fn.line('.') or 0
-  local item = self.files:get_closest_heading_or_nil()
-  local dates = {}
-  if item then
-    dates = item:get_all_dates()
-  else
-    dates = Date.from_node(ts_utils.closest_node(ts_utils.get_node(), 'timestamp'))
+function FeyMappings:_get_date_under_cursor()
+  local edit = require('fey.files.elements.tags.edit')
+  local col = vim.fn.col('.')
+  local tag = edit.at_cursor()
+  if not tag or not vim.tbl_contains(require('fey.files.elements.tags.handlers.date').names(), tag.name) then
+    return nil
   end
-
-  local valid_dates = vim.tbl_filter(function(date) return date.range:is_in_range(line, col) end, dates)
-  return valid_dates[1]
+  local dates = Date.from_tag(tag)
+  if dates[2] and col >= dates[2].range.start_col then return dates[2] end
+  return dates[1]
 end
 
 ---@param amount number

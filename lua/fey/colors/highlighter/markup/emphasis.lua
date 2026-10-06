@@ -418,6 +418,8 @@ local function ensure_conceallevel(bufnr)
   end
 end
 
+FeyEmphasis.ensure_conceallevel = ensure_conceallevel
+
 ---@param highlights FeyMarkupHighlight[]
 ---@param bufnr number
 function FeyEmphasis:highlight(highlights, bufnr)

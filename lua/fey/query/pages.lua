@@ -90,25 +90,33 @@ end
 
 -- Relation loaders (each runs one query for the whole vault) -------------------
 
----@return table<string, table[]>
+---Labels by file (all of them, those of the file itself and those of its headings) and by section
+---@return table<string, string[]> all
+---@return table<string, string[]> by_section keyed by `path .. '\0' .. heading_ord`
+---@return table<string, string[]> by_file labels of the file itself (not given inside a heading)
+---@return table<string, string[]> by_heading labels given inside the headings of the file
 function Store:_labels()
-  if self.labels then return self.labels, self.section_labels end
-  local by_path, by_section = {}, {}
+  if self.labels then return self.labels, self.section_labels, self.file_labels, self.heading_labels end
+  local by_path, by_section, by_file, by_heading = {}, {}, {}, {}
   local rows = self.vault:query(
     [[SELECT f.path, l.heading_ord, l.label FROM labels l JOIN files f ON f.id = l.file_id ORDER BY f.path, l.label]]
   )
+  local function add(map, key, label)
+    local list = map[key] or {}
+    map[key] = list
+    list[#list + 1] = label
+  end
   for _, r in ipairs(rows) do
-    local list = by_path[r.path] or {}
-    by_path[r.path] = list
-    list[#list + 1] = r.label
+    add(by_path, r.path, r.label)
     if r.heading_ord then
-      local key = r.path .. '\0' .. r.heading_ord
-      by_section[key] = by_section[key] or {}
-      table.insert(by_section[key], r.label)
+      add(by_section, r.path .. '\0' .. r.heading_ord, r.label)
+      add(by_heading, r.path, r.label)
+    else
+      add(by_file, r.path, r.label)
     end
   end
-  self.labels, self.section_labels = by_path, by_section
-  return by_path, by_section
+  self.labels, self.section_labels, self.file_labels, self.heading_labels = by_path, by_section, by_file, by_heading
+  return by_path, by_section, by_file, by_heading
 end
 
 function Store:_links()
@@ -187,13 +195,17 @@ local function new_file(store, page, row)
         local f = os.date('*t', math.floor(secs)) --[[@as osdateparam]]
         v = V.date(V.make_ts(f.year, f.month, f.day))
       end
-    elseif k == 'labels' or k == 'tags' or k == 'etags' then
-      local labels = store:_labels()[path] or {}
+    elseif k == 'labels' or k == 'heading_labels' or k == 'tags' or k == 'etags' then
+      -- `labels` are the labels of the file itself, `heading_labels` those given inside its headings;
+      -- `tags` and `etags` (the Dataview names) count every label of the file
+      local all, _, own, in_headings = store:_labels()
+      local labels = ({ labels = own, heading_labels = in_headings })[k]
+      labels = (labels or all)[path] or {}
       local out = {}
       local seen = {}
       for _, l in ipairs(labels) do
         local base = l
-        if k == 'labels' then
+        if k == 'labels' or k == 'heading_labels' then
           if not seen[base] then out[#out + 1], seen[base] = base, true end
         elseif k == 'etags' then
           if not seen['#' .. base] then out[#out + 1], seen['#' .. base] = '#' .. base, true end
@@ -239,7 +251,7 @@ local function new_file(store, page, row)
 
   return lazy(resolve, function()
     return {
-      'aliases', 'cday', 'ctime', 'day', 'etags', 'ext', 'folder', 'frontmatter', 'headings', 'inlinks', 'labels',
+      'aliases', 'cday', 'ctime', 'day', 'etags', 'ext', 'folder', 'frontmatter', 'heading_labels', 'headings', 'inlinks', 'labels',
       'link', 'mday', 'mtime', 'name', 'outlinks', 'path', 'size', 'tags',
     }
   end)

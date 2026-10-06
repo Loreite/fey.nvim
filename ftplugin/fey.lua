@@ -31,10 +31,10 @@ vim.bo.indentkeys = ('%s,%s'):format(vim.bo.indentkeys, '=~end_src,=~end_example
 _G.fey.omnifunc = function(findstart, base) return require('fey').completion:omnifunc(findstart, base) end
 
 local abbreviations = {
-  [':today:'] = "require('fey.objects.date').today():to_wrapped_string(true)",
-  [':now:'] = "require('fey.objects.date').now():to_wrapped_string(true)",
-  [':itoday:'] = "require('fey.objects.date').today():to_wrapped_string(false)",
-  [':inow:'] = "require('fey.objects.date').now():to_wrapped_string(false)",
+  [':today:'] = "require('fey.objects.date').today():to_tag_text({ active = true })",
+  [':now:'] = "require('fey.objects.date').now():to_tag_text({ active = true })",
+  [':itoday:'] = "require('fey.objects.date').today():to_tag_text({ active = false })",
+  [':inow:'] = "require('fey.objects.date').now():to_tag_text({ active = false })",
 }
 
 for abbrev, cmd in pairs(abbreviations) do

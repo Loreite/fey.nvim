@@ -9,7 +9,9 @@ local FeyHeading = require('fey.api.heading')
 ---@field size integer
 ---@field errors? string[] problems found while indexing (syntax errors, bad data)
 ---@field data any the document data value (a table for most notes)
----@field labels string[] all labels of the file
+---@field labels string[] the labels of the file itself (a label tag above the first heading, or a `labels` key of its data)
+---@field heading_labels string[] the labels given inside the headings of the file
+---@field label_rows table[] every label of the file with `heading_ord` (nil for the file itself), `label`, `container` (what holds it: `title`, `body`, `text`, `document` or `data`) and `line`
 ---@field headings FeyApiHeading[]
 ---@field tags table[] every syntactic tag of the file: `name`, `kind`, `line`, `vals`, `attrs`
 ---@field links table[] links and section tags written in the file
@@ -32,10 +34,27 @@ end
 function lazy.labels(self)
   local rows = self.vault:query(
     [[SELECT DISTINCT l.label FROM labels l JOIN files f ON f.id = l.file_id
-      WHERE f.path = :p ORDER BY l.label]],
+      WHERE f.path = :p AND l.heading_ord IS NULL ORDER BY l.label]],
     { p = self.path }
   )
   return vim.tbl_map(function(r) return r.label end, rows)
+end
+
+function lazy.heading_labels(self)
+  local rows = self.vault:query(
+    [[SELECT DISTINCT l.label FROM labels l JOIN files f ON f.id = l.file_id
+      WHERE f.path = :p AND l.heading_ord IS NOT NULL ORDER BY l.label]],
+    { p = self.path }
+  )
+  return vim.tbl_map(function(r) return r.label end, rows)
+end
+
+function lazy.label_rows(self)
+  return self.vault:query(
+    [[SELECT l.heading_ord, l.label, l.container, l.line FROM labels l JOIN files f ON f.id = l.file_id
+      WHERE f.path = :p ORDER BY l.line, l.label]],
+    { p = self.path }
+  )
 end
 
 function lazy.headings(self)

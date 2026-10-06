@@ -169,50 +169,50 @@ return {
     --     'capture.refile_heading_to_destination',
     --     { opts = { desc = 'fey refile', help_desc = 'Refile heading to specific destination' } }
     --   ),
-    --   fey_timestamp_up_day = m.action(
-    --     'fey_mappings.timestamp_up_day',
-    --     { opts = { desc = 'fey increase timestamp (day)', help_desc = 'Increase timestamp by one day' } }
-    --   ),
-    --   fey_timestamp_down_day = m.action(
-    --     'fey_mappings.timestamp_down_day',
-    --     { opts = { desc = 'fey decrease timestamp (day)', help_desc = 'Decrease timestamp by one day' } }
-    --   ),
-    --   fey_timestamp_up = m.action('fey_mappings.timestamp_up', {
-    --     opts = {
-    --       desc = 'fey increase timestamp',
-    --       help_desc = 'Increase date part under cursor (year/month/day/hour/minute/repeater/active|inactive)',
-    --     },
-    --   }),
-    --   fey_timestamp_down = m.action('fey_mappings.timestamp_down', {
-    --     opts = {
-    --       desc = 'fey decrease timestamp',
-    --       help_desc = 'Decrease date part under cursor (year/month/day/hour/minute/repeater/active|inactive)',
-    --     },
-    --   }),
-    --   fey_change_date = m.action(
-    --     'fey_mappings.change_date',
-    --     { opts = { desc = 'fey change date', help_desc = 'Change date under cursor via calendar popup' } }
-    --   ),
-    --   fey_todo = m.action(
-    --     'fey_mappings.todo_next_state',
-    --     { opts = { desc = 'fey next todo state', help_desc = 'Forward change TODO state of current heading' } }
-    --   ),
-    --   fey_todo_prev = m.action(
-    --     'fey_mappings.todo_prev_state',
-    --     { opts = { desc = 'fey prev todo state', help_desc = 'Backward change TODO state of current heading' } }
-    --   ),
-    --   fey_priority = m.action(
-    --     'fey_mappings.set_priority',
-    --     { opts = { desc = 'fey cycle priority', help_desc = 'Change the priority of the current heading' } }
-    --   ),
-    --   fey_priority_up = m.action(
-    --     'fey_mappings.priority_up',
-    --     { opts = { desc = 'fey increase priority', help_desc = 'Increase priority of heading' } }
-    --   ),
-    --   fey_priority_down = m.action(
-    --     'fey_mappings.priority_down',
-    --     { opts = { desc = 'fey decrease priority', help_desc = 'Decrease priority of heading' } }
-    --   ),
+    fey_timestamp_up_day = m.action(
+      'fey_mappings.timestamp_up_day',
+      { opts = { desc = 'fey increase timestamp (day)', help_desc = 'Increase timestamp by one day' } }
+    ),
+    fey_timestamp_down_day = m.action(
+      'fey_mappings.timestamp_down_day',
+      { opts = { desc = 'fey decrease timestamp (day)', help_desc = 'Decrease timestamp by one day' } }
+    ),
+    fey_timestamp_up = m.action('fey_mappings.timestamp_up', {
+      opts = {
+        desc = 'fey increase timestamp',
+        help_desc = 'Increase date part under cursor (year/month/day/hour/minute/repeater/active|inactive)',
+      },
+    }),
+    fey_timestamp_down = m.action('fey_mappings.timestamp_down', {
+      opts = {
+        desc = 'fey decrease timestamp',
+        help_desc = 'Decrease date part under cursor (year/month/day/hour/minute/repeater/active|inactive)',
+      },
+    }),
+    fey_change_date = m.action(
+      'fey_mappings.change_date',
+      { opts = { desc = 'fey change date', help_desc = 'Change date under cursor via calendar popup' } }
+    ),
+    fey_todo = m.action(
+      'fey_mappings.todo_next_state',
+      { opts = { desc = 'fey next todo state', help_desc = 'Forward change TODO state of current heading' } }
+    ),
+    fey_todo_prev = m.action(
+      'fey_mappings.todo_prev_state',
+      { opts = { desc = 'fey prev todo state', help_desc = 'Backward change TODO state of current heading' } }
+    ),
+    fey_priority = m.action(
+      'fey_mappings.set_priority',
+      { opts = { desc = 'fey cycle priority', help_desc = 'Change the priority of the current heading' } }
+    ),
+    fey_priority_up = m.action(
+      'fey_mappings.priority_up',
+      { opts = { desc = 'fey increase priority', help_desc = 'Increase priority of heading' } }
+    ),
+    fey_priority_down = m.action(
+      'fey_mappings.priority_down',
+      { opts = { desc = 'fey decrease priority', help_desc = 'Decrease priority of heading' } }
+    ),
     --   fey_toggle_checkbox = m.action(
     --     'fey_mappings.toggle_checkbox',
     --     { opts = { desc = 'fey toggle checkbox', help_desc = 'Toggle checkbox' } }
@@ -242,10 +242,10 @@ return {
     --     'fey_mappings.archive',
     --     { opts = { desc = 'fey archive subtree', help_desc = 'Archive subtree to archive file' } }
     --   ),
-    --   fey_set_tags_command = m.action(
-    --     'fey_mappings.set_tags',
-    --     { opts = { desc = 'fey set tags', help_desc = 'Change tags of current heading' } }
-    --   ),
+    fey_set_tags_command = m.action(
+      'fey_mappings.set_tags',
+      { opts = { desc = 'fey set tags', help_desc = 'Change tags of current heading' } }
+    ),
     --   fey_toggle_archive_tag = m.action(
     --     'fey_mappings.toggle_archive_tag',
     --     { opts = { desc = 'fey toggle archive tag', help_desc = 'Toggle "ARCHIVE" tag on current heading' } }
@@ -610,22 +610,22 @@ return {
       'fey_mappings.last_child_heading',
       { opts = { desc = 'fey goto last child heading', help_desc = 'Go to last child heading' } }
     ),
-    --   fey_deadline = m.action(
-    --     'fey_mappings.fey_deadline',
-    --     { opts = { desc = 'fey deadline', help_desc = 'Insert/Update deadline date' } }
-    --   ),
-    --   fey_schedule = m.action(
-    --     'fey_mappings.fey_schedule',
-    --     { opts = { desc = 'fey schedule', help_desc = 'Insert/Update scheduled date' } }
-    --   ),
-    --   fey_time_stamp = m.action(
-    --     'fey_mappings.fey_time_stamp',
-    --     { opts = { desc = 'fey timestamp', help_desc = 'Insert date under cursor' } }
-    --   ),
-    --   fey_time_stamp_inactive = m.action('fey_mappings.fey_time_stamp', {
-    --     args = { true },
-    --     opts = { desc = 'fey timestamp (inactive)', help_desc = 'Insert/Update inactive date under cursor' },
-    --   }),
+    fey_deadline = m.action(
+      'fey_mappings.fey_deadline',
+      { opts = { desc = 'fey deadline', help_desc = 'Insert/Update deadline date' } }
+    ),
+    fey_schedule = m.action(
+      'fey_mappings.fey_schedule',
+      { opts = { desc = 'fey schedule', help_desc = 'Insert/Update scheduled date' } }
+    ),
+    fey_time_stamp = m.action(
+      'fey_mappings.fey_time_stamp',
+      { opts = { desc = 'fey timestamp', help_desc = 'Insert date under cursor' } }
+    ),
+    fey_time_stamp_inactive = m.action('fey_mappings.fey_time_stamp', {
+      args = { true },
+      opts = { desc = 'fey timestamp (inactive)', help_desc = 'Insert/Update inactive date under cursor' },
+    }),
     --   fey_insert_link = m.action('fey_mappings.insert_link', {
     --     modes = { 'n', 'x' },
     --     opts = {
@@ -662,10 +662,16 @@ return {
     --     'fey_mappings.fey_babel_tangle',
     --     { opts = { desc = 'fey tangle', help_desc = 'Tangle current file' } }
     --   ),
-    --   fey_toggle_timestamp_type = m.action(
-    --     'fey_mappings.fey_toggle_timestamp_type',
-    --     { opts = { desc = 'fey toggle timestamp type', help_desc = 'Toggle timestamp active/inactive type' } }
-    --   ),
+    fey_toggle_timestamp_type = m.action(
+      'fey_mappings.fey_toggle_timestamp_type',
+      { opts = { desc = 'fey toggle timestamp type', help_desc = 'Toggle timestamp active/inactive type' } }
+    ),
+    fey_toggle_conceal_task_tags = m.action('fey_mappings.toggle_conceal_task_tags', {
+      opts = {
+        desc = 'fey toggle task tag concealment',
+        help_desc = 'Show or hide the tag syntax around the todo keyword, priority and labels of headings',
+      },
+    }),
   },
   edit_src = {
     --   fey_edit_src_abort = m.custom(

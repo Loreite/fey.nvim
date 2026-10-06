@@ -60,6 +60,12 @@ local function get_indent_for_match(matches, linenr, mode, bufnr)
     if linenr ~= match.line_nr then indent = indent + match.overhang end
     return indent
   end
+  if match.margin_line then
+    -- A block that opens on a bullet line: its lines hang from the left margin of the list item
+    -- (the bullet column), because that is where its closing fence has to be. The margin is
+    -- resolved here so a listitem that is re-indented first (`=`) moves its block with it.
+    return math.max(0, get_indent_for_match(matches, match.margin_line, mode, bufnr) + match.diff)
+  end
   -- node type is nil while inserting!
   local is_inserting = (not match.type) or mode:match('^[iR]')
   if is_inserting and prev_line_match.type == 'listitem' and linenr - prev_linenr < 3 then
@@ -189,7 +195,26 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
       end
     end
 
-    if type == 'block' then
+    local item = node:parent()
+    -- the first element of a list item may open on the line of the bullet
+    local on_item_line = item and item:type() == 'listitem' and (item:start()) == range.start.line
+
+    if type == 'block' and on_item_line then
+      opts.indent_type = 'block'
+      local start_line = range.start.line + 1
+
+      -- the closing fence is at the margin by definition (the scanner insists on it)
+      local close = node:field('closefence')[1]
+      local old_margin = close and vim.fn.indent((close:start()) + 1) or vim.fn.indent(start_line)
+
+      -- the bullet line itself stays the listitem's
+      for i = range.start.line + 1, range['end'].line - 1 do
+        matches[i + 1] = vim.tbl_extend('force', opts, {
+          margin_line = start_line,
+          diff = vim.fn.indent(i + 1) - old_margin,
+        })
+      end
+    elseif type == 'block' then
       opts.indent_type = 'block'
 
       local listitem_indent = get_listitem_overhang(node, matches)
@@ -214,7 +239,9 @@ local get_matches = ts_utils.memoize_by_buf_tick(function(bufnr)
       if listitem_indent then opts.indent = listitem_indent end
 
       for i = range.start.line, range['end'].line - 1 do
-        matches[i + 1] = opts
+        -- a paragraph in a tag body that starts on a bullet line must not take over that line
+        local held = matches[i + 1]
+        if not (held and held.type == 'listitem' and held.line_nr == i + 1) then matches[i + 1] = opts end
       end
     end
   end
@@ -266,12 +293,17 @@ local function scan_tags(bufnr)
     if tag_end and name then
       local sr, sc = node:start()
       local head_end_row, head_end_col = tag_end:end_()
-      local starts_line = line_text(sr):sub(1, sc):match('^%s*$') ~= nil
+      -- the first element of a list item may open on the line of its bullet; the body then hangs
+      -- from the bullet column (the margin of the list item), not from the tag
+      local parent = node:parent()
+      local on_item_line = not is_pair and parent and parent:type() == 'listitem' and (parent:start()) == sr
+      local starts_line = on_item_line or line_text(sr):sub(1, sc):match('^%s*$') ~= nil
       -- a pair tag whose opener is followed by more text is inline: leave it to the paragraph
       local block_form = not is_pair or line_text(head_end_row):sub(head_end_col + 1):match('^%s*$') ~= nil
 
       if starts_line and block_form then
         local head_indent = lines[sr + 1] and lines[sr + 1].indent or sc
+        local margin = on_item_line and vim.fn.indent(sr + 1) or head_indent
         local _, name_col = name:start()
 
         -- head: like a multi-line scope tag
@@ -312,8 +344,8 @@ local function scan_tags(bufnr)
               end
             end
           end
-          local shift = (not is_pair and least) and (head_indent + 2 - least) or 0
-          local previous = is_pair and head_indent or head_indent + 2
+          local shift = (not is_pair and least) and (margin + 2 - least) or 0
+          local previous = is_pair and head_indent or margin + 2
           for row = first, last do
             if line_text(row):find('%S') then
               previous = vim.fn.indent(row + 1) + shift
@@ -397,6 +429,7 @@ local function indentexpr(linenr, bufnr)
   if match then
     -- Attempt to calculate indentation from the block filetype
     if match.indent_type == 'block' and linenr > match.line_nr and linenr < match.line_end_nr then
+      local base_indent = match.margin_line and new_indent or match.indent
       local block_parameters = match.node:field('parameter')
 
       if block_parameters and block_parameters[1] then
@@ -416,13 +449,13 @@ local function indentexpr(linenr, bufnr)
               if block_ft_indent == -1 then
                 -- Native indent says "keep current". We use match.indent which holds
                 -- our calculated 'head_indent + indent_diff' relative block shift.
-                new_indent = match.indent
+                new_indent = base_indent
               else
                 -- Clamp the evaluated indent to the opening fence's true indentation
                 -- so it respects listitem overhangs as the left margin.
 
                 -- new_indent = math.max(block_ft_indent, vim.fn.indent(match.line_nr))
-                new_indent = math.max(block_ft_indent, match.indent)
+                new_indent = math.max(block_ft_indent, base_indent)
               end
             end
 

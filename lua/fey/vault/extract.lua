@@ -12,12 +12,16 @@
 -- Terminology: "tag" always means a Fey syntactic Tag. Topical categorisation
 -- is called a "label" to avoid colliding with it.
 local constants = require('fey.utils.constants')
+local tag_region = require('fey.files.elements.tags.region')
 
 local M = {}
 
 ---@class FeyVaultExtractOpts
 ---@field label_tags? string[]  tag names whose values are labels. Default { 'label', 'labels' }
 ---@field link_tags? string[]   tag names that reference another file/section. Default { 'link', 'section' }
+---@field meta_tags? string[]   names of the tags that are heading metadata (a todo keyword, labels, ...). They
+---                             are not part of the title of a heading: scope and line tags with one of these
+---                             names are dropped from `title` and `path`. Default: see `DEFAULT_META_TAGS`
 
 ---@class FeyVaultHeading
 ---@field ord integer 1-based position in document order
@@ -35,6 +39,7 @@ local M = {}
 ---@field name string
 ---@field line integer
 ---@field heading_ord? integer
+---@field region 'title'|'body'|'text'|'document' where the tag sits: part of the metadata region of its heading (title or body), elsewhere in a section, or above the first heading
 ---@field values string[]
 ---@field attrs table<string, string>
 ---@field order string[] key order of attrs
@@ -50,7 +55,9 @@ local M = {}
 
 ---@class FeyVaultLabel
 ---@field label string
----@field heading_ord? integer
+---@field heading_ord? integer nil for a label of the file
+---@field container string what holds the label: `title`, `body` or `text` (a label tag in a heading title, in the metadata region of a heading, or elsewhere in its text), `document` (a label tag above the first heading) or `data` (a `labels` key of a data tag or of the document data)
+---@field line? integer 1-based line of the label
 
 ---@class FeyVaultFileMeta
 ---@field title string
@@ -63,6 +70,7 @@ local M = {}
 ---@field errors string[]
 
 local DATA_TAGS = { table = true, array = true, value = true }
+local DEFAULT_META_TAGS = { 'label', 'labels', 'status', 'prop', 'scheduled', 'deadline', 'closed' }
 local KIND = { scope_tag = 'scope', pair_tag = 'pair', line_tag = 'line', block_tag = 'block' }
 
 local tag_query
@@ -106,6 +114,7 @@ end
 ---@field lines string[]
 ---@field errors string[]
 ---@field opts FeyVaultExtractOpts
+---@field meta_set table<string, boolean> see `FeyVaultExtractOpts.meta_tags`
 
 ---@param ctx FeyVaultCtx
 ---@param node TSNode
@@ -164,6 +173,15 @@ local function parse_tag(ctx, node)
   end
   if node:type() == 'pair_tag' or node:type() == 'block_tag' then tag.body = node:field('body')[1] end
   return tag
+end
+
+---Text of the title of a heading without its metadata tags (see `FeyVaultExtractOpts.meta_tags`)
+---@param ctx FeyVaultCtx
+---@param title_node TSNode|nil
+---@return string
+local function title_text(ctx, title_node)
+  if not title_node then return '' end
+  return tag_region.title_text(title_node, ctx.src, ctx.meta_set)
 end
 
 -- Data values (README VII) --------------------------------------------------
@@ -406,7 +424,7 @@ local function section_value(ctx, owner)
   local function title_of(section)
     local heading = section:field('heading')[1]
     local title = heading and heading:field('title')[1]
-    return title and trim(text(ctx, title)) or nil
+    return title and title_text(ctx, title) or nil
   end
 
   local array_n, key_n = 0, 0
@@ -466,7 +484,7 @@ local function collect_headings(ctx, root)
           if c:type() == 'segment' then level = level + 1 end
         end
       end
-      local title = title_node and trim(text(ctx, title_node)) or ''
+      local title = title_text(ctx, title_node)
 
       local h = {
         ord = #headings + 1,
@@ -524,7 +542,9 @@ function M.extract(src, opts)
   for _, n in ipairs(label_tags) do label_set[n] = true end
   for _, n in ipairs(link_tags) do link_set[n] = true end
 
-  local ctx = { src = src, lines = vim.split(src, '\n', { plain = true }), errors = {}, opts = opts }
+  local meta_set = {}
+  for _, n in ipairs(opts.meta_tags or DEFAULT_META_TAGS) do meta_set[n] = true end
+  local ctx = { src = src, lines = vim.split(src, '\n', { plain = true }), errors = {}, opts = opts, meta_set = meta_set }
   local root = vim.treesitter.get_string_parser(src, 'fey'):parse()[1]:root()
   if root:has_error() then table.insert(ctx.errors, 'syntax errors in file') end
 
@@ -545,32 +565,50 @@ function M.extract(src, opts)
 
   -- tags, links and labels
   local seen_label = {}
-  local function add_label(label, heading_ord)
+  local function add_label(label, heading_ord, container, line)
     local key = (heading_ord or 0) .. '\0' .. label:lower()
     if seen_label[key] then return end
     seen_label[key] = true
-    table.insert(meta.labels, { label = label, heading_ord = heading_ord })
+    table.insert(meta.labels, { label = label, heading_ord = heading_ord, container = container, line = line })
+  end
+
+  -- where tags sit: the metadata region of every section, found once
+  local region_cache = {}
+  local function region_of(node, section)
+    if not section then return 'document' end
+    local set = region_cache[section:id()]
+    if not set then
+      set = {}
+      for _, e in ipairs((tag_region.entries(section))) do
+        set[e.node:id()] = e.region
+      end
+      region_cache[section:id()] = set
+    end
+    return set[node:id()] or 'text'
   end
 
   for _, node in get_tag_query():iter_captures(root, src) do
     local tag = parse_tag(ctx, node)
     if tag then
-      local heading_ord
+      local heading_ord, section
       local p = node:parent()
       while p do
         if p:type() == 'section' then
+          section = p
           heading_ord = ord_by_node[p:id()]
           break
         end
         p = p:parent()
       end
       local line = node:start() + 1
+      local region = region_of(node, section)
 
       table.insert(meta.tags, {
         kind = tag.kind,
         name = tag.name,
         line = line,
         heading_ord = heading_ord,
+        region = region,
         values = tag.values,
         attrs = tag.attrs,
         order = tag.order,
@@ -590,16 +628,16 @@ function M.extract(src, opts)
 
       if label_set[tag.name] then
         for _, v in ipairs(tag.values) do
-          for _, l in ipairs(label_strings(v)) do add_label(l, heading_ord) end
+          for _, l in ipairs(label_strings(v)) do add_label(l, heading_ord, region, line) end
         end
       end
       for k, v in pairs(tag.attrs) do
         if label_set[k] then
-          for _, l in ipairs(label_strings(v)) do add_label(l, heading_ord) end
+          for _, l in ipairs(label_strings(v)) do add_label(l, heading_ord, 'data', line) end
           -- `{# array; labels: a, b #}` parses as the pair `labels: a` plus the plain value `b`
           if tag.name == 'array' then
             for _, pv in ipairs(tag.values) do
-              for _, l in ipairs(label_strings(pv)) do add_label(l, heading_ord) end
+              for _, l in ipairs(label_strings(pv)) do add_label(l, heading_ord, 'data', line) end
             end
           end
         end
@@ -612,7 +650,7 @@ function M.extract(src, opts)
     for k, v in pairs(data) do
       meta.properties[k] = v
       if label_set[k] then
-        for _, l in ipairs(label_strings(v)) do add_label(l) end
+        for _, l in ipairs(label_strings(v)) do add_label(l, nil, 'data') end
       end
     end
   end

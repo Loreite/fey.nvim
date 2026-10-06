@@ -2,7 +2,6 @@
 local spans = { d = 'day', m = 'month', y = 'year', h = 'hour', w = 'week', M = 'min' }
 local config = require('fey.config')
 local utils = require('fey.utils')
-local ts_utils = require('fey.utils.treesitter')
 local Range = require('fey.files.elements.range')
 local pattern = '([<%[])(%d%d%d%d%-%d?%d%-%d%d[^>%]]*)([>%]])'
 local date_format = '%Y-%m-%d'
@@ -278,21 +277,124 @@ function FeyDate.from_timestamp(timestamp, opts)
   return FeyDate:new(data)
 end
 
----@param node TSNode | nil
+---The kind of planning date a tag name stands for
+---@param name string
+---@return string type SCHEDULED, DEADLINE, CLOSED or NONE
+local function type_of_tag(name)
+  if name == config.fey_scheduled_tag_name then return 'SCHEDULED' end
+  if name == config.fey_deadline_tag_name then return 'DEADLINE' end
+  if name == config.fey_closed_tag_name then return 'CLOSED' end
+  return 'NONE'
+end
+
+---Tag name and sigil a date of a kind is written with
+---@param type_ string
+---@return string name, string sigil
+local function tag_of_type(type_)
+  if type_ == 'SCHEDULED' then return config.fey_scheduled_tag_name, '#' end
+  if type_ == 'DEADLINE' then return config.fey_deadline_tag_name, '#' end
+  if type_ == 'CLOSED' then return config.fey_closed_tag_name, '#' end
+  return config.fey_date_tag_name, '@'
+end
+
+---Dates of the text inside a timestamp: `2026-10-06 Tue 10:00-11:00 +1w -3d`, or a range `a--b`
+---@param value string
+---@param opts? FeyDateOpts `range` is the range of the text, the ranges of the two dates are derived from it
+---@return FeyDate[] dates one, or the start and the end of a range
+function FeyDate.from_tag_value(value, opts)
+  opts = opts or {}
+  local lead = #value:match('^%s*')
+  value = vim.trim(value)
+  local from, to = value:match('^(.-)%-%-(%d%d%d%d%-%d%d?%-%d%d.*)$')
+
+  local r = opts.range
+  local function sub_range(first, last)
+    if not r or r.start_line ~= r.end_line then return r end
+    return Range:new({
+      start_line = r.start_line,
+      end_line = r.end_line,
+      start_col = r.start_col + lead + first - 1,
+      end_col = r.start_col + lead + last - 1,
+    })
+  end
+
+  if not to then
+    local date = FeyDate.from_string(value, vim.tbl_extend('force', opts, { range = sub_range(1, #value) }))
+    return date and { date } or {}
+  end
+
+  local start_date = FeyDate.from_string(
+    from,
+    vim.tbl_extend('force', opts, { is_date_range_start = true, range = sub_range(1, #from) })
+  )
+  if not start_date then return {} end
+  local end_date = FeyDate.from_string(
+    to,
+    vim.tbl_extend('force', opts, {
+      is_date_range_end = true,
+      range = sub_range(#from + 3, #value),
+      related_date = start_date,
+    })
+  )
+  if not end_date then return { start_date } end
+  start_date.related_date = end_date
+  return { start_date, end_date }
+end
+
+---Dates of a date tag (`{@ date, 2026-10-06 Tue 10:00 +1w @}`) or a planning tag (scheduled, deadline,
+---closed). The first value is the timestamp text. Keys: `active: false` makes it an inactive date (a
+---closed tag is inactive unless `active: true`), `time`, `repeat` and `warn` add to the timestamp
+---(`warn: 3d` is the delay `-3d`).
+---@param tag FeyTag
+---@param opts? FeyDateOpts
+---@return FeyDate[]
+function FeyDate.from_tag(tag, opts)
+  opts = vim.tbl_extend('force', {}, opts or {})
+  local value = tag.values[1]
+  if not value or value == '' then return {} end
+
+  opts.type = opts.type or type_of_tag(tag.name)
+  if opts.active == nil then
+    local active = tag.key_values.active
+    if active ~= nil then
+      opts.active = active:lower() ~= 'false'
+    else
+      opts.active = opts.type ~= 'CLOSED'
+    end
+  end
+  if not opts.range then
+    local node = tag.head:field('value')[1]
+    if node then
+      local sr, sc, er, ec = node:range()
+      local lead = #vim.treesitter.get_node_text(node, tag.bufnr):match('^%s*')
+      opts.range = Range:new({ start_line = sr + 1, end_line = er + 1, start_col = sc + lead + 1, end_col = ec })
+    else
+      opts.range = Range.from_node(tag.node)
+    end
+  end
+
+  -- `time`, `repeat` and `warn` belong to the (first) date
+  local kv = tag.key_values
+  local extra = {}
+  if kv.time then table.insert(extra, kv.time) end
+  if kv['repeat'] then table.insert(extra, kv['repeat']) end
+  if kv.warn then table.insert(extra, kv.warn:match('^[%-%+%.]') and kv.warn or ('-' .. kv.warn)) end
+  if #extra > 0 then
+    local from, rest = value:match('^(.-)(%-%-%d%d%d%d%-%d%d?%-%d%d.*)$')
+    value = (from or value) .. ' ' .. table.concat(extra, ' ') .. (rest or '')
+  end
+  return FeyDate.from_tag_value(value, opts)
+end
+
+---Dates of a tag node. `source` is a buffer number or the text the node was parsed from.
+---@param node TSNode | nil scope_tag or line_tag
 ---@param source? integer | string
 ---@param opts? FeyDateOpts
 ---@return FeyDate[]
 function FeyDate.from_node(node, source, opts)
-  if not node then
-    return {}
-  end
-  opts = opts or {}
-  opts.range = opts.range or Range.from_node(node)
-  source = source or 0
-  if not opts.type then
-    opts.type = ts_utils.is_date_in_drawer(node, 'logbook', source) and 'LOGBOOK' or 'NONE'
-  end
-  return FeyDate.from_fey_date(vim.treesitter.get_node_text(node, source), opts)
+  if not node then return {} end
+  local tag = require('fey.files.elements.tags').parse_tag_node(source or 0, node)
+  return FeyDate.from_tag(tag, opts)
 end
 
 ---Accept fey format date, for example <2025-22-01 Wed> or range <2025-22-01 Wed>--<2025-24-01 Fri>
@@ -459,6 +561,33 @@ function FeyDate:to_wrapped_string(active)
   local open = active and '<' or '['
   local close = active and '>' or ']'
   return string.format('%s%s%s', open, date, close)
+end
+
+---The timestamp text of a date tag: `2026-10-06 Tue 10:00 +1w -3d`, and `a--b` for the start of a range
+---@return string
+function FeyDate:to_tag_value()
+  if self.is_date_range_start and self.related_date then
+    return self:to_string() .. '--' .. self.related_date:to_string()
+  end
+  return self:to_string()
+end
+
+---The date written as a tag: `{@ date, 2026-10-06 Tue @}`, or `{# scheduled, ... #}` for a planning date
+---@param opts? { active?: boolean, name?: string, sigil?: string }
+---@return string
+function FeyDate:to_tag_text(opts)
+  opts = opts or {}
+  local name, sigil = tag_of_type(self.type)
+  name, sigil = opts.name or name, opts.sigil or sigil
+  local active = opts.active
+  if active == nil then active = self.active end
+  local default_active = self.type ~= 'CLOSED'
+  local key_values = {}
+  if active ~= default_active then key_values.active = tostring(active) end
+  return assert(require('fey.files.elements.tags.edit').build(name, { self:to_tag_value() }, key_values, {
+    sigil = sigil,
+    bracket = '{',
+  }))
 end
 
 ---@param format string

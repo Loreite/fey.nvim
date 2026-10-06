@@ -1,0 +1,1231 @@
+{# table; title: Fey.nvim orgmode conversion task list; kind: tasks #}
+{# labels, tasks, roadmap, orgmode-port #}
+
+  I. About this list
+
+Fey.nvim started as a fork of nvim-orgmode/orgmode. The first features (headings,
+lists, tables, tags, the vault, queries, databases) are already native Fey. This
+list covers everything that is still orgmode code written against the org
+grammar (tree-sitter-org) and therefore does not work, or only half works, on
+the fey grammar.
+
+The rule for every task below: reuse what can be reused (the pure logic in
+`objects/date.lua`, `objects/duration.lua`, `objects/calendar.lua`, the agenda
+view/token/sorting/filter code, the capture window, the ui menus) and replace
+only the part that reads or writes org nodes.
+
+  I.A. How to read a task
+
+Every task has the same fields.
+
+-  Now:  what is broken today and where it lives.
+-  Reuse:  what survives unchanged.
+-  Fey:  how the feature is spelled in Fey. Either a tag (name, parameters,
+   handler) or a grammar rule (and scanner work, if any). A task never needs
+   both unless it says so.
+-  Triggers:  autocmds and keybinds that start it.
+-  Vault:  whether the vault index (`.fey/vault.db`, `fey.vault`, `fey.query`)
+   should be used, and how that improves the feature.
+-  After:  tasks that must be finished first.
+
+
+  I.B. State of the code today
+
+What the fey grammar gives us: `document`, `section`, `heading` (a `signature`
+and a `title`, nothing else), `body`, `paragraph`, `list`/`listitem`/`bullet`,
+`table`, `block` (fenced), and four tag formats: `scope_tag`, `line_tag`,
+`block_tag` and `pair_tag`. A heading title may contain tags, and any body may
+contain them.
+
+What it does not have, and the org code still assumes: `item`, `tags`, `plan`,
+`property_drawer`, `timestamp`, `entry`, `drawer`, `checkbox`, `directive`,
+`fndef`, `comment`, `dynamic_block`, `latex_env`.
+
+What already works and the tasks build on:
+
+-  the tag handler registry in `files/elements/tags` (`Tag.handlers[name][node_type]`,
+   `Tag.parse_tag_node`, `Tag.parse_all_tags`) with the handlers `nvim`, `hl`,
+   `query`, `feydb`, `link`, `section`
+-  the vault: tables `files`, `headings`, `tags`, `links`, `labels`, `properties`,
+   incremental indexing, the `FeyVaultFileIndexed` event, `Vault:index_path`
+-  the query language (`fey.query`), which today refuses TASK queries and returns
+   empty `tasks`/`lists` fields because there is no task index
+-  heading and list reindexing, promote/demote, subtree moves, tables, folds,
+   indent, text objects, edit special on fenced blocks
+
+  I.B.i. The key finding
+
+The fey heading has no slots. In org a headline carried a todo keyword, a
+priority, a tag list, a planning line and a property drawer. In Fey all of that
+has to be tags, and the tags already exist as a mechanism: the vault records
+every tag with its `heading_ord`, so a tag in a heading title or in the first
+lines of its body belongs to that heading.
+
+That means almost every conversion below is a new tag name plus a handler plus
+index support, not new grammar. Only the checkbox needs a grammar rule. One
+optional rule (`metadata`) and one rejected alternative (an inline `timestamp`
+node) are described so the decision is recorded.
+
+  I.B.ii. Conventions proposed for the new tags
+
+-  metadata tags use the `#` sigil in scope format. Reference-like inline tags
+   (dates, footnote references) use the `@` sigil, like `link` and `section`.
+   Handlers only look at the tag name and node type, so this is a convention
+   and not a rule.
+-  every new tag name is a config option `fey_<x>_tag_name`, like the existing
+   `fey_hl_tag_name`, so a user can rename it.
+-  a tag handler lives in `lua/fey/files/elements/tags/handlers/<name>.lua`,
+   exports `handlers = { scope_tag = f, line_tag = f, block_tag = f, pair_tag = f }`
+   and is registered in `Tag.setup`.
+-  all example syntax in this file is in fenced blocks, so it stays raw text.
+
+
+  II. Phase 1: timestamps, agenda, refile
+
+These come first. The order inside the phase is the order to build them: the
+prerequisites (A to H) unblock the agenda (I to L), then refile (M to O).
+
+  II.A. Tag toolkit and the heading metadata region
+
+-  Now:  `Tag.parse_all_tags` returns `false` when the tree has any error, and
+   there is no way to find the tag at the cursor, to find the tags that belong
+   to one heading, or to rewrite one tag in place. `FeyApi.link_text` is the only
+   tag writer and it is link specific.
+-  Reuse:  `Tag.parse_tag_node`, the pure tag parser in `vault/extract.lua`,
+   `head_text` escaping in `api/init.lua`, the `fey_tags` query.
+-  Fey:  Lua only first. A new module `fey.files.elements.tags.edit` with
+   `at_cursor(bufnr)`, `for_heading(heading)`, `build(name, values, key_values,
+   opts)` (escapes `\`, `,`, `;`), `replace(tag, new_text)` and `set_key(tag,
+   key, value)` that keeps the rest of the head untouched.
+   Define the metadata region of a heading as: the tags in its title, plus the
+   leading lines of its body that hold only tags. This replaces the org `plan`
+   and `property_drawer` fields.
+-  Fey:  optional grammar rule, decide after the Lua version is in use: give
+   `section` a `metadata` field (the rule is already commented out in
+   `grammar.js`) made of `_standalone_scope_tag` lines and tag-only paragraphs.
+   The difficulty is the conflict with `paragraph`: both start with a tag. It
+   needs a declared conflict and `prec.dynamic`, and probably no scanner work.
+   Only do it if the Lua helper is too slow or too ambiguous.
+-  Triggers:  none, it is infrastructure.
+-  Vault:  the extractor must strip the metadata tags from `headings.title`
+   (and from the heading `path`), otherwise queries and section links see
+   `Write report {# todo, TODO #}` as the title. Check this first.
+-  After:  nothing.
+
+Done (2026-10-06):
+
+-  Chose:  the Lua only version. The `metadata` grammar rule is still open and
+   is to be decided after phase 1, once the helpers have been used.
+-  Module:  `lua/fey/files/elements/tags/edit.lua`. Reading: `at_cursor`
+   (innermost tag around the cursor, works in a buffer with errors elsewhere;
+   option `line` falls back to the first tag at or after the cursor on the
+   line) and `for_heading` (the metadata region, see below).
+   Writing: `build`, `set_key`, `set_value`, `remove_value`, `rename`, `remove`,
+   `add_to_title` and `add_to_region`.
+-  Region:  the tags in the title of a heading, plus the leading body lines
+   that hold nothing but tags. Blank lines between them are fine. A paragraph
+   spans lines, so a tag that shares its line with text, or a line tag that has
+   text after its head, is content and ends the region. `for_heading` returns
+   the tags with `region` (`title` or `body`) and `row`, and the last body row
+   of the region.
+-  Edits:  targeted. `set_key` replaces only the value of an existing key, or
+   adds `; key: value` at the end of the head; `nil` removes the key. A
+   multi-line head keeps its layout. Values are escaped (`\`, `,`, `;`) and
+   refused when they could not be read back: a line break, a leading closing
+   bracket, or a blank followed by the end of the tag. Tags read before an
+   edit are stale afterwards, read them again.
+-  Placement:  `add_to_title` puts a tag at the end of the title, or in front
+   of the first word with `first` (where a todo keyword goes). `add_to_region`
+   adds a line after the last tag line of the region, or directly under the
+   heading when it has none, indented like the body of the heading.
+-  Vault:  done. The extractor leaves the tags named in the new option
+   `vault.meta_tags` out of `headings.title` and `headings.path`, and out of
+   the keys of data headings. Default: label, labels, todo, priority, prop,
+   scheduled, deadline, closed. Only scope and line tags in the title are
+   dropped, the blanks after them go with them, and a title without such a tag
+   is untouched. Other tags (a link in a title, for example) stay in the title.
+   Vault files already indexed keep their old titles until they change on disk,
+   or a full reindex (`<prefix>vr` with a full scan).
+-  Tests:  `tests/tags_edit.lua` (45 checks).
+
+Example:
+
+    ###  src lua
+    local edit = require('fey.files.elements.tags.edit')
+
+    -- the tags that belong to the heading at the cursor
+    local tags, last_row = edit.for_heading(bufnr, heading_node, { name = 'prop' })
+
+    -- change a key of the tag under the cursor, or remove it with nil
+    local tag = edit.at_cursor(bufnr, { line = true, name = 'prop' })
+    edit.set_key(tag, 'effort', '3h')
+
+    -- add tags to a heading
+    edit.add_to_title(bufnr, heading_node, edit.build('todo', { 'TODO' }), { first = true })
+    edit.add_to_region(bufnr, heading_node, edit.build('scheduled', { '2026-10-06 Tue' }))
+    ###
+
+  II.B. Date tag and the FeyDate object
+
+-  Now:  `FeyDate.from_node` and `from_fey_date` expect the text of an org
+   `timestamp` node wrapped in angle or square brackets. Fey has no such node,
+   and a bare angle-bracket date is just plain text.
+-  Reuse:  almost all of `objects/date.lua` (1098 lines: arithmetic, spans,
+   repeaters, humanize, adjustments), `duration.lua`, `calendar.lua`. Only
+   the node-facing constructors change. `FeyDate.from_string` already parses
+   `2026-10-06 Tue 10:00 +1w -3d`, so the tag value can be that text unchanged.
+-  Fey:  tag `date` (config `fey_date_tag_name`), scope or line format.
+   Head value: the inside text of an org timestamp. A range is `a--b`.
+   Key-values: `active: false` for an inactive date (default active), and
+   optional structured overrides `repeat`, `warn`, `time`.
+   Handler `date`: opening the tag at point opens the calendar picker (a change
+   on write), never an automatic run.
+   New constructor `FeyDate.from_tag(tag)`, plus `FeyDate:to_tag_text()` that
+   writes it back through the tag toolkit (II.A). Remove the `from_node`
+   logbook special case (`is_date_in_drawer`).
+-  Fey:  alternative, rejected for now: a grammar `timestamp` node
+   (`<...>` active, `[...]` inactive) with fields `date`, `day`, `time`,
+   `duration`, `repeat`, `delay`, as in tree-sitter-org. It would need a
+   zero-width external gate `_timestamp_start`, emitted by the scanner after it
+   checks for digits and dashes after the bracket, the same pattern as
+   `_scope_tag_start`, because `<` and `[` are ordinary tokens and also open
+   tags, pair tags and checkboxes. The cost is high and the tag does the job.
+-  Triggers:  insert mappings below (II.D). Update the insert abbreviations in
+   `ftplugin/fey.lua` (`:today:`, `:now:`, `:itoday:`, `:inow:`) to expand to
+   the tag text instead of the angle bracket text.
+-  Vault:  yes. The extractor records every date in a new `dates` table
+   (see II.I), with epoch start and end, a time flag, active flag, repeater,
+   warning delay, the tag kind and the owning `heading_ord`. Agenda, overdue
+   queries, calendars and the query language all read it, so nothing re-parses
+   text.
+-  After:  II.A.
+
+Done (2026-10-06):
+
+-  Chose:  the tag, as proposed. The grammar `timestamp` node stays rejected.
+-  Tag:  `date`, name from `fey_date_tag_name` (default `date`). The first
+   value is the timestamp text exactly as it was inside an org timestamp. The
+   keys: `active: false` for an inactive date, `time`, `repeat`, `warn` (`warn:
+   3d` means the delay `-3d`) that add to the timestamp, and a range is
+   `start--end`. The planning tags get their names now too:
+   `fey_scheduled_tag_name`, `fey_deadline_tag_name`, `fey_closed_tag_name`,
+   and they read the same way. A closed date is inactive unless it says
+   `active: true`; every other kind is active unless it says `active: false`.
+-  FeyDate reading:  `FeyDate.from_tag_value(text, opts)` (also what the vault
+   will use, it needs no buffer), `FeyDate.from_tag(tag, opts)` and
+   `FeyDate.from_node(node, source, opts)`, which now takes a tag node and a
+   buffer number or the source text. The type (`SCHEDULED`, `DEADLINE`,
+   `CLOSED`, `NONE`) comes from the tag name. The range of a date is the range
+   of its text in the buffer, split for the two ends of a range.
+-  FeyDate writing:  `FeyDate:to_tag_value()` and `FeyDate:to_tag_text(opts)`,
+   which writes `{@ date, ... @}`, or `{# scheduled, ... #}` and its siblings
+   for a planning date. `to_wrapped_string` is still there, because the
+   capture templates, logbook, todo and note code still call it; each of those
+   tasks moves to the tag text as it is ported.
+-  Handler:  `lua/fey/files/elements/tags/handlers/date.lua`, registered for
+   all four names. Applying it opens the calendar on the date and writes the
+   chosen day back with `edit.set_value`. A range moves its start and keeps its
+   end, a repeater and a warning delay stay. The tag is looked up again after
+   the calendar closes, because the calendar is asynchronous.
+-  Trigger:  `fey_open_at_point` (`<prefix>o`) on a date tag opens the calendar
+   (it tried links only before). The insert abbreviations `:today:`, `:now:`,
+   `:itoday:` and `:inow:` now expand to the tag text. The mappings that edit a
+   date under the cursor are II.D.
+-  Tests:  `tests/date_tag.lua` (37 checks).
+
+Example:
+
+    ###  src fey
+    {@ date, 2026-10-06 Tue 10:00-11:00 +1w -3d @}
+    {@ date, 2026-10-06 Tue--2026-10-08 Thu; active: false @}
+    {# deadline, 2026-10-10; warn: 3d; time: 12:30 #}
+    {# closed, 2026-10-09 Fri #}
+    ###
+
+Example:
+
+    ###  src fey
+    {@ date, 2026-10-06 Tue 10:00-11:00 +1w -3d @}
+    {@ date, 2026-10-06--2026-10-08; active: false @}
+    ###
+
+
+  II.C. Planning dates: scheduled, deadline, closed
+
+-  Now:  `Heading:get_plan_dates`, `set_scheduled_date`, `set_deadline_date`,
+   `set_closed_date`, `_add_date`, `_remove_date`, `get_append_line` read the
+   org `plan` field and entries. The mappings `fey_deadline`, `fey_schedule`
+   exist but are commented out.
+-  Reuse:  the `FeyDate` type sorting (`is_deadline`, `is_scheduled`,
+   `get_type_sort_value`), the menus, `Heading:get_valid_dates_for_agenda`.
+-  Fey:  tags `scheduled`, `deadline`, `closed` (config
+   `fey_scheduled_tag_name` and so on), scope format, same head value as the
+   `date` tag, in the metadata region of the heading (II.A). Handlers:
+   `scope_tag` only, applied from the insert mappings. Heading API
+   keeps its method names, now backed by tags: they read the metadata region and
+   write through the tag toolkit.
+-  Triggers:  keybinds `fey_deadline` `<prefix>id`, `fey_schedule` `<prefix>is`,
+   `fey_time_stamp` `<prefix>i.`, `fey_time_stamp_inactive` `<prefix>i!`.
+   Autocmd: none. `closed` is written by the todo task (II.E).
+-  Vault:  yes. `dates.kind` holds the three kinds, so "what is overdue" is one
+   SQL statement. A heading can also be sorted by deadline in a database view.
+-  After:  II.A, II.B.
+
+Done (2026-10-06):
+
+-  Chose:  the tags `scheduled`, `deadline` and `closed`, scope format, with
+   the `#` sigil, one value each (the timestamp text of the `date` tag).
+   Names from `fey_scheduled_tag_name`, `fey_deadline_tag_name` and
+   `fey_closed_tag_name`. They live in the metadata region of the heading.
+-  Heading API:  the method names are the same, now backed by tags.
+   `get_plan_dates` (dates by kind, the tag nodes, whether there are any),
+   `get_scheduled_date`, `get_deadline_date`, `get_closed_date`,
+   `get_non_plan_dates` (the `date` tags in the title and the body of the
+   heading, not its subsections), `get_all_dates`,
+   `set_scheduled_date`, `set_deadline_date`, `set_closed_date` and the
+   `remove_*_date` methods. `get_append_line` is the line after the last tag
+   line of the region, or the line under the heading.
+-  Writing:  a date of a kind that is already there is replaced in place. A new
+   one goes next to the other planning tags on their line (in the title or in
+   the body), or onto a line of its own directly under the heading. Removing
+   the only tag on a line removes the line. `closed` is written inactive,
+   which is its default and needs no key.
+-  Triggers:  the mappings `fey_deadline` (`<prefix>id`), `fey_schedule`
+   (`<prefix>is`), `fey_time_stamp` (`<prefix>i.`) and `fey_time_stamp_inactive`
+   (`<prefix>i!`) are enabled. The first two open the calendar with a clear
+   key, and setting one removes the `closed` tag, as before. The last two
+   change the date under the cursor, or insert a date tag after the cursor.
+-  Vault:  the index of the planning tags is the `dates` table of II.I, not
+   done yet.
+-  Tests:  `tests/heading_dates.lua` (35 checks, with II.D).
+
+Example:
+
+    ###  src fey
+      I.A. Write the report {# deadline, 2026-10-10 Sat -3d #}
+    {# scheduled, 2026-10-06 Tue 10:00 #}
+
+    A meeting on {@ date, 2026-10-08 Thu 14:00 @}.
+    ###
+
+
+  II.D. Timestamp editing and the calendar
+
+-  Now:  `timestamp_up/down(_day)`, `change_date`, `fey_toggle_timestamp_type`,
+   `_get_date_under_cursor`, `_replace_date`, `_adjust_date` work on the org
+   node under the cursor. The calendar popup (`objects/calendar.lua`) calls
+   them. All mappings are commented out.
+-  Reuse:  the calendar window and the month arithmetic, `_adjust_date_part`
+   (it works on text columns inside the date and only needs the new range),
+   the `fey_time_stamp_rounding_minutes` option.
+-  Fey:  tag `date` and its relatives (II.B, II.C). The cursor lookup is the
+   tag toolkit `at_cursor`. A part (year, month, day, hour, minute) is chosen by
+   the column inside the head value. `fey_toggle_timestamp_type` flips the
+   `active` key-value.
+-  Triggers:  keybinds `<S-UP>` and `<S-DOWN>` (day), `<C-a>` and `<C-x>`
+   (the part under the cursor), `cid` (change with the calendar picker),
+   `<prefix>d!` (toggle active). Insert mode abbreviations as in II.B.
+-  Vault:  small. Drop the date picker's own cache and use the vault to offer
+   "dates already used in this vault" as picker suggestions. No index change.
+-  After:  II.B.
+
+Done (2026-10-06):
+
+-  Chose:  as proposed, on the tag toolkit. The date under the cursor is the
+   date of the date or planning tag around the cursor (`edit.at_cursor`). It
+   works anywhere in the tag, in a table cell too. In a range the end date counts
+   from the first character of the end on.
+-  Writing back:  `FeyMappings:_replace_date` replaces the text of that date in
+   place (the range of a `FeyDate` is the range of its text) and keeps the
+   `active` key of the tag in step with the date: the key is written when the
+   date differs from the default of its kind and dropped when it does not.
+-  Mappings enabled:  `fey_timestamp_up_day` (`<S-UP>`) and
+   `fey_timestamp_down_day` (`<S-DOWN>`), which adjust anywhere in the tag;
+   `fey_timestamp_up` (`<C-a>`) and `fey_timestamp_down` (`<C-x>`), which
+   adjust the part under the cursor (year, month, day, hour, minutes, the
+   repeater) and fall through to the normal key when there is no date there;
+   `fey_change_date` (`cid`) and `fey_toggle_timestamp_type` (`<prefix>d!`),
+   which flips the `active` key. The part adjustment no longer toggles active
+   on the brackets, the tag has no brackets around the text.
+-  Calendar:  unchanged. The open-at-point handler of II.B and `cid` both use
+   it.
+-  Vault:  not used, as proposed. The suggestion of dates already used in the
+   vault waits for the `dates` table of II.I.
+-  Tests:  `tests/heading_dates.lua`.
+
+  II.E. Todo state
+
+-  Now:  `Heading:get_todo`, `set_todo`, `update_todo_cookie`,
+   `FeyMappings:_todo_change_state`, `objects/todo_state.lua`,
+   `todo_keywords/` work on the first org `item` child. The events
+   `TodoChanged` and the listeners `AlignTags` and `ClockOut` hang off it.
+-  Reuse:  `todo_keywords` (keyword list, `|` split, fast access, faces),
+   `todo_state` (next/prev logic, repeat to state), the events and listeners,
+   the face highlighting in `colors/highlighter/todos.lua`.
+-  Fey:  tag `todo` (config `fey_todo_tag_name`) with one value, the keyword.
+   It must be the first tag of the heading title, the same rule org had for the
+   keyword. Handler `scope_tag`: cycle to the next state.
+   Optionally a key-value `at: <date>` to remember when it changed, instead of
+   a `closed` tag for users that do not want one.
+   Because the raw tag is noisy, add concealment: a highlights query that
+   conceals the tag syntax in heading titles and shows only the keyword with
+   its face. Controlled by a new option `fey_conceal_task_tags`, off by
+   default, next to `fey_hide_emphasis_markers`.
+-  Triggers:  keybinds `fey_todo` `cit`, `fey_todo_prev` `ciT`,
+   `fey_insert_todo_heading` `<prefix>iT`, `fey_insert_todo_heading_respect_content`
+   `<prefix>it`. Autocmd: none, the events are dispatched by the mapping.
+   Writing `DONE` also writes the `closed` tag (II.C, `fey_log_done`).
+-  Vault:  yes. The extractor writes `tasks.state` and `tasks.done` (II.I) so
+   the agenda and a TASK query can list open work across files without
+   opening any buffer.
+-  After:  II.A, II.C.
+
+Done (2026-10-06):
+
+-  Chose:  the tag `todo` (name from `fey_todo_tag_name`), one value, the
+   keyword, and it has to be the first thing of the heading title. A todo tag
+   anywhere else in the title is just a tag, not a keyword. The keyword list
+   is the config one, or the `todo` key of the document data
+   (`{# table; todo: TODO NEXT | DONE #}`), which replaces the org `#+todo`.
+-  Heading API:  `get_todo` (keyword, tag node, type, index), `is_todo`,
+   `is_done`, `set_todo(keyword)` (replaces the value, adds the tag first in the
+   title, or removes it with an empty keyword), and `get_title`, which now
+   leaves the metadata tags (`vault.meta_tags`) out of the title text.
+-  Concealment:  default ON. `colors/highlighter/task_tags.lua` hides every part
+   of the todo, priority and labels tags of a title except their values: the
+   head `{# todo, ` and the end ` #}` (and any keys) are concealed, so only the
+   keyword shows, with its face (`@fey.keyword.todo`, `@fey.keyword.done`, or
+   the face of the keyword from `fey_todo_keyword_faces`). The cursor line
+   shows the tags as written (the default 'concealcursor'), so editing is not
+   blind. Windows get 'conceallevel' 2, like for the emphasis markers.
+-  Switches:  the option `fey_conceal_task_tags` (default true), the buffer
+   variable `b:fey_conceal_task_tags` (set by the toggle, wins over the
+   option) and the keybind `fey_toggle_conceal_task_tags`, default
+   `<prefix>Tc`. See III.P about a toggle tree.
+-  Triggers:  `fey_todo` (`cit`) and `fey_todo_prev` (`ciT`) are enabled, the
+   events `TodoChanged` still go out, and `closed` is written and removed
+   through II.C (`fey_log_done`). Open-at-point (`<prefix>o`) on the keyword
+   cycles it: handler `todo.lua`, and the registry `Tag.at_point` lists the
+   tags that the open-at-point mapping applies the handler of (todo, priority
+   and the date family).
+-  Not done:  the optional `at:` key. The notes written on a state change
+   (closing note, repeat note) and the repeat bookkeeping still use the org
+   text and the org drawer until III.E, and `ClockOut` waits for III.A.
+   The vault side (`tasks.state`) is II.I.
+-  Tests:  `tests/heading_task.lua` (71 checks, with II.F to II.H).
+
+Changed (2026-10-06): the `todo` and `priority` tags above became one tag,
+`status`, by decision. This replaces what is written above for II.E and II.F;
+the text stays for the history.
+
+-  Tag:  `status` (`fey_status_tag_name`, default `status`). Its first plain
+   value is the todo keyword, its second plain value is the priority:
+   `{# status, TODO, A #}`. Without a keyword the priority is written with the
+   key: `{# status; priority: A #}`. A tag without either is removed. The tag
+   is still the first thing of the title.
+-  Heading API:  the same methods (`get_todo`, `set_todo`, `get_priority`,
+   `set_priority`, `get_title`). Every write goes through one writer that
+   rebuilds the tag from the keyword and the priority, so setting one keeps
+   the other, the tag moves between the two forms by itself (removing the
+   keyword turns `status, TODO, A` into `status; priority: A`, setting one
+   turns it back), and other keys of the tag are kept. `set_todo('')` and
+   `set_priority('')` remove just their part.
+-  Display:  one tag, two values: the head and the end are hidden and the comma
+   between the values with them, so `{# status, TODO, A #}` shows as `TODO A`
+   with the keyword face and the priority face. The key form shows just the
+   priority.
+-  Config and registry:  `fey_todo_tag_name` and `fey_priority_tag_name` are
+   gone (nothing outside this session used them), `vault.meta_tags` has
+   `status` in place of `todo` and `priority`, the handler is
+   `handlers/status.lua` and `Tag.at_point` lists `status`.
+   Open-at-point cycles the todo state, or raises the priority when the tag
+   has no keyword.
+-  Mappings:  unchanged (`cit`, `ciT`, `<prefix>,`, `ciR`, `cir`).
+-  Vault:  II.I reads `tasks.state` from the first value and `tasks.priority`
+   from the second value or the key, of the `status` tag.
+-  Tests:  `tests/heading_task.lua` (82 checks).
+
+Example:
+
+    ###  src fey
+      I.A. {# todo, TODO #} Write the report
+      I.B. {# todo, DONE #} {# priority, A #} Ship it
+    ###
+
+
+  II.F. Priority
+
+-  Now:  `Heading:get_priority`, `set_priority`, `get_priority_sort_value`,
+   `objects/priority_state.lua`, the mappings `priority`, `priority_up`,
+   `priority_down`. They match the org cookie text.
+-  Reuse:  `priority_state` (A/B/C range, default, cycle), sorting values.
+-  Fey:  tag `priority` (config `fey_priority_tag_name`), one value, directly
+   after the `todo` tag in the title. A priority without a todo tag is allowed.
+   Optional merged form `{# todo, TODO; priority: A #}` is parsed but not
+   written.
+-  Triggers:  keybinds `fey_priority` `<prefix>,`, `fey_priority_up` `ciR`,
+   `fey_priority_down` `cir`.
+-  Vault:  yes, `tasks.priority`. Sorting by priority in agenda and queries.
+-  After:  II.A.
+
+Done (2026-10-06):
+
+-  Chose:  the tag `priority` (`fey_priority_tag_name`), one value, in the
+   title. Only a value that is a priority of the config counts. A priority
+   without a todo tag is fine.
+-  Heading API:  `get_priority`, `set_priority` (replaces the value, removes the
+   tag with an empty one; a new tag goes right after the todo tag, or first),
+   `get_priority_sort_value`. The merged form `{# todo, TODO; priority: A #}`
+   from the proposal was not done: one tag, one thing.
+-  Triggers:  `fey_priority` (`<prefix>,`), `fey_priority_up` (`ciR`) and
+   `fey_priority_down` (`cir`) are enabled. Open-at-point on the value raises
+   the priority one step (handler `priority.lua`).
+-  Display:  concealed like the todo tag (II.E), the value takes the face of
+   its priority (`@fey.priority.highest`, `.high`, `.default`, ...).
+-  Vault:  `tasks.priority` is II.I.
+
+Changed (2026-10-06): there is no `priority` tag any more, the priority is the
+second value of the `status` tag, or its `priority` key without a keyword.
+See the Changed entry of II.E for the format, the writer and the display.
+`fey_priority_tag_name` is gone.
+
+  II.G. Heading tags (org tag lists) become labels
+
+-  Now:  `Heading:get_tags`, `set_tags`, `add_tag`, `remove_tag`, `toggle_tag`,
+   `get_own_tags`, `tags_to_string`, `align_tags`, and the `AlignTags` event
+   listener read an org `tags` field and align it at `fey_tags_column`.
+-  Reuse:  tag inheritance logic (`fey_use_tag_inheritance`,
+   `fey_tags_exclude_from_inheritance`), `config:exclude_tags`,
+   the tag-string utilities.
+-  Fey:  the existing `labels` tag (config `vault.label_tags`). Terminology
+   stays as the vault has it: a Fey tag is syntax, topical categories are
+   labels. `get_tags` returns labels. `set_tags` rewrites the `labels` tag in the
+   heading title. `align_tags` becomes display only: a virtual text extmark
+   at the end of the heading line that shows the labels, right aligned at
+   `fey_tags_column`, drawn on `BufferChanged` (so the raw tag may be
+   concealed, see II.E).
+-  Triggers:  keybinds `fey_set_tags_command` `<prefix>t`,
+   `fey_toggle_archive_tag` `<prefix>A`. Autocmd: the existing reindex
+   events redraw the virtual text.
+-  Vault:  yes, and it is the best case for it. `labels` already has
+   `heading_ord`, so inheritance is a recursive lookup of the parent chain in
+   SQL, and the picker for `set_tags` lists every label used in the vault with
+   counts. Filetags are the labels with a NULL `heading_ord`.
+-  After:  II.A.
+
+Done (2026-10-06):
+
+-  Chose:  the existing label tags, as proposed, and the distinction between
+   the labels of a file and of a heading is stored in the index. The index
+   now records WHAT holds each label (schema version 2, the index is rebuilt
+   by itself on the first scan):
+
+| container | what holds the label                                              |
++===========+===================================================================+
+| document  | a label tag above the first heading                               |
+| data      | a labels key of a data tag (for example the table tag) or of data |
+| title     | a label tag in the title of a heading                             |
+| body      | a label tag in the tag lines under a heading                      |
+| text      | a label tag elsewhere in the text of a section                    |
+
+   `labels` has the columns file_id, heading_ord (empty for a label of the
+   file), label, container and line. `tags` got a `region` column (title,
+   body, text or document) with the same meaning for any tag.
+-  Queries:  `file.labels` is now the labels of the file itself, a new
+   `file.heading_labels` holds the labels given inside its headings, and
+   `file.tags` / `file.etags` (the Dataview names) and the hash source
+   (`FROM #label`) keep counting every label of the file. `heading.labels`
+   of a section is unchanged. `file.heading_labels` is a column of database
+   views too.
+-  API:  `FeyApiFile.labels` (the file itself), `heading_labels`, and
+   `label_rows` (every label with `heading_ord`, `container` and `line`).
+   `FeyApiVault:labels({ level = 'file' | 'heading', container = ... })` lists
+   the labels of one level or one container, with their file counts. SQL
+   works too, for example the labels held by headings of the vault:
+
+    ###  src sql
+    SELECT label, container, COUNT(*) FROM labels
+    WHERE heading_ord IS NOT NULL GROUP BY label, container;
+    ###
+
+-  Heading API:  `get_own_tags` (the values of the label tags in the
+   metadata region, title or tag lines), `get_tags` (own, with
+   `fey_use_tag_inheritance` also those of the headings above and of the
+   file), `set_tags` (a list, or a string separated by blanks, `,`, `;` or `:`;
+   rewrites the first label tag where it is, removes further ones, adds a tag
+   at the end of the title when there is none, removes the tag for an empty
+   list), `add_tag`, `remove_tag`, `toggle_tag`, `has_tag`, `is_archived`.
+   The labels of the file are `FeyFile:get_filetags`, taken from the same
+   extraction as the index.
+-  Display:  instead of the virtual text of the proposal, the labels tag is
+   concealed to its values like the todo tag (II.E), `work, urgent` at the end
+   of the title. `align_tags` is an empty function now, the event listener
+   still calls it.
+-  Triggers:  `fey_set_tags_command` is enabled as `<prefix>sl`. Not
+   `<prefix>t`: that is the table prefix, and a mapping on the prefix would
+   wait for the timeout on every table key.
+-  Tests:  `tests/labels.lua` (22 checks), `tests/heading_task.lua`.
+
+  II.H. Properties, effort, category, id
+
+-  Now:  `Heading:get_own_properties`, `get_properties`, `set_property`,
+   `get_property`, `FeyFile:get_properties`, `set_property`, `get_category`,
+   `id_get_or_create`, `Heading:id_get_or_create` and the effort mappings read
+   the org `property_drawer`. In the vault the document data holds file level
+   properties, but a heading that has subsections cannot hold section data
+   (the extractor only records the data of leaf sections).
+-  Reuse:  the property inheritance code (`fey_use_property_inheritance`),
+   `fey/id.lua` (uuid, timestamp, prefix methods), the `Duration` object.
+-  Fey:  tag `prop` (config `fey_property_tag_name`), scope format, key-value
+   pairs only, in the heading metadata region. Several tags merge in order.
+   File level properties stay as the document data (the table data tag), so
+   `FeyFile:get_properties` reads `file.data`. `effort` and `category` are
+   conventions on top, not grammar.
+-  Triggers:  keybind `fey_set_effort` `<prefix>xe`. `fey_id_*` options stay.
+-  Vault:  yes. New column `headings.props` (JSON), filled by the extractor
+   from `prop` tags, so "headings where effort is under two hours" works and
+   the existing `properties` table keeps the file level keys. The query
+   language gets `prop.effort` style fields on tasks.
+-  After:  II.A.
+
+Done (2026-10-06):
+
+-  Chose:  the tag `prop` (`fey_property_tag_name`), scope format, key-value
+   pairs only, in the metadata region of the heading. Several tags merge, the
+   last one wins. Property names are tag keys: lower case, letters, digits and
+   `_`, anything else becomes `_` (`header-args` is read and written as
+   `header_args`). Values are escaped on write and read back as written.
+-  Heading API:  `get_own_properties`, `get_properties` (with
+   `fey_use_property_inheritance`), `get_property(name, search_parents)` and
+   `set_property(name, value)`. A new key goes into the tag that holds the key,
+   else into the first `prop` tag, else into a new tag line directly under the
+   heading. A nil or empty value removes the key, and an empty tag with it.
+   `get_category` inherits from the headings above, then the file.
+-  File:  the properties of a file are the plain values of the document data.
+   `FeyFile:get_properties`, `get_property` and `set_property` read and write
+   the first `table` tag above the first heading, which is created when there is
+   none. This is also where the directives of the file went (III.D, in part):
+   `title`, `category`, `todo` (keywords) and `archive` are read from the
+   data, `FeyFile:get_data` returns it, and `id_get_or_create` writes `id`.
+-  Not done:  the `headings.props` column of the vault (with II.I), the effort
+   mapping `fey_set_effort` (it needs the `Duration` code ported with the
+   clock, III.A), the header arguments of source blocks (III.I).
+-  Tests:  `tests/heading_task.lua`.
+
+Example:
+
+    ###  src fey
+      I.A. {# todo, TODO #} Write the report
+    {# prop; effort: 2h; id: 6f1c-aa20; category: work #}
+    ###
+
+
+  II.I. Vault task and date index
+
+-  Now:  the vault knows tags, links and labels but not dates or tasks. The
+   query engine raises `TASK queries are not supported` and `pages.lua` returns
+   an empty `tasks` list.
+-  Reuse:  `extract.lua` (tag parse, heading ord assignment), the scan and
+   `index_path` pipeline, the schema versioning in `vault.lua`.
+-  Fey:  Lua and SQL. Bump `SCHEMA_VERSION` to 2 and add
+   Rows with `kind = item` come from list item checkboxes (III.B). Add the
+   config lists `vault.date_tags`, `vault.task_tags` next to `label_tags`.
+   Add `Vault:index_text(path, lines)` that indexes a buffer without
+   saving it. `index_path` reads the disk, so today the index is stale for
+   edited buffers. Wire `index_text` to the existing reindex events.
+   Extend the query engine: support TASK queries, `tasks` on pages, and date
+   fields.
+-  Triggers:  autocmd `BufWritePost` already calls `index_path`. New autocmd
+   on `TextChanged` and `InsertLeave` with a debounce for `index_text`
+   (only for buffers inside an attached vault).
+-  Vault:  this is the vault task.
+-  After:  II.B, II.C, II.E, II.F, II.H.
+
+Done in part (2026-10-06): the schema is at version 2 with `tags.region` and
+`labels.container` / `labels.line` (see II.G). The `dates` and `tasks` tables,
+`headings.props` and `Vault:index_text` are still to do.
+
+Example:
+
+    ###  src sql
+    CREATE TABLE dates (
+      file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+      heading_ord INTEGER, line INTEGER, col INTEGER,
+      kind TEXT NOT NULL,        -- date|scheduled|deadline|closed|clock
+      active INTEGER NOT NULL,
+      start_ts INTEGER, start_time INTEGER,
+      end_ts INTEGER, end_time INTEGER,
+      repeater TEXT, warn TEXT
+    );
+    CREATE TABLE tasks (
+      file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+      heading_ord INTEGER, line INTEGER,
+      kind TEXT NOT NULL,        -- heading|item
+      state TEXT, done INTEGER, priority TEXT, text TEXT
+    );
+    ###
+
+
+  II.J. Agenda core
+
+-  Now:  `agenda/init.lua`, `agenda/types/*`, `agenda_item.lua`, `filter.lua`,
+   `sorting_strategy.lua` and `view/*` build items from `FeyHeading` objects of
+   `FeyFiles` (every file listed in `fey_agenda_files`, loaded with tree-sitter
+   at startup). Every `FeyHeading` method it needs is part of II.C to II.H.
+-  Reuse:  the view layer (`line.lua`, `token.lua`, highlighting), the sorting
+   strategy, the filter language, the day grouping, the warning days,
+   time grid, repeater expansion in `types/agenda.lua`. These work on
+   `FeyDate` values and item fields, not on nodes.
+-  Fey:  Lua only. `FeyAgendaItem` is built from vault rows: file, line,
+   heading title, state, priority, labels, category, effort, and one date.
+   `FeyAgenda:new` takes the vault instead of `FeyFiles`; the agenda scope is
+   the vault (optionally narrowed by a label or a path glob in the custom
+   command). `fey_agenda_files` is deprecated and only kept as a path filter.
+   Repeating dates (`dates.repeater` not NULL) are loaded in full and expanded
+   with `FeyDate:repeats_on`; everything else is selected by `start_ts` range.
+-  Triggers:  keybind `fey_agenda` `<prefix>a` (global), the user command
+   `:Fey agenda` (already generated in `global.lua`). Autocmd on
+   `User FeyVaultFileIndexed` and `FeyVaultIndexed` redraws an open agenda, like
+   `db/view.lua` already does.
+-  Vault:  yes, it is the data source. Faster startup (no tree-sitter parse of
+   every agenda file in `Fey:init`), agenda across the whole vault, and the
+   query tag `TASK` can render the same lists inside a note.
+-  After:  II.I.
+
+  II.K. Agenda views and the match language
+
+-  Now:  `types/agenda.lua`, `todo.lua`, `tags.lua`, `tags_todo.lua`,
+   `search.lua` and `files/elements/search.lua` (the `+work-home/TODO` match
+   syntax, the property comparison operators, the regex terms).
+-  Reuse:  the match syntax parser, which is plain text and independent of
+   the tree; only the evaluator that reads heading fields changes.
+-  Fey:  Lua. Evaluate a match against item rows: a label means a vault label,
+   `PROP=value` means `headings.props`, `TODO` means `tasks.state`. Compile the
+   match string to a WHERE clause where it can, so the filtering happens
+   in SQL. Custom commands (`fey_agenda_custom_commands`) may also hold a query
+   language string, which makes a saved agenda view an ordinary `TASK` query.
+   Agenda prompt keys `a`, `t`, `m`, `M`, `s` stay.
+-  Triggers:  the agenda prompt menu, keybinds `fey_agenda_filter` `/`,
+   `fey_agenda_day_view` `vd` and the other span keys.
+-  Vault:  yes (above).
+-  After:  II.J.
+
+  II.L. Agenda buffer actions
+
+-  Now:  the commented `agenda` mappings in `config/defaults.lua`
+   (later/earlier, views, goto, switch to, redo, todo, priority, tags,
+   deadline, schedule, refile, archive, clock, effort, note, preview,
+   filter, clockreport) call `Heading` methods through an agenda item that
+   holds a `FeyHeading`.
+-  Reuse:  the whole mapping table and the action wiring.
+-  Fey:  every action loads the item's file buffer, finds the heading by line
+   (`FeyFile:get_closest_heading` or by `ord`), performs the change with the
+   Heading API of II.C to II.H, then re-indexes with `index_text` and redraws.
+   Nothing in the agenda edits text itself.
+-  Triggers:  uncomment the `agenda` mapping group one action at a time, in the
+   order: goto, switch_to, redo, todo, priority, deadline, schedule, set_tags,
+   refile, archive, clock, effort, note, preview.
+-  Vault:  the redraw after an edit is the cheap incremental reindex of one
+   file, not a reload of all files.
+-  After:  II.J, II.K.
+
+  II.M. Public agenda API and positions
+
+-  Now:  `api/agenda.lua` calls `fey.agenda:agenda/todos/tags/tags_todo` with
+   options that still reference org config names, and its
+   `get_heading_at_cursor` uses `require('fey.api').load` and
+   `file:get_heading_on_line`, neither of which exists in the new API.
+   `api/position.lua` (`FeyPosition`) has no user left.
+-  Reuse:  option table shape, `FeyApiAgendaOptions` types, the date argument
+   handling.
+-  Fey:  Lua. Rebuild on the vault API: `get_heading_at_cursor` returns a
+   `FeyApiHeading` by `file` plus `line`, add `FeyApiFile:heading_at(line)`
+   (the data is already in `file.headings`). Replace `FeyPosition` with the
+   `line`/`end_line` pair that `FeyApiHeading` already has, or delete
+   `position.lua` once the agenda items carry lines. Add `FeyApiVault:tasks(opts)`
+   and `FeyApiVault:dates(opts)` returning the rows of II.I.
+-  Triggers:  none. Update the generated docs (`doc/fey_api.txt`).
+-  Vault:  yes (see above).
+-  After:  II.I, II.J.
+
+  II.N. Refile
+
+-  Now:  `capture/init.lua` refile functions (`refile`, `_refile_from_fey_file`,
+   `_refile_from_capture_buffer`, `get_destination`, `autocomplete_refile`,
+   `_adapt_heading_level`) and the mappings `fey_refile` `<prefix>r`,
+   `fey_capture_refile`, `fey_agenda_refile` (commented out). The destination
+   prompt lists headings from the loaded `FeyFiles`.
+-  Reuse:  the level adaptation (`_adapt_heading_level`), the empty line
+   trimming around ranges, the cross-file `update` plumbing, `ui/input`,
+   `ui/fuzzy`. Heading moves are already native (`move_subtree_*` and
+   `HeadingMoved`).
+-  Fey:  Lua. Source: the heading at the cursor, or the list item subtree
+   (`ts_utils.closest_listitem_node`). Destination: pick from the vault, not
+   from loaded files. The picker is `ui/fuzzy` over a query on
+   `headings` (path, signature, title), grouped by file. The moved text
+   goes through the existing reindexing (`reindex_headings`) so signatures
+   renumber in the destination and the source. Refiling a heading does
+   not leave a link behind unless asked: option `fey_refile_leave_link` writes a
+   `section` tag (`FeyApi.insert_section_link`) at the old place. The org
+   `fey_refile_targets` notion becomes a vault query string, default all
+   files.
+-  Triggers:  keybind `fey_refile` `<prefix>r` in fey buffers,
+   `fey_agenda_refile` in the agenda, `fey_capture_refile` in capture.
+   Autocmd: none. Dispatch `HeadingMoved` after.
+-  Vault:  yes. Destination candidates and a "recent destinations" list come
+   from the index. Inbound `link` and `section` tags to the moved heading are
+   found through `Vault:backlinks` and offered for rewriting. This is a
+   real improvement over org, which left them dangling. The file move
+   updates `links.target_file` when the heading changes file.
+-  After:  II.A.
+
+  II.O. Archive
+
+-  Now:  `Capture:refile_file_heading_to_archive`, `FeyMappings:archive`,
+   `toggle_archive_tag`, `Heading:is_archived`, `FeyFile:get_archive_file_location`,
+   the default `fey_archive_location = '%s_archive::'`, and the `.fey_archive`
+   file type.
+-  Reuse:  the refile code (II.N), the archive file naming helper.
+-  Fey:  the label `archive` is the archive marker (a `labels` tag, II.G).
+   The location option drops the org `::heading` suffix: it is a path
+   template, `%s_archive.fey_archive`. Archiving writes a `prop` tag
+   `archived_from; file: ..; path: ..; at: ..` on the moved heading, so it can
+   be restored.
+-  Triggers:  keybinds `fey_archive_subtree` `<prefix>$`, `fey_toggle_archive_tag`
+   `<prefix>A`, `fey_agenda_archive`.
+-  Vault:  yes. `.fey_archive` files are already indexed, and the archived
+   flag becomes a normal label filter in queries and agendas
+   (`fey_agenda_skip_archived`).
+-  After:  II.G, II.H, II.N.
+
+  II.P. Capture
+
+-  Now:  `capture/init.lua`, `capture/template/*`, `capture/templates.lua`,
+   `datetree.lua`. Templates are org text: the default is `'* TODO %?\n  %u'`
+   and the destination is a headline path or a datetree. The mapping
+   `fey_capture` is commented out.
+-  Reuse:  the capture window, template expansion (`%?`, `%u`, `%t`, `%^{}`
+   prompts), the datetree code (it only needs fey signatures), the menu.
+-  Fey:  Lua and templates. Rewrite the default template as Fey text with the
+   new tags, with new expansion keys for them.
+   A new target type `file` plus `heading signature or title`, and `query` (a
+   query string selecting the target heading). The datetree builds Fey
+   headings by numbering `I.`, `I.A.`, `I.A.i.` with the configured segment
+   order instead of stars.
+-  Triggers:  keybind `fey_capture` `<prefix>c`, capture window mappings
+   `fey_capture_finalize` `<C-c>`, `fey_capture_kill` `<prefix>k`.
+   Autocmd: `BufWritePost` of the capture buffer.
+-  Vault:  yes. Offer targets from the vault, and optionally add a template
+   key `unique` that refuses a title already present in the index.
+-  After:  II.E, II.N.
+
+Example:
+
+    ###  src lua
+    fey_capture_templates = {
+      t = {
+        description = 'Task',
+        template = '  I. {# todo, TODO #} %?\n{# scheduled, %t #}',
+      },
+    }
+    ###
+
+
+  II.Q. Notifications
+
+-  Now:  `notifications/init.lua` gets tasks from `FeyFiles`, uses `Date`,
+   and runs on a one minute timer. `Fey.cron` runs it headless.
+-  Reuse:  the timer, popup, system notification, the reminder time config.
+-  Fey:  Lua. `get_tasks(time)` becomes a SQL query on `dates` (active, not
+   done, start within the reminder window), including expanded repeaters.
+-  Triggers:  autocmd: start the timer from `Fey.setup` when
+   `notifications.enabled`. The headless cron entry point stays.
+-  Vault:  yes. Because it needs no buffer, it runs fine in the cron mode
+   where the vault is just the database file.
+-  After:  II.I.
+
+
+  III. Phase 2: the rest of the conversion
+
+  III.A. Clock and logbook
+
+-  Now:  `clock/init.lua`, `clock/report.lua`, `files/elements/logbook.lua`,
+   the events `ClockedIn`/`ClockedOut` and the `ClockOut` listener. The
+   logbook is an org drawer of `CLOCK: [ts]--[ts] => h:mm` lines.
+-  Reuse:  `Logbook` arithmetic (totals, active clock), `Duration`, the
+   report formatting, the statusline (`fey.statusline()`).
+-  Fey:  tag `clock` (config `fey_clock_tag_name`) inside a pair tag
+   `logbook` in the heading body. The `clock` tag has two `date` values
+   and a computed duration key-value written on clock out.
+   The open clock has no `end`. The reader is `Logbook.from_tags`. The
+   `fey_log_into_drawer` option becomes `fey_log_into_logbook` (a boolean).
+-  Triggers:  keybinds `fey_clock_in` `<prefix>xi`, `fey_clock_out` `<prefix>xo`,
+   `fey_clock_cancel` `<prefix>xq`, `fey_clock_goto` `<prefix>xj`. Autocmd:
+   clock out when the todo state changes to a done state (existing listener),
+   and `VimLeavePre` to warn about an open clock.
+-  Vault:  yes. Index `clock` tags as `dates` with `kind = clock`, so total
+   time per heading, per label and per day is an aggregate query, and the
+   clock report in the agenda no longer needs to parse logbooks.
+-  After:  II.E, II.I.
+
+Example:
+
+    ###  src fey
+    [ logbook #]
+    {# clock, 2026-10-06 Tue 10:00; end: 2026-10-06 Tue 11:30; dur: 1:30 #}
+    [# logbook ]
+    ###
+
+
+  III.B. Checkboxes and progress cookies
+
+-  Now:  `files/elements/listitem.lua` (`checkbox`, `update_checkbox`,
+   `child_checkboxes`, cookie updating), `Heading:update_cookie`,
+   `FeyMappings:toggle_checkbox`.
+-  Reuse:  state computation (on/off/children), the cookie arithmetic, the
+   whole checkbox propagation to parent items and headings.
+-  Fey:  grammar rule. In `listitem` add `optional(field('checkbox',
+   $.checkbox))` after the bullet separator.
+   No scanner change is expected: the pair tag opener is decided by scanner
+   lookahead (open bracket, blank, name, blank, closing token and bracket), and
+   the checkbox shape fails that check, but the longest match between the
+   checkbox token and the pair tag start token must be verified, and a corpus test added. Cookies (one over three, or a
+   percentage) stay plain text matched by a Lua pattern, no grammar.
+-  Triggers:  keybind `fey_toggle_checkbox` `<C-Space>`. Autocmd: none; the
+   cookie update runs from the mapping.
+-  Vault:  yes. Checked and unchecked items are `tasks` rows with
+   `kind = item` (II.I), which unlocks TASK queries over checklists, and
+   the percent done of a heading as a computed field.
+-  After:  II.I.
+
+Example:
+
+    ###  src js
+    checkbox: $ => choice(
+      token(prec(2, '[ ]')),
+      seq(
+        token(prec(2, '[')),
+        field('status', alias(token.immediate(/[xX-]/), $.status)),
+        token.immediate(']'),
+      ),
+    ),
+    ###
+
+
+  III.C. Footnotes
+
+-  Now:  `objects/footnote.lua`, `FeyFile:find_footnote_definition`,
+   `find_footnote_reference`, `FeyMappings:_jump_to_footnote_*`. The
+   grammar has no `fndef` or `fnref` (the rule is commented out).
+-  Reuse:  the `FeyFootnote` object, the jump and creation logic.
+-  Fey:  tags, no grammar. Reference: tag `fn`, scope format, one value, the
+   label. Definition: pair tag `fn` whose body is the text. Handler
+   `scope_tag`: jump to the definition; `pair_tag`: jump back to the first
+   reference.
+-  Triggers:  `fey_open_at_point` `<prefix>o` (already generic over tag
+   handlers). Insert mapping `<prefix>nf` creates a reference and a definition.
+-  Vault:  small. A `footnote` is a tag, so a missing definition is a query
+   (`tags` where `name = 'fn'` without a matching pair). Add it to the health
+   check.
+-  After:  II.A.
+
+Example:
+
+    ###  src fey
+    The result is odd {@ fn, 1 @}.
+
+    [ fn, 1 #]
+    Measured twice.
+    [# fn ]
+    ###
+
+
+  III.D. Document directives become data
+
+-  Now:  `FeyFile:get_filetags`, `get_title`, `get_category`,
+   `_get_directive`, `get_directive_properties`, `get_header_args`,
+   `get_todo_keywords` (reads `#+todo`), `id_get_or_create`, and the
+   completion source `directives.lua`. There are no `#+name:` lines in Fey.
+-  Reuse:  the call sites, which only need a different source.
+-  Fey:  no new syntax. The directive list becomes the document data
+   (the table data tag): `title`, `category`, `todo` (keywords), `header_args`,
+   and the `labels` tag for filetags. `FeyFile:get_directive(name)` becomes
+   `file.data[name]`, and `get_todo_keywords` reads `data.todo` with the config
+   default.
+   Table formulas (`#+tblfm`): there was no formula engine in orgmode either.
+   If wanted later, a tag `tblfm` directly after a table.
+-  Triggers:  none. `FileType` and reindex events already refresh buffers.
+-  Vault:  yes, fully: the document data is already in `files.data` and
+   `properties`. Delete the buffer-side parsing.
+-  After:  nothing.
+
+Done in part (2026-10-06): `FeyFile:_get_directive` reads keys of the document
+data now, so `title`, `category`, `todo` and `archive` work (see II.H). The
+file labels come from the index extraction. Not done: `filetags` as a data key
+(labels do that job), the header arguments (III.I) and the table formulas.
+
+  III.E. Drawers and notes
+
+-  Now:  `Heading:get_drawer`, `get_drawer_append_line`, `add_to_drawer`,
+   `add_note`, `FeyMappings:add_note`, `capture:build_note_capture`,
+   `ts_utils.is_date_in_drawer`.
+-  Reuse:  the note capture window, the note event and its listener.
+-  Fey:  generalise to a named pair tag. A drawer is a pair tag whose name is
+   the drawer name, a note is a list item with a `date` tag inside the `logbook` pair tag
+   (III.A). `get_drawer(name)` finds the pair tag of that name in the heading
+   body; fold support for pair tags already exists in `fey/folds.lua`.
+-  Triggers:  keybind `fey_add_note` `<prefix>na`, `fey_note_finalize` `<C-c>`,
+   `fey_note_kill` `<prefix>k`.
+-  Vault:  small. Notes are found by `tags` rows named `logbook`.
+-  After:  III.A.
+
+  III.F. Comments
+
+-  Now:  `fey_comment_tag_name = 'comment'` exists in the config but there is
+   no handler. `commentstring` is still the org `# %s`.
+-  Reuse:  the vim commenting commands, which only need a string.
+-  Fey:  tag, no grammar. A comment is a line tag or a block tag named
+   `comment`. Set `commentstring` to the line tag form and add the capture
+   `@comment` to `highlights.scm` for the `comment` tag name so the
+   whole body is dimmed. The extractor skips the body of comment tags when
+   it looks for links, labels and tasks.
+-  Triggers:  `gc` and friends through `commentstring`.
+-  Vault:  yes, minor: do not index tags inside a comment.
+-  After:  nothing.
+
+  III.G. Dynamic blocks and result tags
+
+-  Now:  org dynamic blocks (`#+BEGIN: clocktable`) have no equivalent, and
+   `capture`, the clock report and `Heading:add_to_drawer` assume them.
+-  Reuse:  `query_result` and `feydb_result` writing in `fey.query`, the
+   clock report builders in `clock/report.lua`.
+-  Fey:  tags, no grammar. The query tag already is the Fey dynamic block:
+   a block or pair tag that regenerates a `*_result` pair tag. Add a tag
+   `clocktable` with the same lifecycle (head parameters: `span`, `scope`,
+   `by`), written into `clocktable_result`. It is a thin wrapper that builds
+   a query over `dates` with `kind = clock`.
+-  Triggers:  the existing query mappings `<prefix>qq` and `<prefix>qa`, and
+   `run_on_load`.
+-  Vault:  yes, entirely (it is a query).
+-  After:  III.A.
+
+  III.H. LaTeX
+
+-  Now:  `colors/highlighter/markup/latex.lua`, the option
+   `fey_highlight_latex_and_related` and the ftplugin `syntax` switch refer to
+   `latex_env`, which the fey grammar does not have.
+-  Reuse:  the latex injection setup.
+-  Fey:  no grammar. A display equation is a fenced block named `latex` (or
+   `math`) and is injected with the latex parser through `injections.scm`.
+   Inline math is a line tag named `math`, also injected. The `latex` hl
+   code only needs the new capture names.
+-  Triggers:  none, it is highlighting.
+-  Vault:  none.
+-  After:  nothing.
+
+  III.I. Source blocks, edit special and babel
+
+-  Now:  edit special (`objects/edit_special`) and `babel/tangle.lua` read
+   `block` fields. The fey `block` has `name` and `parameter` fields, so edit
+   special mostly works; header arguments (`:tangle`, `:noweb`) are parsed
+   from the parameter text and from the removed `#+property` line, and
+   the `indentkeys` in the ftplugin still mention `end_src` and
+   `end_example`.
+-  Reuse:  almost everything. Block parsing (`block.lua`), tangle writing,
+   noweb expansion, the temporary edit window.
+-  Fey:  Lua. Read header arguments from the block parameters and from the
+   document data key `header_args` (III.D). Fix the stale `indentkeys`
+   and the `fey_edit_src_*` options. Verify edit special inside list items and
+   pair tags (fence indentation rules).
+-  Triggers:  keybinds `fey_edit_special` `<prefix>'`, `fey_babel_tangle`
+   `<prefix>bt` (conflicts with `fey_db_new_tab`; pick a new default).
+-  Vault:  yes. Index blocks (language, `tangle` target, name) in a `blocks`
+   table. Then "tangle the whole vault", detection of two blocks that write the
+   same file, and a noweb check that every reference resolves.
+-  After:  III.D.
+
+  III.J. Links consolidation
+
+-  Now:  two stacks exist side by side. The new one (`fey.links`, the `link`
+   and `section` tags, `FeyApi.insert_link`) and the old one
+   (`fey/fey/links`, `fey/fey/hyperlinks`, `FeyLinks` with the file, id,
+   headline, url, custom_id types, `Fey.links`). The mappings `insert_link`
+   `<prefix>li` and `store_link` `<prefix>ls` are commented out.
+-  Reuse:  the url type (plain urls in text), custom hyperlink sources
+   (`hyperlinks.sources`), `FeyLinkUrl`.
+-  Fey:  Lua. Remove the file, id, headline and custom_id types. An id
+   link becomes a `link` tag whose target is a `prop` id (II.H) resolved
+   through the vault. Keep url handling for bare urls: `open_at_cursor` checks
+   the word under the cursor when there is no tag. Retire `Fey.links`.
+-  Triggers:  keybinds `fey_insert_link` `<prefix>li`, `fey_store_link`
+   `<prefix>ls`, `fey_open_at_point` `<prefix>o`.
+-  Vault:  yes. Pickers list files and headings from the index, links are
+   validated against `files` and `headings`, and a broken link report is a
+   query on `links` where `target_file` is NULL.
+-  After:  II.H.
+
+  III.K. Completion
+
+-  Now:  the sources `directives`, `hyperlinks`, `plan`, `properties`, `tags`,
+   `todo_keywords` in `fey/autocompletion` are org specific (they match `#+`,
+   `:`, `*` contexts). The omnifunc, cmp and blink adapters remain.
+-  Reuse:  the adapter layer (omnifunc, cmp, blink) and the fuzzy matching.
+-  Fey:  Lua. Replace the sources by tag-aware ones that decide the context
+   from the tree: tag name (from the vault `tags` table, with counts), the
+   value after `,` (todo keywords for `todo`, labels for `labels`, file paths
+   for `link`, signatures for `section`), and the key after `;` (known keys
+   per tag name, collected from the index).
+-  Triggers:  `omnifunc`, and the cmp or blink trigger characters `;`, `,`
+   and the open of a scope tag.
+-  Vault:  yes, it is the main data source.
+-  After:  II.A, II.G.
+
+  III.L. Highlighting, concealment and folds
+
+-  Now:  `queries/fey/highlights.scm` already colours the tag formats, and
+   `colors/highlighter/todos.lua` (keyword faces) and `foldtext.lua` still look
+   for org nodes. `highlights.scm.org.bak` is the old query. `fey_ellipsis`,
+   `fey_hide_emphasis_markers` and the folds are partly done.
+-  Reuse:  face definitions and the foldtext builder.
+-  Fey:  queries only. Capture the tag name of `todo`, `priority`, `scheduled`,
+   `deadline`, `date` so they take the todo and date faces, and conceal
+   their syntax when `fey_conceal_task_tags` is set (II.E). Overdue
+   deadlines are highlighted from the index through an extmark pass
+   run after reindex. Delete `highlights.scm.org.bak` when done.
+-  Triggers:  autocmd `ColorScheme` (existing), reindex events.
+-  Vault:  small, for the overdue pass.
+-  After:  II.C, II.E.
+
+  III.M. Heading commands audit
+
+-  Now:  `toggle_heading`, `insert_heading_from_plain_line`, `insert_todo_heading*`,
+   `cycle` and `global_cycle`, `fey_startup_folded`, `next/previous_visible_heading`,
+   `forward/backward_heading_same_level`, `outline_up_heading`,
+   `last_child_heading` are partly native and partly use stars or
+   `item` and `headline`. The grep shows `files/heading.lua`, `fey/mappings.lua`
+   and `utils/treesitter` as the main users.
+-  Reuse:  the working ones.
+-  Fey:  Lua audit. Go through each mapping once, write down which use fey
+   node types already, port the rest (`toggle_heading` turns a list item or
+   plain line into a heading with the next signature at the right level).
+-  Triggers:  existing mappings.
+-  Vault:  none.
+-  After:  nothing.
+
+  III.N. Retire FeyFiles
+
+-  Now:  `Fey:init` still loads `FeyFiles` for `fey_agenda_files`, builds a
+   `FeyFile` for every file and keeps `fey.buffers`. Several mappings use
+   `self.files:get_current_file()`.
+-  Reuse:  `FeyFile` for open buffers (reindexing, edits).
+-  Fey:  Lua. Keep `FeyFile` as the editor side object for the current
+   buffer. Drop the preload of all agenda files, load lazily, and make
+   `files` a thin cache of open buffers. Update `Fey:init` and the auto
+   instance keys.
+-  Triggers:  autocmds in `Fey:setup_autocmds` stay.
+-  Vault:  yes, replaces the preload.
+-  After:  II.J.
+
+  III.O. Export
+
+-  Now:  `export/init.lua` shells out to pandoc and emacs for org input, with
+   `fey_custom_exports`.
+-  Reuse:  the job runner, the menu, the custom export hook.
+-  Fey:  decide between a Lua exporter that walks the tree (markdown, html)
+   and a pandoc reader. Large and independent. The databases already export
+   (`db/export.lua`).
+-  Triggers:  keybind `fey_export` `<prefix>e`.
+-  Vault:  yes, for exporting a set of files or a whole label.
+-  After:  everything above.
+
+  III.P. Config, mappings, help and docs
+
+-  Now:  `config/defaults.lua` still has org only options and many commented
+   mappings; `objects/help.lua` and `show_help`; the docs `doc/fey.txt`,
+   `docs/*.org` (the old org docs), `legal/` and the generated `doc/fey_api.txt`;
+   `health.lua`.
+-  Reuse:  the structure.
+-  Fey:  go task by task: when a feature is finished, uncomment its mapping,
+   add its option to `_meta.lua` with `vim.validate`, and add a section to
+   `README.fey`. At the end remove options of features that will not be
+   ported, rewrite `docs/*.org` as `.fey`, and regenerate `doc/*.txt`
+   with `scripts/build_docs.sh`.
+-  Triggers:  none.
+-  Vault:  `:checkhealth fey` should report vault state, schema version, stale
+   index and unknown tags.
+-  After:  continuous.
+
+Toggles (2026-10-06): there are enough toggles now to want a tree of their
+own. Today `<prefix>Tc` hides or shows the task tags, and the older toggles
+sit at `<prefix>!e`, `<prefix>?e` and the global config toggles. Proposal:
+`<prefix>T` is the toggle root, with `Tc` for the concealment, and the others
+get a letter under it (`Te` for run commands on enter, `Ts` for apply settings
+on enter, `Tb` and `Tw` for the buffer and cwd config) while the old keys keep
+working for a release. To decide.
+
+  III.Q. Tests
+
+-  Now:  `tests/api.lua`, `tests/query.lua`, `tests/db.lua` cover the vault,
+   query and databases. There are no tests for heading, date, agenda or the
+   grammar rules added here.
+-  Fey:  for every grammar change add a corpus file in `tree-sitter-fey/test/corpus`
+   (the checkbox, and any `metadata` rule). For every tag add a headless Lua
+   test like `tests/api.lua`: parse, write, re-index, read back.
+-  Triggers:  the pre-commit hook in `scripts/`.
+-  Vault:  the fixture vault is the same temp directory pattern as in
+   `tests/api.lua`.
+-  After:  continuous.
+
+
+  IV. Summary tables
+
+  IV.A. New tags
+
+| tag                    | format       | head and keys                 | handler                | task   |
++========================+==============+===============================+========================+========+
+| date                   | scope, line  | date text; active             | calendar               | II.B   |
+| scheduled              | scope        | date text                     | edit                   | II.C   |
+| deadline               | scope        | date text                     | edit                   | II.C   |
+| closed                 | scope        | date text                     | none                   | II.C   |
+| status                 | scope        | keyword, priority; priority   | cycle state, priority  | II.E   |
+| labels (exists)        | scope        | labels                        | none                   | II.G   |
+| prop                   | scope        | key values only               | none                   | II.H   |
+| logbook                | pair         | body of clock tags and notes  | fold                   | III.A  |
+| clock                  | scope        | start; end; dur               | none                   | III.A  |
+| fn                     | scope, pair  | label                         | jump                   | III.C  |
+| comment (name exists)  | line, block  | text                          | none                   | III.F  |
+| clocktable             | block, pair  | span; scope; by               | run, writes result     | III.G  |
+| math                   | line         | latex text                    | none, injection        | III.H  |
+
+  IV.B. Grammar and scanner changes
+
+| change                          | needed      | scanner work               | task   |
++=================================+=============+============================+========+
+| checkbox in listitem            | yes         | none expected, verify      | III.B  |
+| section metadata field          | optional    | none, needs prec.dynamic   | II.A   |
+| inline timestamp node           | rejected    | gate token, lookahead      | II.B   |
+
+  IV.C. Vault schema changes
+
+| change                           | purpose                                 | task   |
++==================================+=========================================+========+
+| table dates                      | agenda, overdue, notifications, clocks  | II.I   |
+| table tasks                      | agenda, TASK queries, checklists        | II.I   |
+| headings.props column            | properties, effort, id                  | II.H   |
+| Vault:index_text                 | index edited, unsaved buffers           | II.I   |
+| table blocks                     | tangle map, noweb check                 | III.I  |
+| clean headings.title             | strip metadata tags from titles         | II.A   |
+
+
+  V. Open questions
+
+-  Is the default sigil convention (`#` for metadata, `@` for reference-like
+   inline tags) acceptable, or should planning tags use their own?
+-  Should the agenda require a vault? The proposal says yes. A fallback for
+   files outside any vault would be an in-memory index of `fey_agenda_files`.
+-  Is one `todo` tag per heading title enough, or should the keyword also be
+   allowed as a positional prefix of the title, parsed by Lua?
+-  Is a `metadata` grammar field worth the paragraph conflict, once the Lua
+   helper exists?
+-  Which default keys for new mappings that collide (babel tangle versus
+   database tab, both `<prefix>bt`)?

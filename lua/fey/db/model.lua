@@ -28,6 +28,7 @@ M.FILE_PROPS = {
   { id = 'file.ctime', type = 'date' },
   { id = 'file.mtime', type = 'date' },
   { id = 'file.labels', type = 'list' },
+  { id = 'file.heading_labels', type = 'list' },
   { id = 'file.outlinks', type = 'list' },
   { id = 'file.inlinks', type = 'list' },
   { id = 'file.aliases', type = 'list' },

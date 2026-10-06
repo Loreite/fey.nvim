@@ -708,10 +708,34 @@ function FeyFile:get_valid_bufnr()
   return bufnr
 end
 
+memoize('get_meta')
+---What the vault index knows about this file, read from the current text: the document data, the file
+---level labels, ...
+---@return FeyVaultFileMeta
+function FeyFile:get_meta()
+  local bufnr = self:bufnr()
+  local lines = bufnr > -1 and self:_get_lines(bufnr) or self.lines
+  return require('fey.vault.extract').extract(table.concat(lines, '\n') .. '\n', {
+    label_tags = config.vault.label_tags,
+    link_tags = config.vault.link_tags,
+    meta_tags = config.vault.meta_tags,
+  })
+end
+
+--- The document data (the table tags above the first heading, README VII), nil when there is none
+--- @return any
+function FeyFile:get_data() return self:get_meta().data end
+
 memoize('get_filetags')
---- Get tags list applied on file level via #+FILETAGS
+--- Labels of the file itself: label tags above the first heading and `labels` keys of the document data
 --- @return string[]
-function FeyFile:get_filetags() return utils.parse_tags_string(self:_get_directive('filetags')) end
+function FeyFile:get_filetags()
+  local out = {}
+  for _, l in ipairs(self:get_meta().labels) do
+    if not l.heading_ord then table.insert(out, l.label) end
+  end
+  return out
+end
 
 memoize('get_blocks')
 --- @return FeyBlock[]
@@ -782,72 +806,75 @@ function FeyFile:get_drawer(name)
 end
 
 memoize('get_properties')
+---The properties of the file: the keys of the document data (the table tags above the first heading) that
+---are plain values, lower case. There is no range or node to return, the data is spread over tags.
 ---@return table<string, string>, table<string, FeyRange>, TSNode | nil
 function FeyFile:get_properties()
-  local property_drawer = self:get_drawer('properties')
-  if not property_drawer then return {}, {}, nil end
+  local data = self:get_data()
   local properties = {}
-  local properties_ranges = {}
-  local contents_node = property_drawer:field('contents')[1]
-  local contents = self:get_node_text_list(contents_node)
-  local start_line = contents_node and contents_node:start() or 0
-  for i, line in ipairs(contents) do
-    local property_name, property_value = line:match('^%s*:([^:]-):%s*(.*)$')
-    if property_name and property_value then
-      properties[property_name:lower()] = property_value
-      properties_ranges[property_name:lower()] = Range.from_line(start_line + i)
+  if type(data) == 'table' and not vim.islist(data) then
+    for key, value in pairs(data) do
+      if type(value) ~= 'table' then properties[key:lower()] = tostring(value) end
     end
   end
-  return properties, properties_ranges, property_drawer
+  return properties, {}, nil
 end
 
 memoize('get_property')
 ---@return string | nil, FeyRange
 function FeyFile:get_property(name)
-  local property_drawer, properties_ranges = self:get_properties()
-  return property_drawer[name:lower()], properties_ranges[name:lower()]
+  local properties = self:get_properties()
+  return properties[name:lower():gsub('[^%w_]', '_')], nil
 end
 
+---Set a property of the file, or remove it with a nil value: a key of the first `table` tag above the first
+---heading, which is created when there is none
 ---@param name string
 ---@param value? string
 ---@return FeyFile
 function FeyFile:set_property(name, value)
+  local edit = require('fey.files.elements.tags.edit')
   local bufnr = self:get_valid_bufnr()
+  local key = name:lower():gsub('[^%w_]', '_')
+  self:parse()
 
-  if not value then
-    local existing_property, property_range = self:get_property(name)
-    if existing_property and property_range then vim.fn.deletebufline(bufnr, property_range.start_line) end
-    self:parse()
-    local properties, _, properties_drawer = self:get_properties()
-    if vim.tbl_isempty(properties) then
-      self:set_node_lines(properties_drawer, {})
-      self:parse()
+  local data_tag
+  local body = self.root:field('body')[1]
+  if body then
+    for child in body:iter_children() do
+      if child:type() == 'scope_tag' then
+        local tag = require('fey.files.elements.tags').parse_tag_node(bufnr, child)
+        if tag.name == 'table' then
+          data_tag = tag
+          break
+        end
+      end
     end
-    return self
   end
 
-  local _, _, properties_drawer = self:get_properties()
-  local property = (':%s: %s'):format(name, value)
-
-  if not properties_drawer then
-    vim.api.nvim_buf_set_lines(bufnr, 0, 0, false, {
-      ':PROPERTIES:',
-      property,
-      ':END:',
-    })
+  if value == nil or tostring(value) == '' then
+    if data_tag and data_tag.key_values[key] ~= nil then
+      local row, col = data_tag.node:start()
+      edit.set_key(data_tag, key, nil)
+      self:parse()
+      local fresh = edit.at(bufnr, row, col, { name = 'table' })
+      if fresh and vim.tbl_isempty(fresh.key_values) and #fresh.values == 0 then edit.remove(fresh) end
+    end
     self:parse()
     return self
   end
 
-  local existing_property, property_range = self:get_property(name)
-  if existing_property then
-    vim.api.nvim_buf_set_lines(bufnr, property_range.start_line - 1, property_range.start_line, false, { property })
-    self:parse()
-    return self
+  if data_tag then
+    local ok, err = edit.set_key(data_tag, key, tostring(value))
+    if not ok then utils.echo_warning(('Cannot set property %s: %s'):format(name, err)) end
+  else
+    local text, err = edit.build('table', {}, { [key] = tostring(value) })
+    if text then
+      vim.api.nvim_buf_set_lines(bufnr, 0, 0, false, { text })
+    else
+      utils.echo_warning(('Cannot set property %s: %s'):format(name, err))
+    end
   end
-
-  local property_end = properties_drawer and properties_drawer:end_()
-  vim.api.nvim_buf_set_lines(bufnr, property_end - 1, property_end - 1, false, { property })
   self:parse()
   return self
 end
@@ -954,42 +981,28 @@ function FeyFile:id_get_or_create()
   return fey_id
 end
 
+---A key of the document data (README VII), what the org directives were: `title`, `category`, `todo`
+---(todo keywords, `TODO NEXT | DONE`), `archive` ...
 ---@private
 ---@param directive_name string
----@param all_matches? boolean If true, returns an array of all matching directive values
+---@param all_matches? boolean If true, returns an array of all matching values
 ---@return  string[] | string | nil
 function FeyFile:_get_directive(directive_name, all_matches)
-  self:parse(true)
-  local directives_body = self.root:field('body')[1]
-  if not directives_body then return nil end
-  local directives = directives_body:field('directive')
-  if not directives or #directives == 0 then return nil end
+  local data = self:get_data()
+  if type(data) ~= 'table' or vim.islist(data) then return nil end
+  local value = data[directive_name]
+  if value == nil then return nil end
 
   if all_matches then
-    local results = {}
-    for _, directive in ipairs(directives) do
-      local name = directive:field('name')[1]
-      local value = directive:field('value')[1]
-
-      if name and value then
-        local name_text = self:get_node_text(name)
-        if name_text:lower() == directive_name:lower() then table.insert(results, self:get_node_text(value)) end
-      end
+    if type(value) == 'string' then return { value } end
+    if type(value) == 'table' and vim.islist(value) then
+      local out = vim.tbl_map(tostring, value)
+      return #out > 0 and out or nil
     end
-    return #results > 0 and results or nil
+    return { tostring(value) }
   end
-
-  for _, directive in ipairs(directives) do
-    local name = directive:field('name')[1]
-    local value = directive:field('value')[1]
-
-    if name and value then
-      local name_text = self:get_node_text(name)
-      if name_text:lower() == directive_name:lower() then return self:get_node_text(value) end
-    end
-  end
-
-  return nil
+  if type(value) == 'table' then return nil end
+  return tostring(value)
 end
 
 function FeyFile:_update_lines(lines)

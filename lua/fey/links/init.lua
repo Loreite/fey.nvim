@@ -221,7 +221,15 @@ end
 function M.open_at_cursor(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   local node = M.tag_at_cursor(bufnr)
-  if not node then return vim.notify('fey: no link under the cursor', vim.log.levels.INFO) end
+  if not node then
+    -- not a link: a tag with an open-at-point handler (a date opens the calendar, a todo keyword cycles)
+    local tag = require('fey.files.elements.tags.edit').at_cursor(bufnr)
+    local Tag = require('fey.files.elements.tags')
+    if tag and Tag.at_point[tag.name] and Tag.handlers[tag.name] and Tag.handlers[tag.name][tag.type] then
+      return tag:apply()
+    end
+    return vim.notify('fey: no link under the cursor', vim.log.levels.INFO)
+  end
   local Tag = require('fey.files.elements.tags')
   local tag = Tag.parse_tag_node(bufnr, node)
   local handlers = Tag.handlers[tag.name]

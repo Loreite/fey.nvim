@@ -6,9 +6,9 @@
 --
 --   files       id, path, mtime (ms), size, title, data (JSON), errors (JSON), indexed_at
 --   headings    file_id, ord, parent_ord, level, signature, title, path, line, end_line, data (JSON)
---   tags        file_id, heading_ord, kind, name, line, vals (JSON list), attrs (JSON map)
+--   tags        file_id, heading_ord, kind, name, line, region, vals (JSON list), attrs (JSON map)
 --   links       file_id, heading_ord, kind, target, target_file, target_sig, description, line, meta (JSON)
---   labels      file_id, heading_ord, label
+--   labels      file_id, heading_ord, label, container, line
 --   properties  file_id, name, value (JSON): top level keys of the document data
 --
 -- `heading_ord` is NULL for document level entries. `links.target_file` and
@@ -19,7 +19,7 @@ local extract = require('fey.vault.extract')
 local fs = require('fey.utils.fs')
 local uv = vim.uv
 
-local SCHEMA_VERSION = 1
+local SCHEMA_VERSION = 2
 
 local SCHEMA = [[
 CREATE TABLE files (
@@ -54,6 +54,7 @@ CREATE TABLE tags (
   kind TEXT NOT NULL,
   name TEXT NOT NULL,
   line INTEGER,
+  region TEXT,               -- title|body|text|document, see fey.files.elements.tags.region
   vals TEXT,
   attrs TEXT
 );
@@ -76,7 +77,9 @@ CREATE INDEX links_target ON links(target_file, target_sig);
 CREATE TABLE labels (
   file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
   heading_ord INTEGER,
-  label TEXT NOT NULL COLLATE NOCASE
+  label TEXT NOT NULL COLLATE NOCASE,
+  container TEXT,            -- title|body|text|document|data: what holds the label
+  line INTEGER
 );
 CREATE INDEX labels_label ON labels(label);
 CREATE INDEX labels_file ON labels(file_id);
@@ -96,6 +99,7 @@ local TABLES = { 'properties', 'labels', 'links', 'tags', 'headings', 'files' }
 ---@field ignore string[] names of directories/files never indexed
 ---@field label_tags string[] tag names whose values are labels
 ---@field link_tags string[] tag names that point to another file or section
+---@field meta_tags string[] names of heading metadata tags, left out of heading titles
 ---@field time_budget_ms integer how long one indexing slice may block the editor
 
 ---@class FeyVaultScanStats
@@ -262,14 +266,15 @@ function Vault:_store(rel, entry, meta, errors)
 
   for _, t in ipairs(meta.tags) do
     db:run(
-      [[INSERT INTO tags(file_id, heading_ord, kind, name, line, vals, attrs)
-        VALUES(:file_id, :heading_ord, :kind, :name, :line, :vals, :attrs)]],
+      [[INSERT INTO tags(file_id, heading_ord, kind, name, line, region, vals, attrs)
+        VALUES(:file_id, :heading_ord, :kind, :name, :line, :region, :vals, :attrs)]],
       {
         file_id = file_id,
         heading_ord = t.heading_ord,
         kind = t.kind,
         name = t.name,
         line = t.line,
+        region = t.region,
         vals = encode(t.values),
         attrs = encode_map(t.attrs),
       }
@@ -307,8 +312,9 @@ function Vault:_store(rel, entry, meta, errors)
 
   for _, l in ipairs(meta.labels) do
     db:run(
-      'INSERT INTO labels(file_id, heading_ord, label) VALUES(:file_id, :heading_ord, :label)',
-      { file_id = file_id, heading_ord = l.heading_ord, label = l.label }
+      [[INSERT INTO labels(file_id, heading_ord, label, container, line)
+        VALUES(:file_id, :heading_ord, :label, :container, :line)]],
+      { file_id = file_id, heading_ord = l.heading_ord, label = l.label, container = l.container, line = l.line }
     )
   end
 
@@ -339,6 +345,7 @@ function Vault:_index_entry(rel, entry)
   local ok, meta = pcall(extract.extract, src, {
     label_tags = self.opts.label_tags,
     link_tags = self.opts.link_tags,
+    meta_tags = self.opts.meta_tags,
   })
   if not ok then
     self:_store(rel, entry, nil, { 'extraction failed: ' .. tostring(meta) })
@@ -529,11 +536,22 @@ function Vault:tags(name)
 end
 
 ---All labels with the number of files using them
+---@param opts? { level?: 'file'|'heading', container?: string } only labels of the files themselves or only those given inside headings, and/or only those held by one kind of container (`title`, `body`, `text`, `document`, `data`)
 ---@return { label: string, count: integer }[]
-function Vault:labels()
+function Vault:labels(opts)
+  opts = opts or {}
+  local where, params = {}, {}
+  if opts.level == 'file' then where[#where + 1] = 'heading_ord IS NULL' end
+  if opts.level == 'heading' then where[#where + 1] = 'heading_ord IS NOT NULL' end
+  if opts.container then
+    where[#where + 1] = 'container = :container'
+    params.container = opts.container
+  end
   return self:query(
-    [[SELECT label, COUNT(DISTINCT file_id) AS count FROM labels
-      GROUP BY label ORDER BY label]]
+    'SELECT label, COUNT(DISTINCT file_id) AS count FROM labels'
+      .. (#where > 0 and (' WHERE ' .. table.concat(where, ' AND ')) or '')
+      .. ' GROUP BY label ORDER BY label',
+    params
   )
 end
 

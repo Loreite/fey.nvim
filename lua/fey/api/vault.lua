@@ -102,8 +102,9 @@ function FeyVault:files_with_property(name, value)
 end
 
 ---All labels with the number of files that use them
+---@param opts? { level?: 'file'|'heading', container?: string } see `Vault:labels`
 ---@return { label: string, count: integer }[]
-function FeyVault:labels() return self._vault:labels() end
+function FeyVault:labels(opts) return self._vault:labels(opts) end
 
 ---Every use of a syntactic tag name (`path`, `line`, `vals`, `attrs` decoded)
 ---@param name string

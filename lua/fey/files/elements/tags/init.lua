@@ -6,6 +6,8 @@ local query_handler = require('fey.files.elements.tags.handlers.query')
 local feydb_handler = require('fey.files.elements.tags.handlers.feydb')
 local link_handler = require('fey.files.elements.tags.handlers.link')
 local section_handler = require('fey.files.elements.tags.handlers.section')
+local date_handler = require('fey.files.elements.tags.handlers.date')
+local status_handler = require('fey.files.elements.tags.handlers.status')
 
 ---@type vim.treesitter.Query
 local query = nil
@@ -116,6 +118,9 @@ end
 
 Tag.handlers = {}
 
+---@type table<string, boolean> names of the tags the open-at-point mapping applies the handler of
+Tag.at_point = {}
+
 function Tag.setup(handlers)
   handlers = handlers or {}
   vim.validate('fey_nvim_config_tag_name', config.fey_nvim_config_tag_name, 'string')
@@ -132,6 +137,13 @@ function Tag.setup(handlers)
   Tag.handlers[config.fey_db_tag_name] = feydb_handler.handlers
   Tag.handlers[config.fey_link_tag_name] = link_handler.handlers
   Tag.handlers[config.fey_section_tag_name] = section_handler.handlers
+  Tag.handlers[config.fey_status_tag_name] = status_handler.handlers
+  -- tags the open-at-point mapping applies the handler of (the others are run by their own mappings)
+  Tag.at_point = { [config.fey_status_tag_name] = true }
+  for _, name in ipairs(date_handler.names()) do
+    Tag.handlers[name] = date_handler.handlers
+    Tag.at_point[name] = true
+  end
   Tag.handlers = vim.tbl_deep_extend('force', Tag.handlers, handlers)
 
   query = query or vim.treesitter.query.get('fey', 'fey_tags')

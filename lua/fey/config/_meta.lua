@@ -190,6 +190,7 @@
 ---@field ignore? string[] Directory/file names that are never indexed. Default: { 'node_modules' }
 ---@field label_tags? string[] Tag names whose values are labels. Default: { 'label', 'labels' }
 ---@field link_tags? string[] Tag names that reference a file or section. Default: { 'link', 'section' }
+---@field meta_tags? string[] Tag names that are heading metadata. They are left out of the title (and path) of a heading in the index. Default: { 'label', 'labels', 'status', 'prop', 'scheduled', 'deadline', 'closed' }
 ---@field time_budget_ms? integer Longest time one indexing slice may block the editor. Default: 10
 ---@field run_on_load? boolean Update `query` and `feydb` tags when a buffer first loads. Default: true
 ---@field db_open_mode? 'split'|'vsplit'|'tab'|'current' How database views open. Default: 'vsplit'
@@ -210,6 +211,14 @@
 ---@field fey_query_tag_name? string Tag name of query tags. Default: 'query'
 ---@field fey_link_tag_name? string Tag name of file/URL links. Default: 'link'
 ---@field fey_section_tag_name? string Tag name of links to headings by signature. Default: 'section'
+---@field fey_date_tag_name? string Tag name of a date or time stamp. Default: 'date'
+---@field fey_scheduled_tag_name? string Tag name of the date a heading is scheduled. Default: 'scheduled'
+---@field fey_deadline_tag_name? string Tag name of the deadline of a heading. Default: 'deadline'
+---@field fey_closed_tag_name? string Tag name of the date a heading was closed. Default: 'closed'
+---@field fey_status_tag_name? string Tag name of the todo keyword and the priority of a heading, `{# status, TODO, A #}`. Default: 'status'
+---@field fey_labels_tag_name? string Tag name that heading labels are written with. Default: 'labels'
+---@field fey_property_tag_name? string Tag name of the properties of a heading. Default: 'prop'
+---@field fey_conceal_task_tags? boolean Hide everything of the todo, priority and labels tags in a heading title except their values. Default: true
 ---@field fey_db_tag_name? string Tag name of tags that import a database view. Default: 'feydb'
 ---@field fey_db_result_tag_name? string Tag name of the pair tag that holds an imported view. Default: 'feydb_result'
 ---@field fey_query_result_tag_name? string Tag name of the pair tag that holds a query's result. Default: 'query_result'

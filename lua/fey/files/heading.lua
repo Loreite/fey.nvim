@@ -11,6 +11,7 @@ local Memoize = require('fey.utils.memoize')
 local EventManager = require('fey.events')
 local events = EventManager.event
 local sequences = require('fey.utils.sequences')
+local edit = require('fey.files.elements.tags.edit')
 
 ---@alias FeyPlanDateTypes 'DEADLINE' | 'SCHEDULED' | 'CLOSED'
 
@@ -38,6 +39,47 @@ function Heading:new(heading_node, file)
   setmetatable(data, self)
   return data
 end
+
+---Names of the metadata tags (the `vault.meta_tags` option), left out of the title of a heading
+---@return table<string, boolean>
+local function meta_tag_set()
+  local set = {}
+  for _, name in ipairs(config.vault.meta_tags or {}) do
+    set[name] = true
+  end
+  return set
+end
+
+---Names of the tags that hold labels
+---@return string[]
+local function label_names()
+  local names = { config.fey_labels_tag_name }
+  for _, name in ipairs(config.vault.label_tags or {}) do
+    if not vim.tbl_contains(names, name) then table.insert(names, name) end
+  end
+  return names
+end
+
+---The first tag of the title when it has the given name: the status tag must come first
+---@param self FeyHeading
+---@param name string
+---@param source? integer|string
+---@return FeyTag|nil
+local function first_title_tag(self, name, source)
+  local title = self:node():field('title')[1]
+  local first = title and title:child(0)
+  if not first or first:type() ~= 'scope_tag' or first:has_error() then return nil end
+  local tag = require('fey.files.elements.tags').parse_tag_node(source or self.file:get_source(), first)
+  return tag.name == name and tag or nil
+end
+
+---Property names are tag keys: lower case, letters digits and `_` (`header-args` is `header_args`)
+---@param name string
+---@return string
+local function prop_key(name) return (name:lower():gsub('[^%w_]', '_')) end
+
+---@param s string
+local function unescape(s) return (s:gsub('\\(.)', '%1')) end
 
 ---Return up to date heading node
 ---@return TSNode
@@ -71,21 +113,14 @@ function Heading:get_signature_width()
 end
 
 memoize('get_priority')
+---The priority of the heading: the second plain value of its status tag, or its `priority` key when the
+---tag has no keyword. Only a value that is a priority of the config counts.
 ---@return string, TSNode | nil
 function Heading:get_priority()
-  local item = self:get_child_node('item')
-
-  local priority_node = item and item:field('priority')[1]
-
-  if not priority_node then return '', nil end
-
-  local value = self.file:get_node_text(priority_node)
-  -- Parse only the priority cookie, [#A] -> A
-  local priority = value:sub(3, -2)
-
-  if not config:get_priorities()[priority] then return '', nil end
-
-  return priority, priority_node
+  local tag = first_title_tag(self, config.fey_status_tag_name)
+  local priority = tag and (tag.values[2] or tag.key_values.priority)
+  if priority and config:get_priorities()[priority] then return priority, tag.node end
+  return '', nil
 end
 
 ---@param amount number
@@ -270,42 +305,43 @@ function Heading:get_outline_path()
   return outline_path
 end
 
----@param tags string
-function Heading:set_tags(tags)
-  ---@type TSNode
-  local predecessor = nil
-  for _, node in ipairs(ts_utils.get_named_children(self:node())) do
-    if node:type() ~= 'tag_list' then predecessor = node end
-  end
+---The labels of a heading are the values of its label tags (`labels` by default, see `vault.label_tags`)
+---in the metadata region: the title, or the tag lines under it.
 
-  if not predecessor then return nil end
+---Set the labels of the heading. The first label tag of the region is rewritten, further ones are
+---removed, and with none a tag goes to the end of the title. No labels remove the tags.
+---@param tags string|string[] a list, or a string separated by blanks, `,`, `;` or `:`
+function Heading:set_tags(tags)
+  local list = tags
+  if type(tags) == 'string' then list = vim.split(vim.trim(tags), '[%s:,;]+', { trimempty = true }) end
+  ---@cast list string[]
 
   local bufnr = self.file:get_valid_bufnr()
-  local txt = self.file:get_node_text(predecessor)
-  local pred_end_row, pred_end_col, _ = predecessor:end_()
-  local line = vim.api.nvim_buf_get_lines(bufnr, pred_end_row, pred_end_row + 1, false)[1]
-  local signature = line:match('^%*+%s*')
-  local end_col = line:len()
-
-  local text = ''
-  tags = vim
-    .trim(tags)
-    :gsub('[%s:-]+', ':') -- Convert all whitespace, existing colons and hyphens into a single colon
-    :gsub('^:', '')
-    :gsub(':$', '')
-
-  if tags ~= '' then
-    tags = ':' .. tags .. ':'
-
-    local to_col = config.fey_tags_column
-    local tags_width = vim.api.nvim_strwidth(tags)
-    if to_col < 0 then to_col = math.abs(to_col) - tags_width end
-
-    local spaces = math.max(to_col - (vim.api.nvim_strwidth(txt) + signature:len()), 1)
-    text = string.rep(' ', spaces) .. tags
+  local found = {}
+  local names = label_names()
+  for _, tag in ipairs((edit.for_heading(bufnr, self:node()))) do
+    if vim.tbl_contains(names, tag.name) then table.insert(found, tag) end
   end
 
-  vim.api.nvim_buf_set_text(bufnr, pred_end_row, pred_end_col, pred_end_row, end_col, { text })
+  -- from the last: the ranges of the ones before it stay valid
+  for i = #found, (#list == 0 and 1 or 2), -1 do
+    edit.remove(found[i])
+  end
+  if #list == 0 then return self:refresh() end
+
+  local first = found[1]
+  if first then
+    local style = edit.style(first)
+    local text = assert(edit.build(first.name, list, first.key_values, style))
+    if first.type == 'scope_tag' then
+      edit.replace(first, text)
+    else
+      edit.replace(first, assert(edit.build(first.name, list, first.key_values)))
+    end
+  else
+    edit.add_to_title(bufnr, self:node(), assert(edit.build(config.fey_labels_tag_name, list)))
+  end
+  return self:refresh()
 end
 
 ---@param tag string
@@ -314,7 +350,7 @@ function Heading:add_tag(tag)
   local current_tags = self:get_own_tags()
   local present = vim.tbl_contains(current_tags, tag)
   if not present then table.insert(current_tags, tag) end
-  self:set_tags(utils.tags_to_string(current_tags))
+  self:set_tags(current_tags)
   return not present
 end
 
@@ -325,7 +361,7 @@ function Heading:remove_tag(tag)
   ---@type string[]
   local new_tags = vim.tbl_filter(function(i) return i ~= tag end, current_tags)
   local present = #new_tags ~= #current_tags
-  if present then self:set_tags(utils.tags_to_string(new_tags)) end
+  if present then self:set_tags(new_tags) end
   return present
 end
 
@@ -339,66 +375,83 @@ function Heading:toggle_tag(tag)
   else
     table.insert(current_tags, tag)
   end
-  self:set_tags(utils.tags_to_string(current_tags))
+  self:set_tags(current_tags)
   return not present
 end
 
-function Heading:align_tags()
-  local own_tags, node = self:get_own_tags()
-  if node then self:set_tags(utils.tags_to_string(own_tags)) end
+--- The labels are shown where they are written, there is nothing to align
+function Heading:align_tags() end
+
+---Write the status tag of the title from a keyword and a priority, both optional: `{# status, TODO, A #}`,
+---`{# status, TODO #}`, or `{# status; priority: A #}` without a keyword. With neither the tag is removed.
+---The tag is the first thing of the title, where it stays or is added; other keys of the tag are kept.
+---@private
+---@param keyword? string
+---@param priority? string
+---@return FeyHeading
+function Heading:_write_status(keyword, priority)
+  local bufnr = self.file:get_valid_bufnr()
+  local name = config.fey_status_tag_name
+  local tag = first_title_tag(self, name, bufnr)
+  keyword = keyword and vim.trim(keyword) or ''
+  priority = priority and vim.trim(priority) or ''
+
+  if keyword == '' and priority == '' then
+    if tag then edit.remove(tag) end
+    return self:refresh()
+  end
+
+  local values, key_values = {}, {}
+  if tag then
+    for key, value in pairs(tag.key_values) do
+      if key ~= 'priority' then key_values[key] = unescape(value) end
+    end
+  end
+  if keyword ~= '' then
+    values = { keyword }
+    if priority ~= '' then values[2] = priority end
+  else
+    key_values.priority = priority
+  end
+
+  local text = assert(edit.build(name, values, key_values, tag and edit.style(tag) or nil))
+  if tag then
+    edit.replace(tag, text)
+  else
+    edit.add_to_title(bufnr, self:node(), text, { first = true })
+  end
+  return self:refresh()
 end
 
+---Set the priority, an empty one removes it. The todo keyword is kept.
 ---@param priority string
 function Heading:set_priority(priority)
-  local _, priority_node = self:get_priority()
-  priority = vim.trim(priority)
-
-  if priority == '' then
-    if priority_node then return self:_set_node_text(priority_node, '') end
-    return
-  end
-
-  if priority_node then return self:_set_node_text(priority_node, ('[#%s]'):format(priority)) end
-
-  local todo, todo_node = self:get_todo()
-  if todo then return self:_set_node_text(todo_node, ('%s [#%s]'):format(todo, priority)) end
-
-  local signature = self:get_child_node('signature')
-  local _, level = signature:end_()
-  return self:_set_node_text(signature, ('%s [#%s]'):format(('*'):rep(level), priority))
+  local tag = first_title_tag(self, config.fey_status_tag_name)
+  return self:_write_status(tag and tag.values[1], priority)
 end
 
+---Set the todo keyword, an empty one removes it. The priority is kept.
 ---@param keyword string
 function Heading:set_todo(keyword)
-  local todo, node = self:get_todo()
-  if todo then
-    self:_set_node_text(node, keyword)
-    return self:update_parent_cookie()
-  end
-
-  local signature = self:get_child_node('signature')
-  local _, level = signature:end_()
-  self:_set_node_text(signature, ('%s %s'):format(('*'):rep(level), keyword))
+  local tag = first_title_tag(self, config.fey_status_tag_name)
+  self:_write_status(keyword, tag and (tag.values[2] or tag.key_values.priority))
   return self:update_parent_cookie()
 end
 
 memoize('get_todo')
---- Returns the headings todo keyword, it's node,
---- it's type (todo or done) and it's index in the todo_keywords list
+--- Returns the headings todo keyword (the first plain value of its status tag), the tag node, its type
+--- (todo or done) and its index in the todo_keywords list. The status tag has to be the first thing in the
+--- title.
 --- @return string | nil, TSNode | nil, string | nil, number | nil
 function Heading:get_todo()
-  -- A valid keyword can only be the first child
-  local first_item_node = self:get_child_node('item')
-  local todo_node = first_item_node and first_item_node:named_child(0)
-  if not todo_node then return nil, nil, nil end
+  local tag = first_title_tag(self, config.fey_status_tag_name)
+  local text = tag and tag.values[1]
+  if not text then return nil, nil, nil end
 
-  local todo_keywords = self.file:get_todo_keywords()
-
-  local text = self.file:get_node_text(todo_node)
-  local keyword_by_value = todo_keywords:find(text)
+  local keyword_by_value = self.file:get_todo_keywords():find(text)
   if not keyword_by_value then return nil, nil, nil, nil end
 
-  return text, todo_node, keyword_by_value.type, keyword_by_value.index
+  return text, tag.node, keyword_by_value.type, keyword_by_value.index
 end
 
 ---@return boolean
@@ -414,46 +467,29 @@ function Heading:is_done()
 end
 
 memoize('get_title')
+---The title of the heading without its metadata tags (todo, priority, labels, ...)
 ---@return string, number
 function Heading:get_title()
-  local title_node = self:get_child_node('item')
-  local title = self.file:get_node_text(title_node) or ''
-  local word, todo_node = self:get_todo()
-  local offset = title_node and select(2, title_node:start()) or 0
-  if todo_node and word then
-    local new_title = title:gsub('^' .. vim.pesc(word) .. '%s*', '')
-    offset = offset + (title:len() - new_title:len())
-    title = new_title
-  end
-  local priority, priority_node = self:get_priority()
-  if priority_node then
-    local new_title = title:gsub('^' .. vim.pesc(('[#%s]'):format(priority)) .. '%s*', '')
-    offset = offset + title:len() - new_title:len()
-    title = new_title
-  end
-  return title, offset
+  local title_node = self:get_child_node('title')
+  if not title_node then return '', 0 end
+  local title = require('fey.files.elements.tags.region').title_text(title_node, self.file:get_source(), meta_tag_set())
+  return title, select(2, title_node:start())
 end
 
 memoize('get_own_properties')
+---The properties of the heading: the keys of its `prop` tags in the metadata region, lower case (several
+---tags are merged, the last one wins), and the node of the first tag
 ---@return table<string, string>, TSNode | nil
 function Heading:get_own_properties()
-  local section = self:node():parent()
-  local properties_node = section and section:field('property_drawer')[1]
-
-  if not properties_node then return {}, nil end
-
-  local properties = {}
-
-  if properties_node then
-    for _, node in ipairs(ts_utils.get_named_children(properties_node)) do
-      local name = node:field('name')[1]
-      local value = node:field('value')[1]
-
-      if name then properties[self.file:get_node_text(name):lower()] = self.file:get_node_text(value) or '' end
+  local properties, first_node = {}, nil
+  local tags = edit.for_heading(self.file:get_source(), self:node(), { name = config.fey_property_tag_name })
+  for _, tag in ipairs(tags) do
+    first_node = first_node or tag.node
+    for key, value in pairs(tag.key_values) do
+      properties[key:lower()] = unescape(value)
     end
   end
-
-  return properties, properties_node
+  return properties, first_node
 end
 
 memoize('get_properties')
@@ -463,50 +499,56 @@ function Heading:get_properties()
 
   if not config.fey_use_property_inheritance then return properties, own_properties_node end
 
-  local parent_section = self:node():parent():parent()
-  while parent_section do
-    local heading_node = parent_section:field('heading')[1]
-    if heading_node then
-      local heading = Heading:new(heading_node, self.file)
-      for name, value in pairs(heading:get_own_properties()) do
-        if properties[name] == nil and config:use_property_inheritance(name) then properties[name] = value end
-      end
+  local parent = self:get_parent_heading()
+  while parent do
+    for name, value in pairs((parent:get_own_properties())) do
+      if properties[name] == nil and config:use_property_inheritance(name) then properties[name] = value end
     end
-    parent_section = parent_section:parent()
+    parent = parent:get_parent_heading()
   end
 
   return properties, own_properties_node
 end
 
+---Set a property, or remove it with a nil (or empty) value. The key goes into the tag that has it, else
+---into the first `prop` tag of the region, else into a new tag line under the heading.
 ---@param name string
 ---@param value? string
 ---@return FeyHeading
 function Heading:set_property(name, value)
   local bufnr = self.file:get_valid_bufnr()
-  if not value then
-    local existing_property, property_node = self:get_property(name, false)
-    if existing_property and property_node then vim.fn.deletebufline(bufnr, property_node:start() + 1) end
-    self:refresh()
-    local properties, properties_node = self:get_own_properties()
-    if vim.tbl_isempty(properties) then self:_set_node_lines(properties_node, {}) end
+  local key = prop_key(name)
+  local tag_name = config.fey_property_tag_name
+  local tags = edit.for_heading(bufnr, self:node(), { name = tag_name })
+
+  local holder
+  for _, tag in ipairs(tags) do
+    if tag.key_values[key] ~= nil then holder = tag end
+  end
+
+  if value == nil or tostring(value) == '' then
+    if holder then
+      local row, col = holder.node:start()
+      edit.set_key(holder, key, nil)
+      local fresh = edit.at(bufnr, row, col, { name = tag_name })
+      if fresh and vim.tbl_isempty(fresh.key_values) and #fresh.values == 0 then edit.remove(fresh) end
+    end
     return self:refresh()
   end
 
-  local _, properties = self:get_own_properties()
-  if not properties then
-    local append_line = self:get_append_line()
-    local property_drawer = self:_apply_indent({ ':PROPERTIES:', ':END:' }) --[[ @as string[] ]]
-    vim.api.nvim_buf_set_lines(bufnr, append_line, append_line, false, property_drawer)
-    _, properties = self:refresh():get_own_properties()
+  value = tostring(value)
+  local target = holder or tags[1]
+  if target then
+    local ok, err = edit.set_key(target, key, value)
+    if not ok then utils.echo_warning(('Cannot set property %s: %s'):format(name, err)) end
+  else
+    local text, err = edit.build(tag_name, {}, { [key] = value })
+    if not text then
+      utils.echo_warning(('Cannot set property %s: %s'):format(name, err))
+    else
+      edit.add_to_region(bufnr, self:node(), text)
+    end
   end
-
-  local property = (':%s: %s'):format(name, value)
-  local existing_property, property_node = self:get_property(name, false)
-  if existing_property then return self:_set_node_text(property_node, property) end
-  local property_end = properties and properties:end_()
-
-  local new_line = self:_apply_indent(property) --[[@as string]]
-  vim.api.nvim_buf_set_lines(bufnr, property_end - 1, property_end - 1, false, { new_line })
   return self:refresh()
 end
 
@@ -533,30 +575,18 @@ end
 ---                               `fey_use_property_inheritance`
 ---@return string | nil, TSNode | nil
 function Heading:get_property(property_name, search_parents)
-  local _, properties = self:get_own_properties()
-  if properties then
-    for _, node in ipairs(ts_utils.get_named_children(properties)) do
-      local name = node:field('name')[1]
-      local value = node:field('value')[1]
-      if name and self.file:get_node_text(name):lower() == property_name:lower() then
-        return value and self.file:get_node_text(value) or '', node
-      end
-    end
-  end
+  local key = prop_key(property_name)
+  local properties, node = self:get_own_properties()
+  if properties[key] ~= nil then return properties[key], node end
 
   if search_parents == nil then search_parents = config:use_property_inheritance(property_name) end
-
   if not search_parents then return nil, nil end
 
-  local parent_section = self:node():parent():parent()
-  while parent_section do
-    local heading_node = parent_section:field('heading')[1]
-    if heading_node then
-      local heading = Heading:new(heading_node, self.file)
-      local property, property_node = heading:get_property(property_name, false)
-      if property then return property, property_node end
-    end
-    parent_section = parent_section:parent()
+  local parent = self:get_parent_heading()
+  while parent do
+    local own, own_node = parent:get_own_properties()
+    if own[key] ~= nil then return own[key], own_node end
+    parent = parent:get_parent_heading()
   end
 
   return nil, nil
@@ -589,23 +619,18 @@ function Heading:get_deadline_date()
 end
 
 memoize('get_tags')
+---The labels of the heading and, with `fey_use_tag_inheritance`, those of the headings above it and of
+---the file
 ---@return string[], TSNode | nil
 function Heading:get_tags()
   local tags, own_tags_node = self:get_own_tags()
   if not config.fey_use_tag_inheritance then return tags, own_tags_node end
 
   local parent_tags = {}
-  local parent_section = self:node():parent():parent()
-  while parent_section do
-    local heading = parent_section:field('heading')[1]
-    if heading then
-      local node = heading:field('tags')[1]
-      if node then
-        local parent_tags_list = utils.parse_tags_string(self.file:get_node_text(node))
-        utils.concat(parent_tags, utils.reverse(parent_tags_list), true)
-      end
-    end
-    parent_section = parent_section:parent()
+  local parent = self:get_parent_heading()
+  while parent do
+    utils.concat(parent_tags, utils.reverse((parent:get_own_tags())), true)
+    parent = parent:get_parent_heading()
   end
   local file_tags = self.file:get_filetags()
 
@@ -623,15 +648,29 @@ function Heading:get_parent_heading()
   if not parent_section then return nil end
 
   local heading = parent_section:field('heading')[1]
+  if not heading then return nil end -- the document itself
   return Heading:new(heading, self.file)
 end
 
 memoize('get_own_tags')
+---The labels written in the metadata region of the heading (title and tag lines), and the node of the
+---first label tag
 ---@return string[], TSNode | nil
 function Heading:get_own_tags()
-  local node = self:get_child_node('tags')
-  if node then return utils.parse_tags_string(self.file:get_node_text(node)), node end
-  return {}, nil
+  local names = label_names()
+  local labels, first_node = {}, nil
+  for _, tag in ipairs((edit.for_heading(self.file:get_source(), self:node()))) do
+    if vim.tbl_contains(names, tag.name) then
+      first_node = first_node or tag.node
+      for _, value in ipairs(tag.values) do
+        for part in value:gmatch('[^,;]+') do
+          local label = vim.trim(part)
+          if label ~= '' and not vim.tbl_contains(labels, label) then table.insert(labels, label) end
+        end
+      end
+    end
+  end
+  return labels, first_node
 end
 
 ---@return FeyDate[]
@@ -661,49 +700,46 @@ function Heading:get_next_heading_same_level()
   return Heading:new(next_section:field('heading')[1], self.file)
 end
 
+---The line (0-based) new lines under the heading go to: after the last line of tags of its metadata
+---region, or directly under the heading
 ---@return number
 function Heading:get_append_line()
-  local _, properties = self:get_own_properties()
-  if properties then
-    local row = properties:end_()
-    return row
+  local _, last_row = edit.for_heading(self.file:get_source(), self:node(), { region = 'body' })
+  if last_row then return last_row + 1 end
+  return (self:node():end_())
+end
+
+---Names of the planning tags and the kind of date each stands for
+---@return table<string, FeyPlanDateTypes>
+local function plan_tag_types()
+  return {
+    [config.fey_scheduled_tag_name] = 'SCHEDULED',
+    [config.fey_deadline_tag_name] = 'DEADLINE',
+    [config.fey_closed_tag_name] = 'CLOSED',
+  }
+end
+
+---The planning tags in the metadata region of the heading, the first of each kind
+---@private
+---@param source? integer|string defaults to the source of the file
+---@return table<FeyPlanDateTypes, FeyMetaTag>
+function Heading:_plan_tags(source)
+  local types, tags = plan_tag_types(), {}
+  for _, tag in ipairs((edit.for_heading(source or self.file:get_source(), self:node()))) do
+    local type_ = types[tag.name]
+    if type_ and not tags[type_] then tags[type_] = tag end
   end
-  local plan = self:node():parent():field('plan')[1]
-  if plan then
-    local _, _, has_plan_dates = self:get_plan_dates()
-    if has_plan_dates then
-      local row = plan:end_()
-      return row
-    end
-  end
-  local row = self:node():end_()
-  return row
+  return tags
 end
 
 memoize('get_plan_dates')
 ---@return FeyTable<FeyPlanDateTypes, FeyDate[]>,FeyTable<FeyPlanDateTypes, TSNode>, boolean
 function Heading:get_plan_dates()
-  local plan = self:node():parent():field('plan')[1]
-  local dates = {}
-  local dates_nodes = {}
-  local has_plan_dates = false
-
-  if not plan then return dates, dates_nodes, has_plan_dates end
-
-  local valid_plan_types = { 'SCHEDULED', 'DEADLINE', 'CLOSED', 'NONE' }
-
-  for _, node in ipairs(ts_utils.get_named_children(plan)) do
-    local name_node = node:field('name')[1]
-    local name = name_node and self.file:get_node_text(name_node)
-    local timestamp = node:field('timestamp')[1]
-
-    if not name or not vim.tbl_contains(valid_plan_types, name:upper()) then name = 'NONE' end
-
-    if name ~= 'NONE' then has_plan_dates = true end
-    dates[name:upper()] = Date.from_node(timestamp, self.file:get_source(), {
-      type = name:upper(),
-    })
-    dates_nodes[name:upper()] = node
+  local dates, dates_nodes, has_plan_dates = {}, {}, false
+  for type_, tag in pairs(self:_plan_tags()) do
+    dates[type_] = Date.from_tag(tag, { type = type_ })
+    dates_nodes[type_] = tag.node
+    has_plan_dates = true
   end
   return dates, dates_nodes, has_plan_dates
 end
@@ -719,45 +755,28 @@ function Heading:get_all_dates()
   return vim.list_extend(plan_dates, body_dates_list)
 end
 
+local date_tag_query
 memoize('get_non_plan_dates')
+---Dates written in the title and the body of the heading (date tags), not the planning tags
 ---@return FeyDate[]
 function Heading:get_non_plan_dates()
   local heading_node = self:node()
   local section = heading_node:parent()
   if not section then return {} end
+  date_tag_query = date_tag_query or vim.treesitter.query.parse('fey', '[(scope_tag) (line_tag)] @tag')
 
-  local body_node = section:field('body')[1]
-  local property_node = section:field('property_drawer')[1]
-  local matches = {}
-
-  local heading_matches = self.file:get_ts_captures('(item (timestamp) @timestamp)', heading_node)
-  vim.list_extend(matches, heading_matches)
-
-  if property_node then
-    local property_matches = self.file:get_ts_captures('(property (value (timestamp) @timestamp))', property_node)
-    vim.list_extend(matches, property_matches)
-  end
-
-  if body_node then
-    local body_matches = self.file:get_ts_captures(
-      [[
-        (paragraph (timestamp) @timestamp)
-        (table (row (cell (contents (timestamp) @timestamp))))
-        (drawer (contents (timestamp) @timestamp))
-        (fndef (description (timestamp) @timestamp))
-      ]],
-      body_node
-    )
-    vim.list_extend(matches, body_matches)
-  end
-
-  local all_dates = {}
   local source = self.file:get_source()
-  for _, match in ipairs(matches) do
-    local dates = Date.from_node(match, source)
-    vim.list_extend(all_dates, dates)
+  local all_dates = {}
+  for _, owner in ipairs({ heading_node:field('title')[1], section:field('body')[1] }) do
+    if owner then
+      for _, node in date_tag_query:iter_captures(owner, source) do
+        local name = node:field('name')[1]
+        if name and vim.treesitter.get_node_text(name, source) == config.fey_date_tag_name then
+          vim.list_extend(all_dates, Date.from_node(node, source))
+        end
+      end
+    end
   end
-
   return all_dates
 end
 
@@ -972,43 +991,44 @@ function Heading:id_get_or_create()
   return fey_id
 end
 
+---Write a planning date: replaces the tag of that kind, else goes next to the other planning tags,
+---else to a line of its own under the heading
 ---@param type FeyPlanDateTypes
 ---@param date FeyDate
 ---@param active? boolean
 ---@private
 function Heading:_add_date(type, date, active)
-  local _, date_nodes, has_plan_dates = self:get_plan_dates()
-  local text = type .. ': ' .. date:to_wrapped_string(active)
-  if not has_plan_dates then
-    local start_line = self:node():start()
-    vim.fn.appendbufline(self.file:get_valid_bufnr(), start_line + 1, self:_apply_indent(text) --[[@as string]])
+  local bufnr = self.file:get_valid_bufnr()
+  local text = date:clone({ type = type, active = active }):to_tag_text()
+  local tags = self:_plan_tags(bufnr)
+
+  if tags[type] then
+    edit.replace(tags[type], text)
     return self:refresh()
   end
-  if date_nodes[type] then return self:_set_node_text(date_nodes[type], text) end
 
-  local keys = vim.tbl_keys(date_nodes)
-  local other_types = vim.tbl_filter(function(t) return t ~= type end, { 'DEADLINE', 'SCHEDULED', 'CLOSED' })
-  local last_child = date_nodes[keys[#keys]]
-  for _, date_type in ipairs(other_types) do
-    if date_nodes[date_type] then
-      last_child = date_nodes[date_type]
-      break
+  local anchor
+  for _, tag in pairs(tags) do
+    local row, col = tag.node:start()
+    if not anchor or row > anchor.row or (row == anchor.row and col > anchor.col) then
+      anchor = { row = row, col = col, node = tag.node }
     end
   end
-  local ptext = self.file:get_node_text(last_child)
-  return self:_set_node_text(last_child, ptext .. ' ' .. text)
+  if anchor then
+    local er, ec = anchor.node:end_()
+    vim.api.nvim_buf_set_text(bufnr, er, ec, er, ec, { ' ' .. text })
+  else
+    edit.add_to_region(bufnr, self:node(), text)
+  end
+  return self:refresh()
 end
 
 ---@param type FeyPlanDateTypes
 ---@private
 function Heading:_remove_date(type)
-  local _, date_nodes = self:get_plan_dates()
-  if vim.tbl_count(date_nodes) == 0 or not date_nodes[type] then return end
-  local line_nr = date_nodes[type]:start()
-  self.file:set_node_text(date_nodes[type], '', true)
-  local bufnr = self.file:get_valid_bufnr()
-  local cur_line = vim.api.nvim_buf_get_lines(bufnr, line_nr, line_nr + 1, false)[1]
-  if vim.trim(cur_line) == '' then vim.fn.deletebufline(bufnr, line_nr + 1) end
+  local tag = self:_plan_tags(self.file:get_valid_bufnr())[type]
+  if not tag then return end
+  edit.remove(tag)
   return self:refresh()
 end
 
