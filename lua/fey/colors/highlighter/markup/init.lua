@@ -45,9 +45,13 @@ end
 ---@return { emphasis: FeyMarkupHighlight[], link: FeyMarkupHighlight[], latex: FeyMarkupHighlight[], date: FeyMarkupHighlight[] }
 function FeyMarkup:_get_highlights(bufnr, line, tree, use_cache)
   local line_content = vim.api.nvim_buf_get_lines(bufnr, line, line + 1, false)[1]
+  -- Highlights also depend on the structure around the line (emphasis in a
+  -- table keeps its markers), which can change while the text does not.
+  local context = self:_line_context(tree, line, line_content)
 
-  if self.cache[bufnr] and self.cache[bufnr][line] and (use_cache or self.cache[bufnr][line].line_content == line_content) then
-    return self.cache[bufnr][line].highlights
+  local cached = self.cache[bufnr] and self.cache[bufnr][line]
+  if cached and (use_cache or (cached.line_content == line_content and cached.context == context)) then
+    return cached.highlights
   end
 
   local result = self:get_node_highlights(tree:root(), bufnr, line)
@@ -56,10 +60,29 @@ function FeyMarkup:_get_highlights(bufnr, line, tree, use_cache)
 
   self.cache[bufnr][line] = {
     line_content = line_content,
+    context = context,
     highlights = result,
   }
 
   return result
+end
+
+-- The first structural ancestor of the line that changes how it is drawn
+-- (see emphasis NO_CONCEAL_ANCESTORS), or '' when there is none.
+---@private
+---@param tree TSTree
+---@param line number
+---@param line_content string?
+---@return string
+function FeyMarkup:_line_context(tree, line, line_content)
+  local col = line_content and (line_content:find('%S') or 1) - 1 or 0
+  local node = tree:root():named_descendant_for_range(line, col, line, col)
+  local special = self.parsers.emphasis.NO_CONCEAL_ANCESTORS
+  while node do
+    if special[node:type()] then return node:type() end
+    node = node:parent()
+  end
+  return ''
 end
 
 ---@param root_node TSNode

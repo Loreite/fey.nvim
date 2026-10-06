@@ -112,6 +112,23 @@ function FeyEmphasis:new(opts)
   return data
 end
 
+-- Tables are laid out by hand in columns, so their emphasis markers are never
+-- concealed: hiding them would pull the cell borders out of line.
+local NO_CONCEAL_ANCESTORS = { table = true }
+
+---@param node TSNode
+---@return boolean
+local function allows_conceal(node)
+  local parent = node:parent()
+  while parent do
+    if NO_CONCEAL_ANCESTORS[parent:type()] then return false end
+    parent = parent:parent()
+  end
+  return true
+end
+
+FeyEmphasis.NO_CONCEAL_ANCESTORS = NO_CONCEAL_ANCESTORS
+
 local function same_row_adjacent(a, b)
   local a_row, _, a_end_row, a_end_col = a:range()
   local b_row, b_col = b:range()
@@ -155,6 +172,7 @@ function FeyEmphasis:parse_node(node, name)
     nestable = info.nestable,
     range = range,
     node = node,
+    metadata = { conceal = allows_conceal(node) },
   }
 end
 
@@ -212,12 +230,13 @@ end
 function FeyEmphasis:prepare_highlights(highlights)
   local hide_markers = config.fey_hide_emphasis_markers
   local ephemeral = self.markup:use_ephemeral()
-  local conceal = hide_markers and '' or nil
   local extmarks = {}
 
   for _, entry in ipairs(highlights) do
     local info = marker_info(entry.char)
     if info then
+      local can_conceal = not (entry.metadata and entry.metadata.conceal == false)
+      local conceal = (hide_markers and can_conceal) and '' or nil
       local line = entry.from.line
       local priority = 110 + entry.from.start_col
 

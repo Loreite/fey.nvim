@@ -137,6 +137,7 @@ function M.link_highlights()
     -- Timestamps
     ['@fey.timestamp.active'] = '@keyword',
     ['@fey.timestamp.inactive'] = '@comment',
+
     -- Lists/Checkboxes
     ['@fey.bullet'] = '@markup.list',
     ['@fey.checkbox'] = '@markup.list.unchecked',
@@ -173,6 +174,7 @@ function M.link_highlights()
     ['@fey.latex_env'] = '@markup.environment',
     ['@fey.footnote'] = '@markup.link.url',
     ['@fey.footnote.reference'] = '@markup.link.url',
+
     -- Other
     ['@fey.table.delimiter'] = '@punctuation.special',
     ['@fey.table.heading'] = '@markup.heading',
