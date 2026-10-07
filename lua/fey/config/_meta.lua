@@ -305,6 +305,7 @@
 ---@field fey_log_into_logbook? boolean Write notes into the logbook of the heading as well. Default: false
 ---@field fey_link_conceal_default? boolean Conceal the head of every link and section tag (a scope tag shows its description), back on the cursor line, unless the tag has `conceal: false`. Can be set from a note with the plugin tag. Default: false
 ---@field fey_query_conceal_default? boolean Conceal every query, feydb and clocktable tag and its result, unless the tag has `conceal: false`. Can be set from a note with the plugin tag. Default: false
+---@field fey_highlight_overdue? boolean Paint the deadline dates and the scheduled dates of open tasks that are past, from the index (`@fey.date.overdue`, `@fey.date.scheduled_past`). Default: true
 ---@field fey_conceal_icons? table<string, string> The icon shown for a concealed query, feydb or clocktable tag, by the name of the tag, over the defaults (a Nerd Font glyph, or a one cell Unicode symbol without a Nerd Font, see `fey_checkbox_icons`). Default: {}
 ---@field fey_babel_extensions? table<string, string> The file extension of a language for `:tangle yes`, over the built in ones. Default: {}
 ---@field fey_math_tag_name? string Tag name of math: a line, block or pair tag whose text is LaTeX, highlighted with the `latex` tree-sitter parser when it is installed. Default: 'math'

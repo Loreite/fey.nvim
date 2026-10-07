@@ -137,6 +137,7 @@ local DefaultConfig = {
   fey_use_tag_inheritance = true,
   fey_tags_exclude_from_inheritance = {},
   fey_hide_leading_signature = false,
+  fey_highlight_overdue = true, -- paint the deadlines and the scheduled dates that are past, from the index
   fey_hide_emphasis_markers = false,
   fey_ellipsis = '...',
   fey_log_done = 'time',

@@ -172,6 +172,14 @@ function M.link_highlights()
     ['@fey.tag.value'] = '@fey.color.fg2',
     ['@fey.tag.key'] = '@fey.color.fg3',
 
+    -- Dates
+    ['@fey.date'] = 'Special',
+    ['@fey.date.scheduled'] = '@fey.agenda.scheduled',
+    ['@fey.date.deadline'] = '@fey.agenda.deadline',
+    ['@fey.date.closed'] = 'Comment',
+    ['@fey.date.overdue'] = 'DiagnosticError',
+    ['@fey.date.scheduled_past'] = '@fey.agenda.scheduled_past',
+
     -- Other markup
     ['@fey.hyperlink'] = '@markup.link',
     ['@fey.hyperlink.url'] = '@markup.link.url',

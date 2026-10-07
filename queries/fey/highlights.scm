@@ -42,6 +42,13 @@
 ; delimiters on top
 (value) @fey.tag.value
 (key) @fey.tag.key
+
+; dates: the text of a date tag takes the face of its kind (the overdue ones are painted from the index, see
+; `fey.colors.highlighter.overdue`)
+(scope_tag name: (tag_name) @_n (value) @fey.date (#fey-is-date-tag? @_n "date"))
+(scope_tag name: (tag_name) @_n (value) @fey.date.scheduled (#fey-is-date-tag? @_n "scheduled"))
+(scope_tag name: (tag_name) @_n (value) @fey.date.deadline (#fey-is-date-tag? @_n "deadline"))
+(scope_tag name: (tag_name) @_n (value) @fey.date.closed (#fey-is-date-tag? @_n "closed"))
 "tag_delimiter" @fey.tag.delimiter
 
 ; tables

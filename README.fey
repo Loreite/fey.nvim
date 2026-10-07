@@ -854,6 +854,19 @@ answers): the name after the opener, a value after a `,`, a key after a `;` and 
   -  it works from the text before the cursor, so it also works while the tag is not finished and the file does not parse
 
 
+  II.M.viii. Highlighting
+
+  -  the head of every tag is coloured by its form (scope, line, block, pair), its values and keys by their own faces, and the body of
+     a line, block or pair tag takes the colour of its tag
+  -  the text of a date tag takes the face of its kind: `@fey.date`, `@fey.date.scheduled`, `@fey.date.deadline`, `@fey.date.closed`
+  -  the deadline and the scheduled date of an open task that is past (the heading has a todo keyword that is not done, today is after the
+     date) are painted `@fey.date.overdue` and `@fey.date.scheduled_past` from the index, again whenever the file is indexed, on entering a buffer
+     and on focus; `fey_highlight_overdue = false` turns it off (a note may set it)
+  -  the keywords and the labels of a heading are shown by `fey_conceal_task_tags` (II.E), checkboxes as icons (III.B), footnotes (III.C),
+     concealed queries and links (III.G, III.K), all drawn by extmarks, the cursor line showing the text as written
+  -  a closed fold shows `fey_ellipsis` in the colour of the text it hides
+
+
   II.N. Queries and databases
 
 Notes can hold queries (a Dataview style language, with TABLE, LIST and TASK) and

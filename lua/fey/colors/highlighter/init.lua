@@ -1,7 +1,6 @@
 ---@class FeyHighlighter
 ---@field namespace number
 ---@field markup FeyMarkupHighlighter
----@field private todos FeyTodosHighlighter
 ---@field private task_tags FeyTaskTagsHighlighter
 ---@field private checkbox_icons FeyCheckboxIconsHighlighter
 ---@field private footnote_marks FeyFootnoteMarksHighlighter
@@ -28,11 +27,11 @@ end
 ---@private
 function FeyHighlighter:_setup()
   self.markup = require('fey.colors.highlighter.markup'):new({ highlighter = self })
-  self.todos = require('fey.colors.highlighter.todos'):new()
   self.task_tags = require('fey.colors.highlighter.task_tags'):new({ highlighter = self })
   self.checkbox_icons = require('fey.colors.highlighter.checkbox_icons'):new({ highlighter = self })
   self.footnote_marks = require('fey.colors.highlighter.footnote_marks'):new({ highlighter = self })
   self.foldtext = require('fey.colors.highlighter.foldtext'):new({ highlighter = self })
+  require('fey.colors.highlighter.overdue').setup()
 
   vim.api.nvim_set_decoration_provider(self.namespace, {
     on_win = function(...)

@@ -2175,6 +2175,20 @@ Added after III.K (2026-10-07): link forms and link concealment.
 -  Vault:  small, for the overdue pass.
 -  After:  II.C, II.E.
 
+Done (2026-10-07): highlighting, concealment and folds.
+
+-  Chose:  most of it was already done by the earlier tasks (the task tags in II.E, checkboxes, footnotes, queries, links, the tag
+   colours of `highlights.scm`, folds with `fey_ellipsis` in the colour of the hidden text). What was left: the date tags take faces by
+   kind through the predicate `fey-is-date-tag?` (it reads the configured tag names), and the overdue pass: `colors/highlighter/overdue.lua`
+   asks the index for the open deadlines and scheduled dates of the file that are before today, finds each tag and paints it
+   (`@fey.date.overdue`, `@fey.date.scheduled_past`) when the file is indexed, the buffer is entered or the editor focused. Option
+   `fey_highlight_overdue`. Deleted: `highlights.scm.org.bak` and `highlighter/todos.lua`, which wrote org `(item . (expr))` patterns
+   into the highlight query when faces were configured, and the keyword faces they did are done by the task tags.
+-  Not done:  repainting at midnight with the editor open (the next focus or entering does it).
+-  Tests:  `tests/highlight.lua` (12 checks): the query compiles, the faces of every date kind, other tags are not dates, the groups, the
+   overdue marks (late deadline and scheduled painted, on time, done, no keyword left alone), the option off, a note may set it,
+   an edit that makes a deadline late is painted after the index of the text.
+
   III.M. Heading commands audit
 
 -  Now:  `toggle_heading`, `insert_heading_from_plain_line`, `insert_todo_heading*`,

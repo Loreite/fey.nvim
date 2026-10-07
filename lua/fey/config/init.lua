@@ -441,6 +441,20 @@ function Config:setup_ts_predicates()
     return valid_priorities[text] and valid_priorities[text].type == type
   end, { force = true, all = true })
 
+  -- the name of a tag is the name of the date tag of a kind (`date`, `scheduled`, `deadline`, `closed`)
+  vim.treesitter.query.add_predicate('fey-is-date-tag?', function(match, _, source, predicate)
+    local node = match[predicate[2]]
+    node = node and node[#node]
+    if not node then return false end
+    local names = {
+      date = self.fey_date_tag_name,
+      scheduled = self.fey_scheduled_tag_name,
+      deadline = self.fey_deadline_tag_name,
+      closed = self.fey_closed_tag_name,
+    }
+    return vim.trim(vim.treesitter.get_node_text(node, source)) == names[predicate[3]]
+  end, { force = true, all = true })
+
   -- the name of a tag is the name of math (`fey_math_tag_name`), whose text is injected as LaTeX
   vim.treesitter.query.add_predicate('fey-is-math-tag?', function(match, _, source, predicate)
     local node = match[predicate[2]]

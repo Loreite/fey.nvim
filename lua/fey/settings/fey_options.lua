@@ -7,6 +7,7 @@ local M = {}
 M.LIST = {
   -- what the notes look like
   'fey_conceal_task_tags',
+  'fey_highlight_overdue',
   'fey_show_checkbox_state_as_icons',
   'fey_checkbox_icons',
   'fey_checkbox_icon_overrides',
