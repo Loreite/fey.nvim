@@ -1,0 +1,503 @@
+{# table; title: Tags; category: docs #}
+
+A tag is a piece of syntax that says something about the text around it. This page lists every tag the plugin has; the names are the defaults and each can be changed with its
+`*_tag_name` option. A tag is written in one of four forms:
+
+###  src fey
+a scope tag {# name, value, value; key: value #} inside a line, and {@ name, value @} for things that are in the text
+
+#[ name, value; key: value ] a line tag, the words it is about #
+
+[ name, value; key: value ]#
+   a block tag: the indented body belongs to it
+
+[ name, value; key: value #]
+a pair tag, up to the closer
+[# name ]
+###
+
+The head is the name, then the values after commas, then the keys after a semicolon (a backslash escapes a comma, a semicolon or a backslash). A scope tag applies to the node it is
+in: its paragraph, its title or its table cell, the whole list when it is the only content of a list item, the item when the item has other contents, and the whole file when it is above the
+first heading. `Tag.body` is that node, for every handler.
+
+The tags of the plugin:
+
+#[ comment ] begin generated: tags (scripts/gen_docs.lua) #
+
+  I. Dates and tasks
+
+  I.A. date
+
+The name is `date`; the option `fey_date_tag_name` changes it.
+
+-  Forms:  scope: a date in the text, a title or a note; line: a date with the words it belongs to.
+-  Head:  the date, `2026-10-07 Wed` or with a time `2026-10-07 Wed 09:30`, or a range; the key `active: false` makes it inactive (it is not in the agenda).
+-  Body:  none for the scope form.
+-  Where:  anywhere in the text.
+-  The index:  a date of the kind `date`, with its time, its range, its repeater and warning.
+-  Open at point:  opens the calendar to change it; `<S-UP>`, `<S-DOWN>`, `<C-a>` and `<C-x>` change the part under the cursor.
+-  Related:  `fey_date_insert` `fey_date_insert_inactive` `fey_toggle_date_type`, `fey_date_rounding_minutes`.
+
+###  src fey
+The review is {@ date, 2026-10-07 Wed 09:30 @}.
+###
+
+  I.B. scheduled
+
+The name is `scheduled`; the option `fey_scheduled_tag_name` changes it.
+
+-  Forms:  scope: when to start the task of the heading.
+-  Head:  a date, as for the date tag.
+-  Body:  none.
+-  Where:  under a heading, with the other planning tags (right after the title).
+-  The index:  a date of the kind `scheduled`, shown in the agenda on its day and after it while the task is open.
+-  Open at point:  opens the calendar.
+-  Related:  `fey_schedule` (`<prefix>is`), `fey_agenda_skip_scheduled_if_done`.
+
+###  src fey
+  I. {# status, TODO #} Write the report
+{# scheduled, 2026-10-07 Wed #}
+###
+
+  I.C. deadline
+
+The name is `deadline`; the option `fey_deadline_tag_name` changes it.
+
+-  Forms:  scope: when the task of the heading is due.
+-  Head:  a date; a warning (`-3d`) says how long before it is shown.
+-  Body:  none.
+-  Where:  under a heading, with the other planning tags.
+-  The index:  a date of the kind `deadline`; the agenda shows it ahead of time (`fey_deadline_warning_days`) and the overdue ones are painted.
+-  Open at point:  opens the calendar.
+-  Related:  `fey_deadline` (`<prefix>id`), `fey_agenda_skip_deadline_if_done`, `fey_highlight_overdue`.
+
+###  src fey
+{# deadline, 2026-10-09 Fri #}
+###
+
+  I.D. closed
+
+The name is `closed`; the option `fey_closed_tag_name` changes it.
+
+-  Forms:  scope: when the task was finished.
+-  Head:  a date and a time; it is written when a task is marked done (`fey_log_done`).
+-  Body:  none.
+-  Where:  under a heading, with the other planning tags.
+-  The index:  a date of the kind `closed`.
+-  Open at point:  nothing.
+-  Related:  `fey_log_done`.
+
+###  src fey
+{# closed, 2026-10-07 Wed 10:15 #}
+###
+
+  I.E. status
+
+The name is `status`; the option `fey_status_tag_name` changes it.
+
+-  Forms:  scope: the state of a heading as a task.
+-  Head:  the keyword, then the priority: `TODO`, `A`; the key `priority: A` for a priority without a keyword.
+-  Body:  none.
+-  Where:  the first thing of the title of a heading.
+-  The index:  a task of the kind `heading`, with its state, whether it is done and its priority.
+-  Open at point:  cycles the state; `fey_todo_next_state` and `fey_todo_prev_state` do it from anywhere in the heading.
+-  Related:  `fey_todo_keywords`, `fey_todo_keyword_faces`, `fey_priority_*`, `fey_conceal_task_tags` (shows the keyword and hides the rest).
+
+###  src fey
+  I. {# status, TODO, A #} Write the report
+###
+
+  I.F. labels
+
+The name is `labels`; the option `fey_labels_tag_name` changes it.
+
+-  Forms:  scope: the labels of a heading or, above the first heading, of the file.
+-  Head:  the labels, a value each; a label with slashes (`work/reports`) is nested.
+-  Body:  none.
+-  Where:  in the title of a heading, in its text, or above the first heading.
+-  The index:  labels, with where they were found (the title, the text or the document), inherited by the headings below when `fey_use_label_inheritance` is on.
+-  Open at point:  nothing.
+-  Related:  `fey_set_labels_command` (`<prefix>sl`), the agenda views by label, `fey_labels_exclude_from_inheritance`.
+
+###  src fey
+  I. Write the report {# labels, work, reports #}
+###
+
+  I.G. prop
+
+The name is `prop`; the option `fey_property_tag_name` changes it.
+
+-  Forms:  scope: properties of a heading.
+-  Head:  keys only: `effort: 2h`, `category: work`, `id: ...`.
+-  Body:  none.
+-  Where:  under a heading, in the metadata at the start of its text.
+-  The index:  the properties of the heading, which queries and the agenda read (`effort`, `category`, `id`).
+-  Open at point:  nothing.
+-  Related:  `fey_set_effort` (`<prefix>xe`), `fey_use_property_inheritance`.
+
+###  src fey
+{# prop; effort: 2h; category: work #}
+###
+
+  I.H. clock
+
+The name is `clock`; the option `fey_clock_tag_name` changes it.
+
+-  Forms:  scope: one period of work on a heading.
+-  Head:  the start; the keys `end` and `dur` once it is stopped (a clock with no end is running).
+-  Body:  none.
+-  Where:  in the logbook of a heading.
+-  The index:  a date of the kind `clock`, with its start and end.
+-  Open at point:  nothing; editing a start or an end writes the duration again.
+-  Related:  `fey_clock_in` `fey_clock_out` `fey_clock_cancel` `fey_clock_goto`, the clock report of the agenda, the clock table.
+
+###  src fey
+[ logbook #]
+{# clock, 2026-10-06 Tue 10:00; end: 2026-10-06 Tue 11:30; dur: 1:30 #}
+[# logbook ]
+###
+
+  I.I. logbook
+
+The name is `logbook`; the option `fey_logbook_tag_name` changes it.
+
+-  Forms:  block: the same, as an indented body; pair: a drawer: the lines between the opener and the closer.
+-  Head:  none.
+-  Body:  clocks and notes: list items with an inactive date.
+-  Where:  in the text of a heading, under its metadata.
+-  The index:  the dates and the clocks inside it.
+-  Open at point:  folds.
+-  Related:  `fey_log_into_logbook`, `fey_drawer_form` (the form a new one is written in), `fey_add_note` (`<prefix>na`).
+
+###  src fey
+[ logbook #]
+-  {@ date, 2026-10-06 Tue 16:00; active: false @}  Note taken: waiting
+[# logbook ]
+###
+
+  II. Text
+
+  II.A. fn
+
+The name is `fn`; the option `fey_footnote_tag_name` changes it.
+
+-  Forms:  scope: a reference to a footnote; line: the definition, as a line; block: the definition, as an indented body; pair: the definition, as a pair.
+-  Head:  the label of the footnote.
+-  Body:  the text of the footnote (a definition).
+-  Where:  a reference in the text; a definition anywhere.
+-  The index:  the labels, with the references and the definitions, so a reference without a definition and a definition nobody uses are found.
+-  Open at point:  jumps between the reference and the definition.
+-  Related:  `fey_insert_footnote`, `fey_footnote_superscript`, `fey_footnote_definition_form`.
+
+###  src fey
+A claim {@ fn, 1 @}.
+
+[ fn, 1 #]
+The note.
+[# fn ]
+###
+
+  II.B. link
+
+The name is `link`; the option `fey_link_tag_name` changes it.
+
+-  Forms:  scope: a link written out; line: the words of the line are the link; block: what is under it is the link (a paragraph, a list, a table); pair: the same, between an opener and a closer.
+-  Head:  the target (a file, a url, `id:...`, a file of another hollow); the keys `desc`, `section` and `n`, and `conceal`.
+-  Body:  what the link is made of, in the line, block and pair forms.
+-  Where:  anywhere in the text.
+-  The index:  a link, with its target file and section, so backlinks, broken links and queries work.
+-  Open at point:  follows it; a link in the body of another link wins when the cursor is on it.
+-  Related:  `fey_insert_link`, `fey_store_link`, `fey_check_links`, `fey_link_schemes`, `fey_link_conceal_default`.
+
+###  src fey
+See {@ link, notes/design.fey; desc: the design; section: II.A. @}.
+###
+
+  II.C. section
+
+The name is `section`; the option `fey_section_tag_name` changes it.
+
+-  Forms:  scope: a link to a heading by its signature; line: the words are the link; block: the body is the link; pair: the body is the link.
+-  Head:  the signature, then the file and the number of the heading when several have the signature.
+-  Body:  what the link is made of, in the forms that have a body.
+-  Where:  anywhere in the text; the tags are kept up to date when headings are renumbered.
+-  The index:  a link of the kind `section`.
+-  Open at point:  goes to the heading.
+-  Related:  `fey_link_conceal_default`.
+
+###  src fey
+see {@ section, II.A. @}
+###
+
+  II.D. comment
+
+The name is `comment`; the option `fey_comment_tag_name` changes it.
+
+-  Forms:  scope: comments what it applies to: its paragraph, the list when it is alone in a list item, the file above the first heading; line: comments the words; block: comments the body; pair: comments the body.
+-  Head:  a boolean: `true` keeps what it covers in the index, `false` leaves it out; the key `index` says the same.
+-  Body:  what is commented.
+-  Where:  anywhere in the text.
+-  The index:  the tag; what it comments is not indexed unless `fey_comment_index_default` or the tag says so.
+-  Open at point:  nothing; the body is dimmed, and an export leaves it out.
+-  Related:  `fey_comment_index_default`, `commentstring` (`gc`).
+
+###  src fey
+#[ comment ] a note to myself #
+###
+
+  II.E. math
+
+The name is `math`; the option `fey_math_tag_name` changes it.
+
+-  Forms:  line: inline math; block: a display equation; pair: a display equation.
+-  Head:  none.
+-  Body:  LaTeX, highlighted with the latex parser when it is installed.
+-  Where:  anywhere in the text.
+-  The index:  as a tag only.
+-  Open at point:  nothing.
+-  Related:  the export turns it into math.
+
+###  src fey
+The mass #[ math ] E = mc^2 # is energy.
+###
+
+  III. Queries and databases
+
+  III.A. query
+
+The name is `query`; the option `fey_query_tag_name` changes it.
+
+-  Forms:  scope: the query is in the head; line: the query is the text; block: the query is the indented body; pair: the query is between the opener and the closer.
+-  Head:  for the scope form the query; the keys `scope` (`current`, `tree`, `court` or hollows) and `conceal`.
+-  Body:  the query, in the Dataview style language (`TABLE`, `LIST`, `TASK`).
+-  Where:  anywhere in the text; the result is written after it.
+-  The index:  as a tag only.
+-  Open at point:  runs it (`<prefix>qq`; `<prefix>qa` runs every query of the file).
+-  Related:  `fey_query_conceal_default`, the result tag.
+
+###  src fey
+[ query ]#
+   TABLE file.name, length(file.outlinks) AS "Links"
+   FROM #design
+   SORT file.mtime DESC
+###
+
+  III.B. query_result
+
+The name is `query_result`; the option `fey_query_result_tag_name` changes it.
+
+-  Forms:  pair: the result of the query before it, rewritten every time it runs.
+-  Head:  the key `conceal: true` when the query is concealed.
+-  Body:  a table or a list, with links to the files.
+-  Where:  right after its query.
+-  The index:  as a tag; the links in it are links.
+-  Open at point:  a link in it follows.
+-  Related:  `fey_query_conceal_default`.
+
+###  src fey
+[ query_result #]
+| File | Links |
++======+=======+
+| {@ link, a.fey @} | 3 |
+[# query_result ]
+###
+
+  III.C. feydb
+
+The name is `feydb`; the option `fey_db_tag_name` changes it.
+
+-  Forms:  scope: shows a database view as a table; block: the database and view are in the body.
+-  Head:  the number of rows; the keys `db`, `view` and `conceal`.
+-  Body:  the name of the database, and of the view after a `>`.
+-  Where:  anywhere in the text; the table is written after it.
+-  The index:  as a tag only.
+-  Open at point:  runs it.
+-  Related:  `fey_query_conceal_default`, the database commands (`:FeyDb`).
+
+###  src fey
+{# feydb, 10; db: projects; view: Open #}
+###
+
+  III.D. feydb_result
+
+The name is `feydb_result`; the option `fey_db_result_tag_name` changes it.
+
+-  Forms:  pair: the table of the database view before it.
+-  Head:  the key `conceal: true` when the tag is concealed.
+-  Body:  a table of data, with no links to the files.
+-  Where:  right after its database tag.
+-  The index:  as a tag only.
+-  Open at point:  nothing.
+-  Related:  `fey_query_conceal_default`.
+
+###  src fey
+[ feydb_result #]
+| name | status |
+[# feydb_result ]
+###
+
+  III.E. clocktable
+
+The name is `clocktable`; the option `fey_clocktable_tag_name` changes it.
+
+-  Forms:  scope: the time clocked, as a table; block: the same, with the keys in the head.
+-  Head:  the span (`thisweek`, `lastmonth`, `7d`, `2026-10`, `2026-10-01--2026-10-07`, `all`) or the key `span`; `by` (`heading`, `file`, `day`), `scope` and `conceal`.
+-  Body:  none.
+-  Where:  anywhere in the text; the table is written after it.
+-  The index:  as a tag only; the table is a query over the clocks of the index.
+-  Open at point:  runs it.
+-  Related:  `fey_query_conceal_default`.
+
+###  src fey
+{# clocktable; span: thisweek; by: file #}
+###
+
+  III.F. clocktable_result
+
+The name is `clocktable_result`; the option `fey_clocktable_result_tag_name` changes it.
+
+-  Forms:  pair: the table of the clock table before it.
+-  Head:  the key `conceal: true` when the tag is concealed.
+-  Body:  a table of the time clocked, with a total.
+-  Where:  right after its clock table tag.
+-  The index:  as a tag; the links in it are links.
+-  Open at point:  a link in it follows.
+-  Related:  `fey_query_conceal_default`.
+
+###  src fey
+[ clocktable_result #]
+| Heading | Time |
+[# clocktable_result ]
+###
+
+  IV. Appearance and settings
+
+  IV.A. hl
+
+The name is `hl`; the option `fey_hl_tag_name` changes it.
+
+-  Forms:  scope: colours what the tag applies to; line: colours the words; block: colours the body; pair: colours the body.
+-  Head:  the keys `fg`, `bg`, `bold`, `italic`, `strike`, `underline`, `link` (a highlight group).
+-  Body:  what is coloured, in the forms that have a body.
+-  Where:  anywhere in the text.
+-  The index:  as a tag only.
+-  Open at point:  nothing.
+
+###  src fey
+some {# hl; fg: red; bold: true #} words
+###
+
+  IV.B. nvim
+
+The name is `nvim`; the option `fey_nvim_config_tag_name` changes it.
+
+-  Forms:  scope: options of the editor; line: the same; block: the options are the body, a table; pair: the same.
+-  Head:  the options as keys: `wrap: false`, `number: true`.
+-  Body:  a table of options, one after the other.
+-  Where:  a note, a hollow (`.fey/config.fey`) or the court.
+-  The index:  as a tag only.
+-  Open at point:  applies it (`<prefix>?t`).
+-  Related:  `settings` in the setup, the `nvim` options table of the configuration page.
+
+###  src fey
+{# nvim; wrap: false; conceallevel: 2 #}
+###
+
+  IV.C. plugin
+
+The name is `plugin`; the option `fey_plugin_tag_name` changes it.
+
+-  Forms:  scope: options of a plugin; line: the same; block: the options are the body, a table; pair: the same.
+-  Head:  the name of the plugin (`fey` for this one), then its options as keys.
+-  Body:  a table of options.
+-  Where:  a note, a hollow (`.fey/config.fey`) or the court.
+-  The index:  as a tag only.
+-  Open at point:  applies it (`<prefix>?t`).
+-  Related:  `settings.plugins`, `fey.settings.register`, the options table of the configuration page.
+
+###  src fey
+{# plugin, fey; fey_highlight_overdue: false #}
+###
+
+  V. Data
+
+  V.A. table
+
+The name is `table`.
+
+-  Forms:  scope: a key of the data of the document; block: data as an indented list of keys; pair: the same.
+-  Head:  keys: `title`, `category`, `todo`, `archive`, `header_args`, `labels`, `id`, `author`, and any of your own.
+-  Body:  keys as list items for the block and pair forms.
+-  Where:  above the first heading (the data of the file), or in a section under a heading with a `_` signature.
+-  The index:  the properties of the file; the title, the category and the todo keywords are read from them.
+-  Open at point:  nothing.
+-  Related:  `array` and `value` are the other data tags.
+
+###  src fey
+{# table; title: Design notes; category: work #}
+###
+
+  V.B. array
+
+The name is `array`.
+
+-  Forms:  scope: a list of values as data; block: a list as an indented body; pair: the same.
+-  Head:  the values.
+-  Body:  list items.
+-  Where:  where data is allowed, as for `table`.
+-  The index:  as data of the document or of a section.
+-  Open at point:  nothing.
+-  Related:  `table`, `value`.
+
+###  src fey
+{# array, 1, 2, 3 #}
+###
+
+  V.C. value
+
+The name is `value`.
+
+-  Forms:  scope: one value as data; block: a value as an indented body; pair: the same.
+-  Head:  the value.
+-  Body:  the text of the value.
+-  Where:  where data is allowed, as for `table`.
+-  The index:  as data of the document or of a section.
+-  Open at point:  nothing.
+-  Related:  `table`, `array`.
+
+###  src fey
+{# value, 5 #}
+###
+
+
+#[ comment ] end generated: tags #
+
+
+  VI. Tags of your own, and tags named like HTML
+
+Any name is a tag: it is indexed (the names and counts are in the index, and `:checkhealth fey` lists the ones nothing knows), completed, and exported as the text it holds. To do more:
+
+-  editor behaviour: `tag_handlers = { note = { scope_tag = function(tag) ... end } }` in the setup, a function for each form that `Tag.handlers` runs with a `FeyTag`, which has the name, the head
+   (`values` and `key_values`), the form (`type`) and the body (`body`)
+-  export: `tag_exports`, a pattern for each form, where `%s` is what the tag holds (the HTML of the body for the HTML export, the Markdown of it for Markdown, with the HTML around it):
+
+###  src lua
+require('fey').setup({
+  tag_exports = {
+    note = {
+      block_tag = [[<aside class="note">\n%s\n</aside>]],
+      pair_tag = [[<aside class="note">\n%s\n</aside>]],
+      line_tag = [[<span class="note">%s</span>]],
+      scope_tag = [[<div class="note">\n%s\n</div>]], -- wraps what the tag applies to
+    },
+  },
+})
+###
+
+A form can also be a function `function(body, tag, target)` that returns the text; a table with the keys `html` and `markdown` gives each target its own forms; a form named `default` is the one
+for the forms that are not there.
+
+A tag named like an HTML element (`span`, `mark`, `kbd`, `sub`, `sup`, `div`, `details`, `summary`, `blockquote`, ...) in the line, block and pair forms is that element in the exports, with its keys
+as attributes (event attributes and `javascript:` values are dropped). When a name is taken (by the plugin, by a `tag_exports` entry or a `tag_handlers` entry) it keeps its meaning and the weaker name ends
+with an underscore: `section_` is the HTML `section` where `section` is the link to a heading, `table_` the HTML `table`, and with a `div` of your own `div_` is the HTML `div`. Name your own tags with this
+in mind: a name that ends with `_` is read as the element without it.

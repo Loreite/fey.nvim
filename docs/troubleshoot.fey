@@ -1,0 +1,71 @@
+{# table; title: Troubleshooting; category: docs #}
+
+Run `:checkhealth fey` first. It checks the grammar, the options of the setup, and for every hollow the state of the index, the files that are out of date or did not parse, and the tags nothing knows.
+
+
+  I. Nothing is highlighted, or I get tree-sitter errors
+
+The grammar may not be installed or is out of date. `:checkhealth fey` says which. Run `:Fey install_treesitter_grammar` to build and install it again; it needs a C compiler and the `tree-sitter` command.
+The error `No parser for language "fey"` means the same.
+
+
+  II. The grammar fails to build on Windows
+
+`.../fey/parser/fey.so is not a valid Win32 application` comes from the wrong C compiler. The first of `cc, gcc, clang, cl, zig` that is found is used; to choose one, set the list before `setup`:
+
+###  src lua
+require('fey.utils.treesitter.install').compilers = { 'clang' }
+require('fey').setup()
+###
+
+Restart Neovim and run `:Fey install_treesitter_grammar`.
+
+
+  III. The agenda, a query or the links are empty or old
+
+They read the index of the hollows. `:checkhealth fey` lists a stale index; `:FeyVaultReindex` brings it up to date and `:FeyVaultReindex!` rebuilds it. A folder is only a hollow when it has a `.fey` folder (`:FeyHollowInit`)
+and is registered in the court (`:FeyHollows` lists them). Folders named in `vault.ignore` are not indexed. If the library of the index is not found, set `vim.g.sqlite_clib_path`.
+
+
+  IV. Indentation is not working
+
+Do not override `indentexpr` in Fey buffers with another plugin (nvim-treesitter's indentation, for one).
+
+
+  V. Dates are not in English, or Chinese characters are broken
+
+Dates are made with the date functions of Lua, which read your locale. In your `init.lua`:
+
+###  src lua
+vim.cmd('language en_US.utf8')
+###
+
+`:language` and `<Tab>` list the locales you have; use `zh_CN.utf8` for Chinese.
+
+
+  VI. Links, queries and checkboxes are not hidden or are not icons
+
+Concealment uses the conceal feature of Vim: set `vim.opt.conceallevel = 2`. Concealed tags come back on the line of the cursor unless `concealcursor` says otherwise. Icons are Nerd Font glyphs when
+`nvim-web-devicons` is installed (or `fey_checkbox_icons = 'nerd'`), plain symbols otherwise; `fey_checkbox_icons = 'unicode'` forces them.
+
+
+  VII. A note's settings do nothing, or something is ignored
+
+`:FeySettings` shows where the settings of the note come from and what was ignored, with the reason: an option that is not local to the buffer or the window, one that runs code (denied unless `settings.allow`
+names it), a plugin that is not registered, an option of this plugin that is not on the white list. The options that are, are in {@ link, configuration.fey; desc: Configuration @}.
+
+
+  VIII. Exporting to PDF, Word or LaTeX fails
+
+Those formats go through `pandoc`: it has to be in the `PATH`, and a PDF needs a LaTeX engine as well. Markdown, HTML and iCalendar need nothing. A file that is all commented has nothing to export.
+
+
+  IX. Jumping to a path does not work on Windows
+
+Paths are written with backslashes by default. Use forward slashes with `vim.opt.shellslash = true`.
+
+
+  X. A warning about an option when Neovim starts
+
+`setup` names what it does not know: `fey_tpyo is not an option` is a typo, and `... is gone: ...` is an option that was removed and says what replaces it. An option or mapping that was renamed is moved to its new name and
+warned about once; the old names are removed after a release.

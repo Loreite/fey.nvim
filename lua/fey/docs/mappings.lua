@@ -125,6 +125,18 @@ function M.render()
   return out
 end
 
+---The generated lines without the markers of the README, for the docs, which have their own
+---@return string[]
+function M.render_for_docs()
+  local out = M.render()
+  table.remove(out, 1)
+  table.remove(out)
+  while out[1] == '' do
+    table.remove(out, 1)
+  end
+  return out
+end
+
 ---Replace the generated part of a file's lines
 ---@param lines string[]
 ---@return string[]|nil new

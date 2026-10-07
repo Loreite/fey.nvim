@@ -1,0 +1,36 @@
+{# table; title: Plugins and tools; category: docs #}
+
+Fey works on its own. These are the tools it uses when they are there.
+
+
+  I. Completion
+
+Inside a tag the completion knows where it is: the name, a value, a key, the value of a key. It is offered through four doors, which all give the same answers:
+
+-  `omnifunc` (`<C-x><C-o>`), set for Fey buffers
+-  {@ link, https://github.com/Saghen/blink.cmp; desc: blink.cmp @}: the source `fey`, `sources.per_filetype = { fey = { 'fey', 'buffer' } }` with the provider `fey.fey.autocompletion.blink`
+-  {@ link, https://github.com/hrsh7th/nvim-cmp; desc: nvim-cmp @}: the source `fey` is registered when nvim-cmp is there: `sources = { { name = 'fey' } }`
+-  `vim.lsp.enable('fey')`: the experimental language server, which also gives symbols, references and links
+
+The trigger characters are `,` `;` `:` space `@` `#` `[` and `/`.
+
+
+  II. The latex parser
+
+The text of a `math` tag, and fenced blocks named `latex`, are highlighted with the `latex` tree-sitter parser when it is installed (nvim-treesitter installs it). Without it they are plain text.
+
+
+  III. Pandoc
+
+`pandoc` writes LaTeX, PDF, Word, OpenDocument and EPUB from the Markdown that Fey writes. Install it from your system's packages. It is the only external program the plugin calls for exports.
+
+
+  IV. Icons
+
+Checkboxes and concealed queries show icons. With a Nerd Font and `nvim-web-devicons` they are Nerd Font glyphs, otherwise plain Unicode symbols; `fey_checkbox_icons`, `fey_checkbox_icon_overrides` and `fey_conceal_icons` change them.
+
+
+  V. Plugins of your own
+
+A plugin can be configured from notes with a `plugin` tag when it is registered (`settings.plugins`, see {@ link, configuration.fey; desc: Configuration @}), and a plugin can add tags with `tag_handlers` and `tag_exports` (see {@ link, tags.fey; desc: Tags @}).
+The Lua API (`require('fey.api')`) is for plugins that read the notes: the vault, the court, headings, links and the agenda; it is in `:help FeyApi`.

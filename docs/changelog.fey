@@ -1,0 +1,73 @@
+{# table; title: Changelog; category: docs #}
+
+The changelog starts at the last release before the rewrite to the native Fey markup; the history before that is the history of the orgmode plugin this one began as. The part
+below is made from the history of the repository (`scripts/gen_docs.lua`).
+
+  I. Unreleased: the rewrite to Fey
+
+#[ comment ] begin generated: changelog (scripts/gen_docs.lua) #
+
+Since the start:
+
+Features:
+
+-  feature: insert (sub)heading respect content (347b9b4)
+
+Changes:
+
+-  III.R task completed (53bff71)
+-  III.Q task completed (6ac7f4e)
+-  III.P task completed (5949206)
+-  task III.N completed (f0c44a9)
+-  task III.M completed (e231500)
+-  III.L task completed (028a122)
+-  link tag concealment and completion done (3c9467b)
+-  completed task III.J (d7fb0ed)
+-  update query/feydb/clocktable tags to accept conceal option (3e98dbc)
+-  Task III.H complete (8312c49)
+-  task III.F complete (1b0a946)
+-  completed TASKS.fey up to III.E. (3b5b5fa)
+-  checkboxes and footnotes (177bbd3)
+-  part 1 of rewrite complete (1b469ae)
+-  fey navigator, agenda, recursive fey hollows (567037b)
+-  Tasks.fey A-H completed (fcb7392)
+-  too many features (7152255)
+-  new list mapping, hl tag handler (b345124)
+-  move list subtree, and auto reindexing fixed (b61ab81)
+-  updated emphasis so that conceal doesn't work in tables (189746b)
+-  added emphasis handling (1f5b1b3)
+-  added fey file navigation in two ways (8c4212b)
+-  updated FeyTag class to contain new references.. (3ac103d)
+-  added support for handling all tag forms separately (e07c058)
+-  rename simple_tag to scope_tag, other fixes (e242185)
+-  updated queries to reflect new tag types (73d0291)
+-  working on neovim buffer options command (3349f0f)
+-  transition nvim_config handler to its own module (71b1ec4)
+-  tags working for arbitrary command execution (512c94e)
+-  committing half complete tag function: (2c7dabb)
+-  added multi-line tags (d0e759d)
+-  update doc/fey.txt description, added Edit Special to readme (d3a2079)
+-  brought back move_cell_up/down (5635494)
+-  various updates to handle Block objects better (20ceaad)
+-  Tables working and other fixes (735473a)
+-  # This is a combination of 4 commits. # This is the 1st commit message: (3ecdcfc)
+-  minor fixes (ba8d17c)
+-  correct github path reference to repo (3cb8684)
+-  update required tree-sitter-fey version logic (044b382)
+-  updated treesitter parser install logic (67d134f)
+-  update config to install loreite/tree-sitter-fey (a813d51)
+-  update README.fey (548cea0)
+-  added ordered list auto reindex (bdd3474)
+-  added new mappings, fixed listitem promote/demote (f433fdc)
+-  many changes (89c9809)
+-  too much to track (2cecf87)
+-  better indent aware promote-demote (8c9dffc)
+-  got reindexing to work on edits (52332a0)
+-  heading features working (777471d)
+-  commit before branch to wip (4e4f90f)
+-  update init.lua to reflect rename of 'prefix' to 'signature' (59a365d)
+-  updated queries to match new tree-sitter-fey parser output (bf003c4)
+-  initial commit (361a2a6)
+
+
+#[ comment ] end generated: changelog #

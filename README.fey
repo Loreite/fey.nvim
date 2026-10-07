@@ -974,6 +974,20 @@ a directive is a **key of the document data**, an agenda file is the **vault**, 
   -  `scripts/terms.lua` lists where the old words are (`nvim --headless --clean -l scripts/terms.lua`); `--check` fails on a new use of one, and runs with the tests
 
 
+  II.M.xiv. The documentation
+
+The documentation is Fey files, in `docs/`: the index, installation, a tutorial that follows the real features, configuration, the reference of the tags, the mappings, plugins and tools, troubleshooting,
+contributing (with the glossary) and the changelog. `:Fey help` opens them in Neovim, as a hollow of their own, so the links between the pages are checked by the index like any other links.
+
+  -  the references cannot drift, they are made from the code: every option with its type, default, description, whether a `plugin` tag may set it and whether the change takes effect at once (the white list
+     `fey.settings.fey_options` decides), the options of the editor a `nvim` tag may not set, every tag with its forms, head, body, what the index keeps and what open at point does
+     (`lua/fey/docs/tags.lua`, which `tests/docs.lua` keeps complete: a `*_tag_name` option with no entry fails), the mappings, and the changelog from the history
+  -  `scripts/gen_docs.lua` writes the generated parts of the pages (between the comment tags `begin generated` and `end generated`), `--check` fails when one is out of date
+  -  `scripts/build_docs.sh` makes the help file `doc/fey.txt` and its tags: the pages are exported to Markdown by the plugin, pandoc reads that and `scripts/panvimdoc.lua` writes the help; the pre-commit hook does it when
+     the pages or what they are made from are staged. `doc/fey_api.txt` is written by hand and `tests/docs.lua` checks that every public function of the API is in it
+  -  `tests/docs.lua` also checks that every page parses, that every link of the pages resolves in a vault of a copy of the docs, and that the help file and its tags have every page
+
+
   II.N. Queries and databases
 
 Notes can hold queries (a Dataview style language, with TABLE, LIST and TASK) and

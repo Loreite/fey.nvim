@@ -13,6 +13,14 @@ if [ -n "$staged" ] && command -v stylua >/dev/null; then
   fi
 fi
 
+# the pages of the docs and what they are made from: rebuild the help files and stage them
+if git diff --cached --name-only | grep -q -e '^docs/' -e '^lua/fey/docs/' -e '^lua/fey/config/' -e '^lua/fey/settings/fey_options.lua'; then
+  if command -v pandoc >/dev/null; then
+    scripts/build_docs.sh >/dev/null && git add docs doc/fey.txt doc/tags || { echo "pre-commit: building the docs failed"; exit 1; }
+  else
+    echo "pre-commit: pandoc is not installed, the help files are not rebuilt (scripts/build_docs.sh)"
+  fi
+fi
 if [ -n "$staged" ] || git diff --cached --name-only | grep -q -e '\.fey$' -e '^queries/'; then
   scripts/test.sh --fast || { echo "pre-commit: the tests fail, the commit is not made (git commit --no-verify skips this)"; exit 1; }
 fi

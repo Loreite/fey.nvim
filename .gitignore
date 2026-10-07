@@ -1,4 +1,5 @@
 **/*.bak
+.fey/
 
 # Compiled Lua sources
 luac.out

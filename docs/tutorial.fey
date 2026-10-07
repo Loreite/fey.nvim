@@ -1,0 +1,154 @@
+{# table; title: Tutorial; category: docs #}
+
+This tutorial builds a small set of notes and uses the features one at a time. It assumes the plugin is installed and that you have made a hollow
+(see {@ link, installation.fey; desc: Installation @}). Create a file `projects.fey` in it.
+
+
+  I. Headings and lists
+
+A Fey file is made of sections. A heading starts with a signature, which says how deep it is, and a title:
+
+###  src fey
+  I. Garden
+
+Notes about the garden.
+
+  I.A. Vegetables
+
+-  tomatoes
+-  [ ] buy seeds
+-  [x] clear the beds
+   -  the east bed first
+
+  I.B. Flowers
+
+  II. House
+###
+
+The signatures `I.`, `I.A.` and `II.` are the plugin's: when you add, move, promote or demote a heading the others are renumbered. `<Leader>;ih`
+inserts a heading after the current one, `<Leader>;*` turns a line or a list item into a heading (with a count, `3`, at that level) and a heading into text, and
+`move subtree up` and `down` swap a heading, with all that is under it, with its neighbour. `<Tab>` folds a section, `<S-Tab>` cycles the whole file.
+
+A list item starts with a bullet and two spaces. A box after the bullet makes it a task of its own: `[ ]` is open, `[x]` done, and many other marks (in progress, important,
+cancelled, a note, ...) are shown as icons. `<C-Space>` cycles a box and a parent follows its children.
+
+
+  II. Tags
+
+A tag is a piece of syntax that says something about the text around it. It is written in brackets with a name, values after commas and keys after a semicolon:
+
+###  src fey
+Water the {# hl; fg: green #} tomatoes
+The review is {@ date, 2026-10-07 Wed 09:30 @}.
+###
+
+The `#` tags are about the text, the `@` tags are things that are in the text. A tag is a scope tag (in the line of the text), a line tag (with the words it is about), a block tag
+(with an indented body) or a pair tag (an opener, a body and a closer). {@ link, tags.fey; desc: The tags page @} lists every tag with its forms.
+
+
+  III. Dates, status and planning
+
+A heading is a task when it has a status. The status, the labels and the planning tags go with the heading:
+
+###  src fey
+  I.A. {# status, TODO, A #} Plant the tomatoes {# labels, garden, spring #}
+{# scheduled, 2026-10-10 Sat #} {# deadline, 2026-10-15 Thu #}
+{# prop; effort: 2h #}
+###
+
+`cit` and `ciT` cycle the state (`TODO`, `DONE`, ...), `ciR` and `cir` the priority, `<Leader>;is` and `<Leader>;id` set the scheduled date and the deadline in a calendar,
+and `<Leader>;sl` changes the labels. With `fey_conceal_task_tags` the keyword and the labels are shown and the tag syntax around them is hidden, back on the line of the cursor. A date is
+changed with `<S-UP>` and `<C-a>`. Marking a task done writes when (`closed`), and a repeating date (`+1w`) moves forward instead.
+
+
+  IV. The agenda
+
+`<Leader>;a` opens the agenda: the week with the scheduled tasks, the deadlines with a warning ahead of them, and what is overdue, from every hollow of the court. Press `g?` in it for its keys.
+Move over the days with `f` and `b`, filter with `/`, change a task in place (state, priority, date, labels, refile, notes) and jump to it with `<Tab>`. Views by label and by status are
+there too, with a small match language, `+garden-spring/TODO`.
+
+
+  V. Capture and refile
+
+`<Leader>;c` opens the capture prompt: pick a template, write the note, and it is filed under the heading the template says (the inbox of the court by default). `<Leader>;r` refiles the
+heading under the cursor under another heading, in this file or another one, in any hollow; `<Leader>;A` archives it. Templates are options (`fey_capture_templates`).
+
+
+  VI. The clock and notes
+
+`<Leader>;xi` clocks in on the heading under the cursor, `<Leader>;xo` clocks out; the clock is written in the logbook of the heading and the time is added up by the clock report of the agenda and
+by the clock table. Notes on a heading, `<Leader>;na`, go into the logbook too when `fey_log_into_logbook` is on.
+
+###  src fey
+{# clocktable; span: thisweek; by: heading #}
+###
+
+`<Leader>;qq` with the cursor on that tag writes the table of the time clocked this week after it.
+
+
+  VII. Links
+
+A link is a tag: `link` to a file, a url or a section, `section` to a heading by its signature, and in the line, block and pair forms what is under it is the link.
+
+###  src fey
+See {@ link, house.fey; desc: the house; section: II.A. @} and #[ link, https://neovim.io ] Neovim #.
+###
+
+`<Leader>;o` follows a link. `<Leader>;ls` stores the heading under the cursor and `<Leader>;li` inserts a link to a stored heading, a file or a heading of a file, picked from the
+index; `<Leader>;lc` lists the links that lead nowhere. With `fey_id_link_to_fey_use_id` a link follows its heading when it moves.
+
+
+  VIII. Queries and databases
+
+A query is a tag too. It asks the index a question and the result is written after it, with links to the notes:
+
+###  src fey
+[ query ]#
+   TABLE file.name AS "Note", length(file.tasks) AS "Tasks"
+   FROM #garden
+   SORT file.mtime DESC
+###
+
+`<Leader>;qq` runs it. A `feydb` tag shows a database view, which is edited with `:FeyDb` (columns, filters, sorts, groups and formulas), as a table without links.
+With `conceal: true` a query shows as an icon and its result alone, and shows everything when the cursor is in it.
+
+
+  IX. Footnotes, comments and math
+
+A footnote is a reference tag and a definition (a pair, block or line tag); `<Leader>;nf` inserts both and jumps between them. A `comment` tag hides what it covers from the index and
+the export, in every form. `math` is LaTeX, highlighted with the latex parser when it is installed.
+
+###  src fey
+A claim {@ fn, 1 @}.
+
+[ fn, 1 #]
+The note.
+[# fn ]
+
+#[ comment ] to do: check this #
+###
+
+
+  X. Settings of a note
+
+A note, a hollow or the court can set options of the editor and of plugins with tags at the top of a file:
+
+###  src fey
+{# nvim; wrap: false; conceallevel: 2 #}
+{# plugin, fey; fey_highlight_overdue: false #}
+###
+
+The options a note may set are a white list, see {@ link, configuration.fey; desc: Configuration @}. `:FeySettings` shows where the settings of the note you are in come from.
+
+
+  XI. Export
+
+`<Leader>;e` exports the note: Markdown and HTML are written by the plugin, LaTeX, PDF, Word, OpenDocument and EPUB by pandoc, and an iCalendar file has the dates. The exports leave out comments and the machinery
+of the notes (properties, planning dates, clocks, the logbook).
+
+
+  XII. Further
+
+-  {@ link, mappings.fey; desc: Every default mapping @}
+-  {@ link, configuration.fey; desc: Every option @}
+-  {@ link, tags.fey; desc: Every tag @}

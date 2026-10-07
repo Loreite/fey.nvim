@@ -1,6 +1,0 @@
-#+OPTIONS: H:9 ^:nil
-* Changelog
-** [[https://github.com/Loreite/fey.nvim/compare/0.7.4...0.7.5][0.7.5]] (2026-06-18)
-*** Features
-- *luarocks*: Fix missing dependencies for luarocks (#1161) ([[https://github.com/Loreite/fey.nvim/commit/f93d9d2][f93d9d2]])
-

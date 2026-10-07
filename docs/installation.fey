@@ -1,0 +1,83 @@
+{# table; title: Installation; category: docs #}
+
+  I. Requirements
+
+-  Neovim 0.11 or later (0.12 recommended)
+-  A C compiler (`cc`, `gcc`, `clang`, `cl` or `zig`) and the `tree-sitter` command, only to build the grammar the first time (the plugin does it, see below)
+-  `libsqlite3`, the library of the index. The plugin uses it through LuaJIT and has no Lua dependency. If it is not found by the system loader,
+   point `vim.g.sqlite_clib_path` at it
+-  Optional: `pandoc` for exporting to LaTeX, PDF, Word, OpenDocument and EPUB; the `latex` tree-sitter parser for highlighting math; a Nerd Font for the icons of
+   checkboxes and concealed queries (without one the icons are plain symbols)
+
+
+  II. Installation methods
+
+Any package manager works. Some examples:
+
+-  {@ link, https://github.com/folke/lazy.nvim; desc: lazy.nvim @} (recommended)
+
+###  src lua
+return {
+  'Loreite/fey.nvim',
+  event = 'VeryLazy',
+  config = function()
+    require('fey').setup({
+      fey_court_dir = '~/feyhollow',
+    })
+    -- Experimental LSP support
+    vim.lsp.enable('fey')
+  end,
+}
+###
+
+-  vim.pack (Neovim 0.12 and later)
+
+###  src lua
+vim.pack.add({
+  { src = 'https://github.com/Loreite/fey.nvim' },
+})
+require('fey').setup({ fey_court_dir = '~/feyhollow' })
+vim.lsp.enable('fey')
+###
+
+-  {@ link, https://github.com/lewis6991/pckr.nvim; desc: pckr.nvim @}
+
+###  src lua
+require('pckr').add({
+  {
+    'Loreite/fey.nvim',
+    config = function() require('fey').setup({ fey_court_dir = '~/feyhollow' }) end,
+  },
+})
+###
+
+-  {@ link, https://github.com/junegunn/vim-plug; desc: vim-plug @}
+
+###  src vim
+Plug 'Loreite/fey.nvim'
+
+lua << EOF
+require('fey').setup({ fey_court_dir = '~/feyhollow' })
+EOF
+###
+
+
+  III. The grammar
+
+The first time a Fey file is opened the plugin builds the tree-sitter grammar of Fey and installs it in its own folder. If that fails (no compiler), or you
+want to build it yourself, run `:Fey install_treesitter_grammar`; `:checkhealth fey` says which grammar is found, where, and whether it is the version the plugin
+needs. See {@ link, troubleshoot.fey; desc: Troubleshooting @} for problems on Windows.
+
+
+  IV. The first hollow
+
+Open Neovim in a folder of notes (or an empty folder) and run `:FeyHollowInit`. The folder becomes a hollow: a `.fey` folder is made with the index and the hollow is
+registered in the court. From then on the agenda, the queries and the links read it. The court folder (`fey_court_dir`) is made the first time it is needed, with the
+agenda inbox in it; `<Leader>;c` captures a note into it.
+
+Every file ending in `.fey` is a note; a file ending in `.fey_archive` is an archive. Folders listed in `vault.ignore` are not indexed.
+
+
+  V. Next
+
+{@ link, tutorial.fey; desc: The tutorial @} walks through the features with a small set of notes, {@ link, configuration.fey; desc: Configuration @} lists every option.

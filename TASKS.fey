@@ -2428,6 +2428,21 @@ Done (2026-10-07): terminology, the code and the options.
    `query` over the config documentation instead of a hand written table.
 -  After:  III.R and everything before it.
 
+Done (2026-10-07): the documentation, the final pass. This is also the work of III.S.i and III.S.ii.
+
+-  Chose:  the org manuals are gone (`docs/*.org`, which described nvim-orgmode) and the pages are Fey files: index, installation, tutorial (the real features in the order of use), configuration,
+   tags, mappings, plugins and tools, troubleshooting, contributing with the glossary, changelog. The pipeline: the plugin's own exporter writes the pages as Markdown (`scripts/export_md.lua`, headings one level
+   down under the title of each page), pandoc reads it and `panvimdoc.lua` writes `doc/fey.txt`, `:helptags` the tags (`scripts/build_docs.sh`; the pre-commit hook runs it when the pages or their sources are staged).
+   The references are generated, in `lua/fey/docs`: `options.lua` (every option of `defaults.lua`, nested ones as `group.key`, with the type and the description of `_meta.lua`, whether a `plugin` tag may set it and
+   when it takes effect: the white list `fey_options.lua` is the answer for both, so the plan of an `@hot` field was not needed, the white list is checked to name real options instead) and the denied options of the `nvim` tag
+   (III.S.i); `tags.lua` (a table of the 28 tags, each with its name and the option that renames it, forms, head, body, where, what the index keeps, open at point, related options and an example; III.S.ii);
+   `mappings.lua`; `changelog.lua` (from the history since the last release before Fey, not part of `--check` because it changes with every commit). `scripts/gen_docs.lua` writes the parts between the comment tags
+   `begin generated` and `end generated` (comment tags, so exports leave them out), `--check` fails on a stale one. The docs are a vault: every link and section tag of the pages is resolved by the index
+   (`tests/docs.lua` checks `broken_links` on a copy). The registration of other plugins and `restore` are explained with an example in the configuration page.
+-  Not done:  see VII.
+-  Tests:  `tests/docs.lua` is at 55 checks: the pages and nothing of org, every page parses, the build knows every page, the generated parts are current, every `*_tag_name` option has an entry and a place on the page,
+   the white list of the `plugin` tag names real options, every option and every denied option is in the reference, every link of the docs resolves, the help file and its tags have the pages.
+
   III.S.i. Reference: which options a `plugin` tag can set
 
 -  Now:  the README says that a `plugin` tag for `fey` can set the options in
@@ -2476,30 +2491,45 @@ Done (2026-10-07): terminology, the code and the options.
 
   IV.A. New tags
 
-| tag                    | format       | head and keys                 | handler                | task   |
-+========================+==============+===============================+========================+========+
-| date                   | scope, line  | date text; active             | calendar               | II.B   |
-| scheduled              | scope        | date text                     | edit                   | II.C   |
-| deadline               | scope        | date text                     | edit                   | II.C   |
-| closed                 | scope        | date text                     | none                   | II.C   |
-| status                 | scope        | keyword, priority; priority   | cycle state, priority  | II.E   |
-| labels (exists)        | scope        | labels                        | none                   | II.G   |
-| prop                   | scope        | key values only               | none                   | II.H   |
-| logbook                | pair, block  | body of clock tags and notes  | fold                   | III.A  |
-| clock                  | scope        | start; end; dur               | none                   | III.A  |
-| fn                     | scope, pair  | label                         | jump                   | III.C  |
-| comment                | all four     | body, see III.F               | none, dims the body    | III.F  |
-| clocktable, clocktable_result | scope, line, block, pair | span; by; scope  | run, writes result     | III.G  |
-| math                   | line         | latex text                    | none, injection        | III.H  |
-| nvim                   | scope, line, block, pair | keys: options of the editor; body: a table | apply (hot loaded) | III.D (settings) |
-| plugin                 | scope, line, block, pair | plugin name; keys: options; body: a table | apply (hot loaded) | III.D (settings) |
-| fn (reference)         | scope        | label                         | jump to the definition | III.C  |
-| fn (definition)        | pair, line, block | label; the text is the body | jump to the reference | III.C  |
-| link, section          | scope, line  | target; desc, section, n      | open                   | earlier |
-| query, query_result    | scope, line, block, pair | the query text    | run, writes the result | earlier |
-| feydb, feydb_result    | scope, pair  | rows; db, view                | run, writes the result | earlier |
-| hl                     | scope        | highlight group; values       | apply                  | earlier |
-| table, array, value    | scope, block, pair | keys, values; body      | none (document data)   | earlier |
+| tag                 | format              | head and keys            | handler                | task             |
++=====================+=====================+==========================+========================+==================+
+| date                | scope, line         | date text; active        | calendar               | II.B             |
+| scheduled           | scope               | date text                | edit                   | II.C             |
+| deadline            | scope               | date text                | edit                   | II.C             |
+| closed              | scope               | date text                | none                   | II.C             |
+| labels (exists)     | scope               | labels                   | none                   | II.G             |
+| prop                | scope               | key values only          | none                   | II.H             |
+| clock               | scope               | start; end; dur          | none                   | III.A            |
+| fn                  | scope, pair         | label                    | jump                   | III.C            |
+| comment             | all four            | body, see III.F          | none, dims the body    | III.F            |
+| math                | line                | latex text               | none, injection        | III.H            |
+| fn (reference)      | scope               | label                    | jump to the definition | III.C            |
+| link, section       | scope, line         | target; desc, section, n | open                   | earlier          |
+| hl                  | scope               | highlight group; values  | apply                  | earlier          |
+| table, array, value | scope, block, pair  | keys, values; body       | none (document data)   | earlier          |
+| feydb, feydb_result | scope, pair         | rows; db, view           | run, writes the result | earlier          |
+v---------------------v---------------------v--------------------------v------------------------v------------------v
+| status              | scope               | keyword, priority;       | cycle state, priority  | II.E             |
+|                     |                     | priority                 |                        |                  |
++~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~+
+| logbook             | pair, block         | body of clock tags and   | fold                   | III.A            |
+|                     |                     | notes                    |                        |                  |
++~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~+
+| clocktable,         | scope, line, block, | span; by; scope          | run, writes result     | III.G            |
+| clocktable_result   | pair                |                          |                        |                  |
++~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~+
+| nvim                | scope, line, block, | keys: options of the     | apply (hot loaded)     | III.D (settings) |
+|                     | pair                | editor; body: a table    |                        |                  |
++~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~+
+| plugin              | scope, line, block, | plugin name; keys:       | apply (hot loaded)     | III.D (settings) |
+|                     | pair                | options; body: a table   |                        |                  |
++~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~+
+| fn (definition)     | pair, line, block   | label; the text is the   | jump to the reference  | III.C            |
+|                     |                     | body                     |                        |                  |
++~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~+
+| query, query_result | scope, line, block, | the query text           | run, writes the result | earlier          |
+|                     | pair                |                          |                        |                  |
+^---------------------^---------------------^--------------------------^------------------------^------------------^
 
   IV.B. Grammar and scanner changes
 
@@ -2652,3 +2682,8 @@ done. Add to it when a task leaves something out.
 -  The words of the agenda views: the view types `tags` and `tags_todo` (and the match language they use) say tags for labels, the agenda filter and the sorting say `tag` for a label, and about
    sixty variables in the agenda, the notifications, refile and capture do the same; rename them with the view types as aliases. The old names of the options and the Lua API are removed
    after a release (`fey.config.migrate`, `fey.utils.deprecate`), and the docs (`docs/*.org`, `doc/*.txt`) still speak org until III.S.
+
+
+  VII.N. Documentation (from III.S)
+-  The descriptions of 37 options are missing and many of the others are the wording of the org manual (a "tags" that means labels, "Fey files", agenda files): read `config/_meta.lua` option by option. A web version of the docs
+   (the old pages were published at fey.github.io), the screenshots of the tutorial, the page of the Lua API as a generated reference instead of the hand written `fey_api.txt`, and a `query` in the configuration page in place of the generated list.

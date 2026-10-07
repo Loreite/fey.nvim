@@ -1,0 +1,81 @@
+{# table; title: Contributing; category: docs #}
+
+Thanks for wanting to help out with fey.nvim, we appreciate the effort!
+
+
+  I. Reporting bugs and features
+
+Please always search the {@ link, https://github.com/Loreite/fey.nvim/issues; desc: issue tracker @} before reporting anything. If the bug or the feature has been reported, continue the conversation on
+that issue. Bugs get the highest priority. `:checkhealth fey` is the first thing to put in a bug report, with a minimal note that shows the problem.
+
+
+  II. Documentation
+
+If you spot something missing in these docs, a pull request is welcome. The docs are Fey files (`docs/*.fey`): the reference of the options, the tags and the mappings is generated from the code, so a change to
+one of those is made in the code (the options in `lua/fey/config`, the tags in `lua/fey/docs/tags.lua`) and the page is rebuilt with `scripts/gen_docs.lua`. `scripts/build_docs.sh` makes the help files (`doc/fey.txt`) from
+the pages.
+
+
+  III. Development
+
+  III.A. Philosophy
+
+The plugin works on the index of the notes (the vault) and on the tree of the buffer, not on text: a feature that spans files reads the vault, a feature on the text under the cursor reads the tree. The
+words are the words of Fey, see the glossary below. Options are `fey_snake_case`.
+
+  III.B. Local development
+
+Install {@ link, https://github.com/JohnnyMorganz/StyLua; desc: StyLua @} for formatting. `scripts/install_hooks.sh` installs a pre-commit hook: the staged Lua files have to be formatted (it tells you which to
+format, it does not touch your files) and the fast tests have to pass.
+
+  III.C. Tests
+
+`scripts/test.sh` runs everything: every suite in `tests/` (one Neovim each, in a temporary court and hollow), the parse of the README and the roadmap, the screen checks (a real Neovim in tmux) and the corpus
+of the grammar. `scripts/test.sh --fast` skips the screen checks and the corpus; `scripts/test.sh agenda export` runs only those suites. Set `FEY_PARSER` to the built `fey.so`; the corpus needs `tree-sitter` and
+`FEY_GRAMMAR`, the folder of tree-sitter-fey.
+
+-  A suite is a Lua file in `tests/` that prints `name: N checks, M failures` and quits with a failure when M is not 0
+-  `tests/modules.lua` loads every module; `tests/tags_matrix.lua` takes every tag in every form through parse, index, handler, export and completion, and fails when a tag of the table of tags has no sample
+-  A change to the grammar needs a case in `test/corpus` of tree-sitter-fey (`tree-sitter test -u` writes the expected tree; read it)
+-  `tests/docs.lua` fails when the generated parts of the docs are out of date or a tag or an option is missing from them
+
+  III.D. Code
+
+If you prefer working on an issue that has been reported, please leave a comment voicing your interest. Document new code with {@ link, https://emmylua.github.io/annotation.html; desc: EmmyLua annotations @}.
+
+  III.E. Parser
+
+Parsing is done with the builtin tree-sitter and the {@ link, https://github.com/Loreite/tree-sitter-fey; desc: tree-sitter-fey @} grammar.
+
+  III.F. Commits
+
+Follow the {@ link, https://www.conventionalcommits.org/; desc: Conventional Commits @} specification: `feat: add new feature`, `fix: correct bug`, `docs: update documentation`.
+
+
+  IV. Glossary: say Fey, not org
+
+The code, the options and the docs were written for orgmode and some words mean something else in Fey. The worst is "tag": in org it is a word of a headline, in Fey it is a piece of syntax, and the words of a heading
+are labels. `scripts/terms.lua --check` fails when a file uses an old word more often than it did; `scripts/test.sh` runs it.
+
+| org word                          | Fey word                      | where it shows                                           |
++===================================+===============================+==========================================================+
+| headline                          | heading                       | comments, docs, config text                              |
+| tags of a headline, `:a:b:`       | labels                        | get_labels, set_labels, add_label, labels_to_string      |
+| (the same, in options)            | labels                        | fey_use_label_inheritance, fey_agenda_remove_labels      |
+| tag (the word, syntax)            | tag                           | stays, and only means the syntax                         |
+| stars                             | signature                     | fey_hide_leading_signature                               |
+| headline text, item               | title                         | FeyFile:get_title                                        |
+| TODO keyword                      | status (keyword and priority) | fey_todo_keywords stays, the text says status            |
+| plan, planning line               | planning tags                 | get_planning_dates, FeyPlanningDateTypes                 |
+| timestamp                         | date                          | fey_date_insert, fey_date_up, fey_date_rounding_minutes  |
+| property drawer, drawer           | prop tag, pair or block tag   | get_drawer, add_to_drawer, fey_log_into_logbook          |
+| directive, `#+name:`              | key of the document data      | get_data_key, get_data_properties                        |
+| agenda files                      | the vault                     | `paths` of an agenda, the deprecated fey_agenda_files    |
+| src block, babel                  | fenced block named src        | is_src                                                   |
+| dynamic block                     | result tag                    | `*_result` tags                                          |
+| org file, `.org`                  | Fey file, `.fey`              | docs, helpers                                            |
+| outline path                      | path of a heading             | get_heading_path (the index calls it `path`)             |
+| directory with a `.fey` folder    | hollow                        | fey.hollow.*                                             |
+| the database in `.fey` (the index)| vault                         | fey.vault.*; a vault belongs to one hollow               |
+| the master vault, the top         | court                         | fey_court_dir                                            |
+| org, orgmode, nvim-orgmode        | fey                           | only in the credits and the history                      |

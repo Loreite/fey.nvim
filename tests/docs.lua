@@ -118,6 +118,88 @@ if tutorial and vim.fn.isdirectory(tutorial) == 1 then
   check('and none of them is an error', errors, {})
 end
 
+-- the docs (docs/*.fey): the pages, the generated parts, the references ---------------------------------------------------------------
+local PAGES = { 'index', 'installation', 'tutorial', 'configuration', 'tags', 'mappings', 'plugins', 'troubleshoot', 'contributing', 'changelog' }
+local listed = vim.fn.glob(root .. '/docs/*', false, true)
+check('the docs are the pages and nothing of org', vim.tbl_map(function(f) return vim.fn.fnamemodify(f, ':t:r') end, listed), vim.fn.sort(vim.deepcopy(PAGES)))
+check('the pages are Fey files', vim.tbl_map(function(f) return vim.fn.fnamemodify(f, ':e') end, listed)[1], 'fey')
+for _, page in ipairs(PAGES) do
+  check('docs/' .. page .. '.fey parses', has_error(root .. '/docs/' .. page .. '.fey'), false)
+end
+local build = table.concat(vim.fn.readfile(root .. '/scripts/build_docs.sh'), '\n')
+check('the build knows every page', vim.tbl_filter(function(p) return not build:find(p, 1, true) end, PAGES), {})
+
+local gen = vim.system({ 'nvim', '--headless', '--clean', '-l', 'scripts/gen_docs.lua', '--check' }, { text = true, env = { FEY_PARSER = vim.env.FEY_PARSER } }):wait()
+check('the generated parts of the docs are current (run scripts/gen_docs.lua) ' .. (gen.stderr or ''), gen.code, 0)
+
+-- every tag option has its entry in the reference, and the groups hold every entry
+local defaults = require('fey.config.defaults')
+local DocTags = require('fey.docs.tags')
+local documented = {}
+for _, tag in ipairs(DocTags.TAGS) do
+  if tag.option then documented[tag.option] = true end
+end
+local missing = {}
+for key in pairs(defaults) do
+  if type(key) == 'string' and key:match('^fey_.*_tag_name$') and not documented[key] then missing[#missing + 1] = key end
+end
+table.sort(missing)
+check('every `*_tag_name` option is in the reference of tags', missing, {})
+check('every entry of the reference is in a group', DocTags.ungrouped(), {})
+local unknown_options = {}
+for _, tag in ipairs(DocTags.TAGS) do
+  if tag.option and defaults[tag.option] == nil then unknown_options[#unknown_options + 1] = tag.option end
+end
+check('every option the reference names is an option', unknown_options, {})
+local reference = table.concat(vim.fn.readfile(root .. '/docs/tags.fey'), '\n')
+local absent = {}
+for _, tag in ipairs(DocTags.TAGS) do
+  if not reference:find(('The name is `%s`'):format(DocTags.name_of(tag)), 1, true) then absent[#absent + 1] = DocTags.name_of(tag) end
+end
+check('every tag is on the page', absent, {})
+
+-- the white list of the `plugin` tag names real options, and every option is in the reference of options
+local FeyOptions = require('fey.settings.fey_options')
+local meta_text = table.concat(vim.fn.readfile(root .. '/lua/fey/config/_meta.lua'), '\n')
+local bad_names = vim.tbl_filter(function(name) return defaults[name] == nil and not meta_text:find('---@field ' .. name .. '?', 1, true) end, FeyOptions.LIST)
+check('every option of the white list of the plugin tag is an option', bad_names, {})
+local options_page = table.concat(vim.fn.readfile(root .. '/docs/configuration.fey'), '\n')
+local not_listed = {}
+for _, option in ipairs(require('fey.docs.options').options()) do
+  if not options_page:find('`' .. option.name .. '`', 1, true) then not_listed[#not_listed + 1] = option.name end
+end
+check('every option is in the reference of options', not_listed, {})
+check('the options a note may set are marked', options_page:find('a note may set it: yes, at once', 1, true) ~= nil, true)
+local unsafe_missing = vim.tbl_filter(function(name) return not options_page:find('`' .. name .. '`', 1, true) end, vim.tbl_keys(require('fey.settings.options').UNSAFE))
+check('every denied option of the nvim tag is listed', unsafe_missing, {})
+
+-- the docs are a vault: every link and every section tag resolves
+do
+  local copy = vim.fn.tempname()
+  vim.fn.mkdir(copy .. '/.fey', 'p')
+  vim.fn.system({ 'cp', '-r', root .. '/docs/.', copy })
+  require('fey.config'):extend({ fey_court_dir = vim.fn.tempname() .. '/court' })
+  local vault = require('fey.vault').open(copy)
+  local done = false
+  vault:scan({}, function() done = true end)
+  vim.wait(30000, function() return done end, 20)
+  local broken = vim.tbl_map(function(b) return ('%s:%d %s'):format(b.path, b.line, b.target) end, vault:broken_links())
+  check('every link of the docs resolves (the external ones are left alone)', broken, {})
+  check('the docs are indexed', #vault:files(), #PAGES)
+  check('the links between the pages are links', #vault:query("SELECT 1 FROM links WHERE target_file IS NOT NULL"), #vault:query("SELECT 1 FROM links WHERE target_file IS NOT NULL"))
+  check('there are links between the pages', #vault:query("SELECT 1 FROM links WHERE target_file IS NOT NULL") > 20, true)
+  vault:close()
+end
+
+-- the help files: the pages are in doc/fey.txt and in its tags
+local help = vim.fn.readfile(root .. '/doc/fey.txt')
+local tags_file = table.concat(vim.fn.readfile(root .. '/doc/tags'), '\n')
+check('the help file is made from the new pages', help[1]:find('*fey.txt*', 1, true) ~= nil and not table.concat(help, '\n'):find('clone of Emacs', 1, true), true)
+for _, anchor in ipairs({ 'fey-installation', 'fey-tutorial', 'fey-configuration', 'fey-tags', 'fey-mappings', 'fey-troubleshooting' }) do
+  check('doc/tags has ' .. anchor, tags_file:find(anchor .. '\tfey.txt', 1, true) ~= nil, true)
+end
+check('doc/tags has the API too', tags_file:find('FeyApi', 1, true) ~= nil, true)
+
 if failures > 0 then
   print(('%d of %d checks failed'):format(failures, total))
   vim.cmd('cquit 1')

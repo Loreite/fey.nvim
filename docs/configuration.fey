@@ -1,0 +1,312 @@
+{# table; title: Configuration; category: docs #}
+
+  I. The setup
+
+Options are given to `setup`. Anything you leave out has its default; the options are listed below with their type, their default and what they do.
+
+###  src lua
+require('fey').setup({
+  fey_court_dir = '~/feyhollow',
+  fey_todo_keywords = { 'TODO', 'WAITING', '|', 'DONE', 'CANCELLED' },
+  fey_agenda_span = 'week',
+  fey_capture_templates = {
+    t = { description = 'Task', template = '  I. {# status, TODO #} %?', target = '~/feyhollow/agenda/inbox.fey' },
+  },
+  mappings = {
+    prefix = '<Leader>;',
+    fey = { fey_refile = '<prefix>R' }, -- a mapping is changed here, or `false` to turn it off
+  },
+})
+###
+
+`setup` checks what it is given and says what is wrong (an option that does not exist, one that is gone and what replaces it, a value of the wrong type), and goes on. The old names
+of options and mappings that were renamed are moved to the new ones and warned about once. `:checkhealth fey` reports the same.
+
+
+  II. Where settings come from
+
+The options of the setup are the base. A note can change some of them, and options of the editor, with tags; so can a hollow and the court, in their file `config.fey` (in the `.fey` folder), the
+way a modeline does but with more control. The layers, later wins, key by key:
+
+-  the setup
+-  the court, `<court>/.fey/config.fey`
+-  the hollows from the court down to the one of the note, each `.fey/config.fey`
+-  the tags of the note itself
+
+They are merged into one table before anything is applied; only what differs from what is applied is changed, and what a note changed is put back when you leave it. When to apply is
+`settings.apply_on`: `load`, `enter` (the note becomes current), `change` (typing, after `settings.debounce_ms`) and `save`; `<Leader>;?a` applies now and `<Leader>;?t` applies the tag under the cursor.
+`settings.cascade = false` makes only the court and the note count.
+
+A note can come from anywhere, so what it may do is a white list:
+
+-  the `nvim` tag sets options of the editor that are local to the buffer or the window, and `colorscheme` and `background`; the options that run code are denied (below)
+-  the `plugin` tag sets the options of this plugin that are on the white list in the table below, and the options of the plugins you registered
+-  the commands of `buf_enter` and `buf_leave` run commands from the note and so exist only when `settings.hooks` names their keys; leave it unset unless you read every note you open
+
+###  src fey
+{# nvim; wrap: false; conceallevel: 2 #}
+{# plugin, fey; fey_highlight_overdue: false #}
+###
+
+The note should not be opened from a source you do not trust with `settings.allow` or `settings.hooks` set: a denied option is what makes a note unable to run code.
+
+
+  III. The options a note may set
+
+The column "a note may set it" in the table of options is this list. "Takes effect at once" means the option is read where it is used, so the change is there as soon as it is applied (and goes
+back when the note is left); an option that is not on the list is read when the plugin is set up and cannot be changed from a note, because it says where things live (the court, the
+vault), what the keys are, or runs code. `settings.hot_options` adds names to the list.
+
+Another plugin is configured from notes by registering it:
+
+###  src lua
+require('fey').setup({
+  settings = {
+    plugins = {
+      -- called with the merged options of every `plugin, mything` tag, when they change
+      mything = {
+        apply = function(opts) require('mything').setup(opts) end,
+        restore = function() require('mything').setup({}) end, -- when no note asks for options any more
+      },
+    },
+  },
+})
+###
+
+`apply` gets the options as data (a table), never code from the note; `restore` puts the plugin back to its own settings when the note that asked is left, and is optional. A function instead of the
+table is the same as `apply` alone.
+
+
+  IV. Every option
+
+#[ comment ] begin generated: options (scripts/gen_docs.lua) #
+
+155 options. "A note may set it" is the white list of the `plugin` tag (`fey.settings.fey_options`): a `plugin` tag, in the court, a hollow or a note, can set
+those, and the change takes effect as soon as it is applied; the others are read when the plugin is set up, so they are written in the setup.
+
+-  `calendar.min_big_step`  (number, default `15`; a note may set it: no, read when the plugin is set up)  Step size for changing the minutes while cursor is on the first digit.
+-  `calendar.round_min_with_hours`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  Should minutes be rounded to hour when changing hour.
+-  `calendar_week_start_day`  (0 | 1, default `1`; a note may set it: no, read when the plugin is set up)  From which day to start the week in the Calendar. 0 is Sunday, 1 is Monday.
+-  `court.agenda_dirname`  (string, default `"agenda"`; a note may set it: no, read when the plugin is set up)  Name of the agenda directory inside the court directory.
+-  `court.enabled`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)
+-  `court.jump_cwd`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  Jumping to a hollow changes the working directory.
+-  `court.jump_tab`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)  Jumping to a hollow opens it in a new tab.
+-  `court.refresh_on_start`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  Update the vault of every registered hollow in the background at startup.
+-  `fey_adapt_indentation`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)  Add spaces as indents to the content.
+-  `fey_agenda_block_separator`  (string, default `"-"`; a note may set it: yes, at once)  Separator for blocks in the agenda view.
+-  `fey_agenda_current_time_string`  (string, default `"<- now -------------------------------------...`; a note may set it: no, read when the plugin is set up)  String to indicate current time on the time grid.
+-  `fey_agenda_custom_commands`  (table<string, FeyAgendaCustomCommand>, default `{}`; a note may set it: no, read when the plugin is set up)  Custom commands for the agenda view.
+-  `fey_agenda_files`  (string | string[], default `""`; a note may set it: no, read when the plugin is set up)  Path(s) to fey files. Can be a glob pattern (example: `~/fey/**/*`).
+-  `fey_agenda_hide_empty_blocks`  (boolean, default `false`; a note may set it: yes, at once)  Hide empty custom agenda commands in agenda view.
+-  `fey_agenda_min_height`  (number, default `16`; a note may set it: no, read when the plugin is set up)  Minimum height of the agenda window.
+-  `fey_agenda_remove_labels`  (boolean, default `false`; a note may set it: yes, at once)  If true, tags will be removed from the all agenda views.
+-  `fey_agenda_scope`  (FeyScopeSpec, default `"court"`; a note may set it: yes, at once)
+-  `fey_agenda_show_future_repeats`  (boolean | 'next', default `true`; a note may set it: yes, at once)  If true, show all future repeats. If `next`, show only next repeat. If false, do hnot show any repeats.
+-  `fey_agenda_show_hollow`  ('auto'|'always'|'never'|boolean, default `"auto"`; a note may set it: yes, at once)
+-  `fey_agenda_show_scope`  (boolean, default `true`; a note may set it: yes, at once)
+-  `fey_agenda_skip_archived`  (boolean, default `true`; a note may set it: yes, at once)
+-  `fey_agenda_skip_deadline_if_done`  (boolean, default `false`; a note may set it: yes, at once)  If true, deadline entries marked as done will not be shown in the agenda.
+-  `fey_agenda_skip_scheduled_if_done`  (boolean, default `false`; a note may set it: yes, at once)  If true, scheduled entries marked as done will not be shown in the agenda.
+-  `fey_agenda_sorting_strategy.agenda`  (table, default `{ "time-up", "priority-down", "category-keep" }`; a note may set it: yes, at once)
+-  `fey_agenda_sorting_strategy.tags`  (table, default `{ "priority-down", "category-keep" }`; a note may set it: yes, at once)
+-  `fey_agenda_sorting_strategy.todo`  (table, default `{ "priority-down", "category-keep" }`; a note may set it: yes, at once)
+-  `fey_agenda_span`  (FeyAgendaSpan, default `"week"`; a note may set it: yes, at once)  Default time span for the agenda view.
+-  `fey_agenda_start_on_weekday`  (number | false, default `1`; a note may set it: yes, at once)  From which day in week (ISO weekday, 1 is Monday) to show the agenda. Applies only to `week` span.
+-  `fey_agenda_time_grid.time_label`  (string, default `"┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"`; a note may set it: yes, at once)
+-  `fey_agenda_time_grid.time_separator`  (string, default `"┄┄┄┄┄"`; a note may set it: yes, at once)
+-  `fey_agenda_time_grid.times`  (number[], default `{ 800, 1000, 1200, 1400, 1600, 1800, 2000 }`; a note may set it: yes, at once)
+-  `fey_agenda_time_grid.type`  (table, default `{ "daily", "today", "require-timed" }`; a note may set it: yes, at once)
+-  `fey_agenda_use_time_grid`  (boolean, default `true`; a note may set it: yes, at once)  If true, Render time grid in agenda as set by fey_agenda_time_grid.
+-  `fey_allow_modeline`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)
+-  `fey_archive_location`  (string, default `"%s_archive"`; a note may set it: yes, at once)  Location where to archive subtrees. `%s` indicates the file name from where archiving is done.
+-  `fey_babel_default_header_args.:noweb`  (string, default `"no"`; a note may set it: no, read when the plugin is set up)
+-  `fey_babel_default_header_args.:tangle`  (string, default `"no"`; a note may set it: no, read when the plugin is set up)
+-  `fey_babel_extensions`  (table<string, string>, default `{}`; a note may set it: no, read when the plugin is set up)  The file extension of a language for `:tangle yes`, over the built in ones.
+-  `fey_blank_before_new_entry.heading`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)
+-  `fey_blank_before_new_entry.list_item`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+-  `fey_capture_templates`  (table<string, FeyCaptureTemplateOpts>, default `{ t = { description = "Task", template = " I....`; a note may set it: no, read when the plugin is set up)  Templates for capture.
+-  `fey_checkbox_icon_overrides`  (table<string, string>, default `{}`; a note may set it: yes, at once)  Icon of single marks.
+-  `fey_checkbox_icons`  ('auto'|'nerd'|'unicode', default `"auto"`; a note may set it: yes, at once)  Which icons: Nerd Font glyphs, plain Unicode symbols, or by nvim-web-devicons.
+-  `fey_clock_tag_name`  (string, default `"clock"`; a note may set it: no, read when the plugin is set up)  Tag name of one clock.
+-  `fey_clocktable_result_tag_name`  (string, default `"clocktable_result"`; a note may set it: no, read when the plugin is set up)  Tag name of the pair tag that holds the clock table.
+-  `fey_clocktable_tag_name`  (string, default `"clocktable"`; a note may set it: no, read when the plugin is set up)  Tag name of a clock table.
+-  `fey_closed_tag_name`  (string, default `"closed"`; a note may set it: no, read when the plugin is set up)  Tag name of the date a heading was closed.
+-  `fey_comment_index_default`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)  Is what a comment tag comments indexed when the tag has no boolean (`a tag` or `index: true`)?
+-  `fey_comment_tag_name`  (string, default `"comment"`; a note may set it: no, read when the plugin is set up)
+-  `fey_conceal_icons`  (table<string, string>, default `{}`; a note may set it: yes, at once)  The icon shown for a concealed query, feydb or clocktable tag, by the name of the tag, over the defaults (a Nerd Font glyph, or a one cell Unicode symbol without a Nerd Font, see `fey_checkbox_icons`).
+-  `fey_conceal_task_tags`  (boolean, default `true`; a note may set it: yes, at once)  Hide everything of the todo, priority and labels tags in a heading title except their values.
+-  `fey_court_dir`  (string, default `"~/feyhollow"`; a note may set it: no, read when the plugin is set up)  The court directory, the top of the tree of hollows: its vault, its agenda files (in `agenda/`) and the registrations of every hollow below it (in `.fey/hollows/`). Created when missing.
+-  `fey_custom_exports`  (table<string, FeyCustomExport>, default `{}`; a note may set it: no, read when the plugin is set up)  List of custom exports.
+-  `fey_cycle_separator_lines`  (number, default `2`; a note may set it: yes, at once)  Min number of spaces are needed at the end of heading to show empty line between folds.
+-  `fey_date_rounding_minutes`  (number, default `5`; a note may set it: yes, at once)  Rounding minutes for dates.
+-  `fey_date_tag_name`  (string, default `"date"`; a note may set it: no, read when the plugin is set up)  Tag name of a date.
+-  `fey_db_result_tag_name`  (string, default `"feydb_result"`; a note may set it: no, read when the plugin is set up)  Tag name of the pair tag that holds an imported view.
+-  `fey_db_tag_name`  (string, default `"feydb"`; a note may set it: no, read when the plugin is set up)  Tag name of tags that import a database view.
+-  `fey_deadline_tag_name`  (string, default `"deadline"`; a note may set it: no, read when the plugin is set up)  Tag name of the deadline of a heading.
+-  `fey_deadline_warning_days`  (number, default `14`; a note may set it: yes, at once)  Number of days during which deadline becomes visible in today's agenda.
+-  `fey_default_notes_file`  (string, default `""`; a note may set it: no, read when the plugin is set up)  Path to default file for captures.
+-  `fey_default_subheading_delimiter`  (string, default `"."`; a note may set it: no, read when the plugin is set up)
+-  `fey_default_subheading_delimiter_order`  (string, default `""`; a note may set it: no, read when the plugin is set up)
+-  `fey_default_subheading_index_order`  (table, default `{ "roman_upper", "alpha_upper", "roman_lower"...`; a note may set it: no, read when the plugin is set up)
+-  `fey_default_sublist_index_order`  (table, default `{ "roman_upper", "alpha_upper", "roman_lower"...`; a note may set it: no, read when the plugin is set up)
+-  `fey_drawer_form`  ('pair'|'block', default `"pair"`; a note may set it: no, read when the plugin is set up)  The form of a drawer the plugin makes (the logbook): a pair tag or a block tag. Drawers found in either form are used.
+-  `fey_edit_src_content_indentation`  (number, default `0`; a note may set it: no, read when the plugin is set up)  Addditional ndentation number applied when editing a SRC block through special edit.
+-  `fey_edit_src_filetype_map`  (table, default `{}`; a note may set it: no, read when the plugin is set up)
+-  `fey_ellipsis`  (string, default `"..."`; a note may set it: no, read when the plugin is set up)  Ellipsis character to use when folding text.
+-  `fey_footnote_definition_form`  ('pair'|'line'|'block', default `"pair"`; a note may set it: yes, at once)  Tag form of a new footnote definition.
+-  `fey_footnote_superscript`  ('auto'|boolean, default `"auto"`; a note may set it: yes, at once)  Show footnote labels as superscript: `auto` converts digits and signs, `true` letters as well, `false` never.
+-  `fey_footnote_tag_name`  (string, default `"fn"`; a note may set it: no, read when the plugin is set up)  Tag name of footnote references and definitions.
+-  `fey_hide_emphasis_markers`  (boolean, default `false`; a note may set it: yes, at once)  If true, emphasis markers will be hidden with conceal feature.
+-  `fey_hide_leading_signature`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)  If true, leading signature on the headings with level > 1 will be hidden.
+-  `fey_highlight_overdue`  (boolean, default `true`; a note may set it: yes, at once)  Paint the deadline dates and the scheduled dates of open tasks that are past, from the index (`@fey.date.overdue`, `@fey.date.scheduled_past`).
+-  `fey_hl_tag_name`  (string, default `"hl"`; a note may set it: no, read when the plugin is set up)
+-  `fey_id_link_to_fey_use_id`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)  If true, Storing a link to the heading will automatically generate ID for that heading.
+-  `fey_id_method`  ('uuid' | 'ts' | 'fey', default `"uuid"`; a note may set it: no, read when the plugin is set up)  What method to use to generate ids via fey.id module.
+-  `fey_id_ts_format`  (string, default `"%Y%m%d%H%M%S"`; a note may set it: no, read when the plugin is set up)  Format of the id generated when `fey_id_method = 'ts'`.
+-  `fey_id_uuid_program`  (string, default `"uuidgen"`; a note may set it: no, read when the plugin is set up)  External proram to generate UUIDs.
+-  `fey_indent_mode_turns_off_fey_adapt_indentation`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  If true, turning on indent mode will turn off `fey_adapt_indentation`.
+-  `fey_indent_mode_turns_on_hiding_signature`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  If true, turning on indent mode will hide leading signature.
+-  `fey_labels_exclude_from_inheritance`  (string[], default `{}`; a note may set it: no, read when the plugin is set up)  List of tags that should be excluded from tag inheritance.
+-  `fey_labels_tag_name`  (string, default `"labels"`; a note may set it: no, read when the plugin is set up)  Tag name that heading labels are written with.
+-  `fey_link_conceal_default`  (boolean, default `false`; a note may set it: yes, at once)  Conceal the head of every link and section tag (a scope tag shows its description), back on the cursor line, unless the tag has `conceal: false`. Can be set from a note with the plugin tag.
+-  `fey_link_schemes`  (table<string, fun(target: string, tag: FeyTag|nil): boolean|nil>, default `{}`; a note may set it: no, read when the plugin is set up)  What following a link does for a scheme of its own: `a tag` calls `fey_link_schemes.jira('ABC-1', tag)`.
+-  `fey_link_tag_name`  (string, default `"link"`; a note may set it: no, read when the plugin is set up)  Tag name of file/URL links.
+-  `fey_log_done`  ('time' | 'note', default `"time"`; a note may set it: yes, at once)  How to log done tasks. `time` indicates adding CLOSED date. `note` prompts for closing note.
+-  `fey_log_into_logbook`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)  Write notes into the logbook of the heading as well.
+-  `fey_log_repeat`  ('time' | 'note' | false, default `"time"`; a note may set it: no, read when the plugin is set up)  How to log repeated tasks. `time` just logs the time of repeat. `note` prompts for closing note alongside the time. `false` disables.
+-  `fey_logbook_tag_name`  (string, default `"logbook"`; a note may set it: no, read when the plugin is set up)  Tag name of the pair tag or block tag that holds the clocks of a heading.
+-  `fey_math_tag_name`  (string, default `"math"`; a note may set it: no, read when the plugin is set up)  Tag name of math: a line, block or pair tag whose text is LaTeX, highlighted with the `latex` tree-sitter parser when it is installed.
+-  `fey_nvim_config_tag_name`  (string, default `"nvim"`; a note may set it: no, read when the plugin is set up)
+-  `fey_plugin_tag_name`  (string, default `"plugin"`; a note may set it: no, read when the plugin is set up)  Tag name of the options of a plugin.
+-  `fey_priority_default`  (string | number, default `"B"`; a note may set it: no, read when the plugin is set up)  Default priority level.
+-  `fey_priority_highest`  (string | number, default `"A"`; a note may set it: no, read when the plugin is set up)  Highest priority level.
+-  `fey_priority_lowest`  (string | number, default `"C"`; a note may set it: no, read when the plugin is set up)  Lowest priority level.
+-  `fey_priority_start_cycle_with_default`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  If true, cycling priorities will start with the default priority.
+-  `fey_property_tag_name`  (string, default `"prop"`; a note may set it: no, read when the plugin is set up)  Tag name of the properties of a heading.
+-  `fey_query_conceal_default`  (boolean, default `false`; a note may set it: yes, at once)  Conceal every query, feydb and clocktable tag and its result, unless the tag has `conceal: false`. Can be set from a note with the plugin tag.
+-  `fey_query_result_tag_name`  (string, default `"query_result"`; a note may set it: no, read when the plugin is set up)  Tag name of the pair tag that holds a query's result.
+-  `fey_query_tag_name`  (string, default `"query"`; a note may set it: no, read when the plugin is set up)  Tag name of query tags.
+-  `fey_refile_leave_link`  (boolean, default `false`; a note may set it: yes, at once)  Leave a link where a refiled heading was.
+-  `fey_refile_scope`  (FeyScopeSpec, default `"court"`; a note may set it: yes, at once)  Hollows refile offers as destinations.
+-  `fey_scheduled_tag_name`  (string, default `"scheduled"`; a note may set it: no, read when the plugin is set up)  Tag name of the date a heading is scheduled.
+-  `fey_section_tag_name`  (string, default `"section"`; a note may set it: no, read when the plugin is set up)  Tag name of links to headings by signature.
+-  `fey_show_checkbox_state_as_icons`  (boolean, default `true`; a note may set it: yes, at once)  Show a checkbox as an icon of its state.
+-  `fey_src_window_setup`  (string | fun(), default `"top 16new"`; a note may set it: no, read when the plugin is set up)  How to open "special edit" buffer window.
+-  `fey_startup_folded`  ('overview' | 'content' | 'showeverything' | 'inherit', default `"overview"`; a note may set it: yes, at once)  How many levels of headings to show when opening a file.
+-  `fey_startup_indented`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)  If true, apply virtual indents to the content.
+-  `fey_status_tag_name`  (string, default `"status"`; a note may set it: no, read when the plugin is set up)  Tag name of the todo keyword and the priority of a heading, `a tag`.
+-  `fey_subheadings_unique_segments_for_subtree`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+-  `fey_sublists_unique_bullets_for_subtree`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+-  `fey_todo_keyword_faces`  (table<string, string>, default `{}`; a note may set it: yes, at once)  Custom faces (colors) for todo keywords.
+-  `fey_todo_keywords`  (string[], default `{ "TODO", "|", "DONE" }`; a note may set it: yes, at once)  List of todo/done states, separated by `|`.
+-  `fey_treesitter_local_install`  (string, default `""`; a note may set it: no, read when the plugin is set up)
+-  `fey_use_label_inheritance`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  If true, tags will be inherited from parent headings.
+-  `fey_use_property_inheritance`  (boolean | string | string[], default `false`; a note may set it: no, read when the plugin is set up)  If true, properties are inherited by sub-headings; may also be a regex or list of property names.
+-  `fey_use_uppercase_for_binary_marker`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+-  `fey_use_uppercase_for_hex_index`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+-  `fey_use_uppercase_for_hex_marker`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+-  `notifications.cron_enabled`  (boolean, default `true`; a note may set it: yes, at once)  Enable cron notifications.
+-  `notifications.deadline_reminder`  (boolean, default `true`; a note may set it: yes, at once)  Enable notifiactions for DEADLINE dates.
+-  `notifications.deadline_warning_reminder_time`  (boolean | number | number[], default `0`; a note may set it: yes, at once)  Number of minutes before the deadline wrning time to send the notifiaction.
+-  `notifications.enabled`  (boolean, default `false`; a note may set it: yes, at once)
+-  `notifications.reminder_time`  (boolean | number | number[], default `10`; a note may set it: yes, at once)  Number of minutes before the time to send the notifiaction.
+-  `notifications.repeater_reminder_time`  (boolean | number | number[], default `false`; a note may set it: yes, at once)  Number of minutes before the repeater time to send the notifiaction.
+-  `notifications.scheduled_reminder`  (boolean, default `true`; a note may set it: yes, at once)  Enable notifiactions for DEADLINE dates.
+-  `settings.allow`  (string[], default `{}`; a note may set it: no, read when the plugin is set up)  Unsafe options a note may set (expressions, functions, programs).
+-  `settings.apply_on`  (('load'|'enter'|'change'|'save')[], default `{ "load", "enter", "change" }`; a note may set it: no, read when the plugin is set up)  When settings are applied.
+-  `settings.cascade`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  Read the config files of the hollows above.
+-  `settings.config_filename`  (string, default `"config.fey"`; a note may set it: no, read when the plugin is set up)  File in `.fey` of the court and the hollows.
+-  `settings.debounce_ms`  (integer, default `300`; a note may set it: no, read when the plugin is set up)  Wait after typing before applying.
+-  `settings.hooks`  ({ buf_enter?: string, buf_leave?: string }, default `{}`; a note may set it: no, read when the plugin is set up)  Names of the keys that run Ex commands on entering and leaving a note. Unset by default: it runs commands from the note
+-  `settings.hot_options`  (string[], default `{}`; a note may set it: no, read when the plugin is set up)  More options of this plugin a note may change.
+-  `settings.plugins`  (table<string, function|{ apply: function, restore?: function }>, default `{}`; a note may set it: no, read when the plugin is set up)  Plugins a note may configure.
+-  `tag_exports`  (table<string, table|string|function>, default `{}`; a note may set it: no, read when the plugin is set up)  How a tag of your own is written in an export, by tag name: a pattern (or a function) for each of `scope_tag`, `line_tag`, `block_tag` and `pair_tag`, `%s` being what the tag holds. See `fey.export.tags`.
+-  `tag_handlers`  (table, default `{}`; a note may set it: no, read when the plugin is set up)
+-  `ui.agenda.preview_window.wrap`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+-  `ui.folds.colored`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)
+-  `ui.input.use_vim_ui`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+-  `ui.menu`  ({ handler: fun() | nil }, default `{}`; a note may set it: no, read when the plugin is set up)  Menu configuration
+-  `vault.db_name`  (string, default `"vault.db"`; a note may set it: no, read when the plugin is set up)  Database file inside the vault directory.
+-  `vault.db_open_mode`  ('split'|'vsplit'|'tab'|'current', default `"vsplit"`; a note may set it: no, read when the plugin is set up)  How database views open.
+-  `vault.dirname`  (string, default `".fey"`; a note may set it: no, read when the plugin is set up)  Name of the vault directory.
+-  `vault.enabled`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)
+-  `vault.ignore`  (string[], default `{ "node_modules" }`; a note may set it: no, read when the plugin is set up)  Directory/file names that are never indexed.
+-  `vault.label_tags`  (string[], default `{ "label", "labels" }`; a note may set it: no, read when the plugin is set up)  Tag names whose values are labels.
+-  `vault.link_tags`  (string[], default `{ "link", "section" }`; a note may set it: no, read when the plugin is set up)  Tag names that reference a file or section.
+-  `vault.live_index`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  Index buffers while they are edited (after a short pause), not only when they are saved.
+-  `vault.meta_tags`  (string[], default `{ "label", "labels", "status", "prop", "sched...`; a note may set it: no, read when the plugin is set up)  Tag names that are heading metadata. They are left out of the title (and path) of a heading in the index.
+-  `vault.run_on_load`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  Update `query` and `feydb` tags when a buffer first loads.
+-  `vault.time_budget_ms`  (integer, default `10`; a note may set it: no, read when the plugin is set up)  Longest time one indexing slice may block the editor.
+-  `win_border`  ('none' | 'single' | 'double' | 'rounded' | 'solid' | 'shadow' | string[], default `"single"`; a note may set it: no, read when the plugin is set up)  Border configuration for `win_split_mode = 'float'`.
+-  `win_split_mode`  ('horizontal' | 'vertical' | 'auto' | 'float' | 'edit' | 'tabnew' | string[], default `"horizontal"`; a note may set it: no, read when the plugin is set up)  How to open agenda and capture windows.
+
+#[ comment ] end generated: options #
+
+
+  V. The options of the editor a note may not set
+
+#[ comment ] begin generated: denied (scripts/gen_docs.lua) #
+
+The options of the editor that a `nvim` tag may not set, because they run what is in them, call a program or reach outside the editor. `settings.allow` in the setup opens one by name.
+
+| option             | why it is denied     |
++====================+======================+
+| `backupdir`        | a directory          |
+| `balloonexpr`      | an expression        |
+| `charconvert`      | an expression        |
+| `completefunc`     | a function           |
+| `diffexpr`         | an expression        |
+| `directory`        | a directory          |
+| `equalprg`         | a program            |
+| `exrc`             | loading local config |
+| `findfunc`         | a function           |
+| `foldexpr`         | an expression        |
+| `foldtext`         | an expression        |
+| `formatexpr`       | an expression        |
+| `formatprg`        | a program            |
+| `grepprg`          | a program            |
+| `includeexpr`      | an expression        |
+| `indentexpr`       | an expression        |
+| `keywordprg`       | a program            |
+| `makeef`           | a program            |
+| `makeprg`          | a program            |
+| `modeline`         | the modeline switch  |
+| `modelineexpr`     | the modeline switch  |
+| `modelines`        | the modeline switch  |
+| `omnifunc`         | a function           |
+| `operatorfunc`     | a function           |
+| `packpath`         | the runtime path     |
+| `patchexpr`        | an expression        |
+| `printexpr`        | an expression        |
+| `quickfixtextfunc` | a function           |
+| `rulerformat`      | an expression        |
+| `runtimepath`      | the runtime path     |
+| `secure`           | a safety switch      |
+| `shell`            | a program            |
+| `shellcmdflag`     | a program            |
+| `shellpipe`        | a program            |
+| `shellquote`       | a program            |
+| `shellredir`       | a program            |
+| `shellxquote`      | a program            |
+| `spellfile`        | a file               |
+| `statuscolumn`     | an expression        |
+| `statusline`       | an expression        |
+| `tabline`          | an expression        |
+| `tagfunc`          | a function           |
+| `tags`             | a file               |
+| `thesaurusfunc`    | a function           |
+| `undodir`          | a directory          |
+| `viewdir`          | a directory          |
+| `winbar`           | an expression        |
+
+The only global options a note may set (they change the whole editor while the note is current): `background`, `colorscheme`. Every other option has to be local to the buffer or the window.
+
+#[ comment ] end generated: denied #
+
+
+  VI. Mappings, tags and words
+
+-  The default keys are in {@ link, mappings.fey; desc: Mappings @}; a mapping is changed in the setup under `mappings.<group>.<name>`.
+-  The names of the tags can be changed (the options that end in `_tag_name`), and a tag of your own gets its handlers and its export in `tag_handlers` and `tag_exports`; see
+   {@ link, tags.fey; desc: Tags @}.
+-  The old names of the options that were renamed are in the glossary of {@ link, contributing.fey; desc: Contributing @}.

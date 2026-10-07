@@ -1,0 +1,90 @@
+{# table; title: Fey.nvim; category: docs #}
+
+Fey.nvim is a plugin for Neovim 0.11 and later that makes notes in the Fey markup language: headings that number themselves, lists, tables, dates
+and planning, tasks, an agenda over all your notes, capture and refile, a clock, queries and databases, links between notes, and export. Everything
+that has to be found across files is read from an index of your notes, so it is fast and nothing has to be open.
+
+To read this documentation inside Neovim run `:Fey help`; the online version is at https://fey.github.io.
+
+
+  I. Quick start
+
+Install the plugin (see {@ link, installation.fey; desc: Installation @} for the other package managers) and set it up:
+
+###  src lua
+{
+  'Loreite/fey.nvim',
+  event = 'VeryLazy',
+  config = function()
+    require('fey').setup({
+      fey_court_dir = '~/feyhollow',
+      fey_default_notes_file = '~/feyhollow/agenda/inbox.fey', -- optional
+    })
+    -- Experimental LSP support
+    vim.lsp.enable('fey')
+  end,
+}
+###
+
+Then:
+
+-  `<Leader>;c` captures a note, `<Leader>;a` opens the agenda
+-  `<Leader>;;` opens the navigator on the current file: the court, the hollows, the headings
+-  `:FeyHollowInit` in a folder makes it a hollow, a folder of notes with an index
+
+Nothing else is needed: the tree-sitter grammar is built the first time a Fey file is opened, and the index of a hollow is kept up to date in the
+background.
+
+
+  II. How the pieces fit
+
+-  A **note** is a Fey file, `.fey`. Its headings have **signatures**, `I.`, `I.A.`, `II.`, that the plugin keeps in order when headings are moved,
+   added or removed.
+-  A **hollow** is a folder of notes with a `.fey` folder inside, that holds its **vault**: the index (a database of the headings, tags, dates, tasks,
+   links, labels, source blocks and footnotes of every note of the hollow).
+-  The **court** is the folder `fey_court_dir` that every hollow is registered in, with the agenda inbox and the settings of all your notes.
+-  A **tag** is a piece of syntax that says something about the text around it: a date, a status, a link, a query. {@ link, tags.fey; desc: The reference of tags @} lists all of them.
+-  The words of a heading are its **labels**.
+
+The agenda, the queries, refile, the links and the exports read the vault, so they work on every hollow of the court, open or not.
+
+
+  III. Where to go
+
+-  {@ link, tutorial.fey; desc: The tutorial @} builds a small set of notes and uses the features one by one
+-  {@ link, configuration.fey; desc: Configuration @}: the setup, where settings come from, and every option, with whether a note may change it
+-  {@ link, tags.fey; desc: Tags @}: every tag, its forms, head, body, what the index keeps of it and what it does
+-  {@ link, mappings.fey; desc: Mappings @}: every default key
+-  {@ link, plugins.fey; desc: Plugins and tools @}: completion, pandoc, the latex parser
+-  {@ link, troubleshoot.fey; desc: Troubleshooting @}
+-  {@ link, contributing.fey; desc: Contributing @}, with the glossary of words
+-  {@ link, changelog.fey; desc: The changelog @}
+
+
+  IV. Commands and the global
+
+The commands:
+
+-  `:Fey help` opens this documentation in a tab, `:Fey helpgrep` searches it
+-  `:Fey agenda {type}` opens an agenda view by its shortcut, without a type it asks; `:Fey capture {type}` the same for a capture template
+-  `:Fey install_treesitter_grammar` installs the grammar again if there are problems with it
+-  `:Fey store_link` stores a link to the heading under the cursor (also in the agenda); `:Fey indent_mode` toggles virtual indent
+-  `:FeyNavigate` opens the navigator; `:FeyHollows` lists the hollows, `:FeyHollowInit` makes the current folder one, `:FeyHollowsPrune` forgets the ones that are gone,
+   `:FeyHollowMerge` includes or leaves out a hollow in the merged views
+-  `:FeyDb`, `:FeyDbHere`, `:FeyDbNew` open and create database views of your notes
+-  `:FeySettings` shows where the settings of this note come from and what was ignored
+-  `:FeyVaultReindex` brings the index up to date (with a bang it rebuilds it)
+-  `:checkhealth fey` checks the installation, the options and the index of every hollow
+
+Every `:Fey` action is also a function of the global `Fey`: `Fey.help()`, `Fey.agenda()`, `Fey.agenda.m()`, `Fey.capture.t()`.
+
+
+  V. The Lua API
+
+The Lua API (`require('fey.api')`) reads the vault and the court, so it works without opening files; it is described in the help file `fey_api.txt`, `:help FeyApi`.
+
+
+  VI. History
+
+Fey.nvim began as a port of orgmode to Neovim and kept that history until the rewrite to the native Fey markup. The orgmode heritage is in the credits
+(`legal/`); the changelog starts at the last release before the rewrite.
