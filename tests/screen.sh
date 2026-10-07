@@ -173,6 +173,18 @@ out=$(screen_of "$TMP/linkc.fey" ':set conceallevel=2' ':normal zR' ':normal 3G'
 check 'on the cursor line the link is as written' "$out" '{@ link, notes/a.fey; desc: The notes; conceal: true @}' yes
 check 'other links stay hidden there' "$out" 'b.fey' no
 
+
+# folding at startup, and the ellipsis of a closed fold
+printf '  I. Folded\n\nhidden body\n\n  II. Next\n\nshown\n' >"$TMP/fold.fey"
+export FEY_OPTS="{ fey_startup_folded = 'overview', fey_ellipsis = ' [..]' }"
+out=$(screen_of "$TMP/fold.fey")
+check 'startup folded: the body is hidden' "$out" 'hidden body' no
+check 'with the ellipsis of the option' "$out" 'Folded [..]' yes
+export FEY_OPTS="{ fey_startup_folded = 'showeverything' }"
+out=$(screen_of "$TMP/fold.fey")
+check 'not folded at startup: the body is shown' "$out" 'hidden body' yes
+unset FEY_OPTS
+
 rm -rf "$TMP"
 if [ "$failed" -gt 0 ]; then echo "screen: $failed of $total checks failed"; exit 1; fi
 echo "ok: $total screen checks"

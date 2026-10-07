@@ -355,42 +355,64 @@ function FeyMappings:todo_next_state() return self:_todo_change_state('next') en
 
 function FeyMappings:todo_prev_state() return self:_todo_change_state('prev') end
 
+---@type fun(data: table): string defined with the other helpers of headings, below
+local get_new_signature
+
+---Turn the line under the cursor into a heading, or a heading into plain text (`fey_toggle_heading`)
+---
+---   a heading             becomes its title as plain text
+---   a list item           becomes a heading under the heading above it; its checkbox becomes a status tag
+---   any other line        becomes a heading under the heading above it
+---
+---The signature is the next one at that level; the headings below are renumbered.
 function FeyMappings:toggle_heading()
-  local line_number = vim.fn.line('.')
-  local line = vim.fn.getline(line_number)
-  local parent = self.files:get_closest_heading_or_nil()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local row = vim.api.nvim_win_get_cursor(0)[1]
+  local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1] or ''
+  local file = self.files:get_current_file()
+  local heading = self.files:get_closest_heading_or_nil()
 
-  local set_line_and_dispatch_event = function(line_content, action)
-    vim.fn.setline(line_number, line_content)
-    EventManager.dispatch(
-      events.HeadingToggled:new(line_number, action, self.files:get_closest_heading_or_nil({ line_number, 0 }))
-    )
-  end
-  -- Convert to heading
-  if not parent then return set_line_and_dispatch_event('* ' .. line, 'line_to_heading') end
-
-  -- Convert heading to plain text
-  if parent:get_range().start_line == vim.api.nvim_win_get_cursor(0)[1] then
-    line = line:gsub('^%*+%s', '')
-    return set_line_and_dispatch_event(line, 'heading_to_line')
+  local function finish(action)
+    EventManager.dispatch(events.HeadingToggled:new(row, action, self.files:get_closest_heading_or_nil({ row, 0 })))
+    EventManager.dispatch(events.BufferChanged:new(FeyFile:new({ filename = vim.api.nvim_buf_get_name(bufnr), buf = bufnr })))
   end
 
-  line = line:gsub('^(%s*)', '')
-  if line:match('^[%*-]%s') then -- handle lists
-    line = line:gsub('^[%*-]%s', '') -- strip bullet
-    local todo_keywords = self.files:get_current_file():get_todo_keywords()
-    line = line:gsub('^%[([X%s])%]%s', function(checkbox_state)
-      if checkbox_state == 'X' then
-        return todo_keywords:first_by_type('DONE').value .. ' '
-      else
-        return todo_keywords:first_by_type('TODO').value .. ' '
+  -- a heading: its title as plain text
+  if heading and heading:get_range().start_line == row then
+    local title = heading:get_child_node('title')
+    vim.api.nvim_buf_set_lines(bufnr, row - 1, row, false, { title and file:get_node_text(title) or '' })
+    return finish('heading_to_line')
+  end
+
+  -- what the new heading says: the text of the line, without the bullet and the checkbox of a list item
+  local text = line:gsub('^%s+', '')
+  local status
+  local item = self.files:get_closest_listitem()
+  local item_node = item and item.listitem
+  if item_node and item_node:start() == row - 1 then
+    local bullet = item_node:field('bullet')[1]
+    if bullet then
+      local _, _, _, bullet_end = bullet:range()
+      text = line:sub(bullet_end + 1):gsub('^%s+', '')
+      local mark, rest = text:match('^%[(.)%]%s*(.*)$')
+      if mark then
+        text = rest
+        local keywords = file:get_todo_keywords()
+        if mark == 'x' or mark == 'X' then
+          status = keywords:first_by_type('DONE').value
+        elseif mark == ' ' then
+          status = keywords:first_by_type('TODO').value
+        end
       end
-    end)
+    end
   end
 
-  line = string.rep('*', parent:get_level() + 1) .. ' ' .. line
-
-  return set_line_and_dispatch_event(line, 'line_to_child_heading')
+  local level = heading and heading:get_level() or 0
+  local signature = heading and heading:get_child_node('signature') or nil
+  local new_signature = get_new_signature({ level + 1, signature, level })
+  local tag = status and ('{# status, %s #} '):format(status) or ''
+  vim.api.nvim_buf_set_lines(bufnr, row - 1, row, false, { ('  %s %s%s'):format(new_signature, tag, text) })
+  return finish(heading and 'line_to_child_heading' or 'line_to_heading')
 end
 
 ---The first line of a note: a list item with an inactive date, then what kind of note it is
@@ -851,7 +873,7 @@ function FeyMappings:handle_return(suffix)
   return self:meta_return(suffix)
 end
 
-local function get_new_signature(data)
+get_new_signature = function(data)
   local count, signature, level = unpack(data)
   local bufnr = vim.api.nvim_get_current_buf()
   local new_signature = ''
@@ -1036,7 +1058,7 @@ end
 ---@param subheading boolean?
 function FeyMappings:insert_todo_heading_respect_content(subheading)
   local todo_keywords = self.files:get_current_file():get_todo_keywords()
-  return self:insert_heading_respect_content(todo_keywords:first_by_type('TODO').value .. ' ', subheading)
+  return self:insert_heading_respect_content(('{# status, %s #} '):format(todo_keywords:first_by_type('TODO').value), subheading)
 end
 
 ---@param subheading boolean?
@@ -1045,11 +1067,11 @@ function FeyMappings:insert_todo_heading(subheading)
   local todo_keywords = self.files:get_current_file():get_todo_keywords()
   local first_todo_keyword = todo_keywords:first_by_type('TODO')
   if not item then
-    self:_insert_heading_from_plain_line(first_todo_keyword.value .. ' ', subheading)
+    self:_insert_heading_from_plain_line(('{# status, %s #} '):format(first_todo_keyword.value), subheading)
     return vim.cmd([[startinsert!]])
   else
     vim.fn.cursor(item:get_range().start_line, 1)
-    return self:meta_return(first_todo_keyword.value .. ' ', subheading)
+    return self:meta_return(('{# status, %s #} '):format(first_todo_keyword.value), subheading)
   end
 end
 
@@ -1116,38 +1138,53 @@ function FeyMappings:_move_listitem(direction)
   return true
 end
 
+---Move lines inside a buffer. Not `:move`: its range grows to the closed fold the lines are in, and a heading in a closed
+---fold (the file starts folded) would be moved into itself
+---@param bufnr integer
+---@param first integer 1 based
+---@param last integer
+---@param target integer the line after which the lines go (0 for the top)
+local function move_lines(bufnr, first, last, target)
+  local lines = vim.api.nvim_buf_get_lines(bufnr, first - 1, last, false)
+  local count = #lines
+  local insert_at = target >= last and (target - count) or target
+  vim.api.nvim_buf_set_lines(bufnr, first - 1, last, false, {})
+  pcall(vim.cmd, 'undojoin')
+  vim.api.nvim_buf_set_lines(bufnr, insert_at, insert_at, false, lines)
+  return insert_at + 1
+end
+
+---Move the heading under the cursor, with what is under it, over its neighbour of the same level
+---@param direction 'up'|'down'
+function FeyMappings:_move_heading(direction)
+  local item = self.files:get_closest_heading()
+  local neighbour = direction == 'up' and item:get_prev_heading_same_level() or item:get_next_heading_same_level()
+  if not neighbour then return utils.echo_warning('Cannot move past superior level.') end
+  local bufnr = vim.api.nvim_get_current_buf()
+  local range = item:get_range()
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local offset = cursor[1] - range.start_line
+  local target = direction == 'up' and (neighbour:get_range().start_line - 1) or neighbour:get_range().end_line
+  local foldclosed = vim.fn.foldclosed('.')
+  local at = move_lines(bufnr, range.start_line, range.end_line, target)
+  vim.api.nvim_win_set_cursor(0, { at + math.max(offset, 0), cursor[2] })
+  if foldclosed > -1 and vim.fn.foldlevel('.') > 0 and vim.fn.foldclosed('.') == -1 then vim.cmd([[norm!zc]]) end
+  EventManager.dispatch(events.HeadingPromoted:new(self.files:get_closest_heading(), item:get_level()))
+  EventManager.dispatch(events.BufferChanged:new(FeyFile:new({ filename = vim.api.nvim_buf_get_name(bufnr), buf = bufnr })))
+end
+
 function FeyMappings:move_subtree_up()
   local win_view = vim.fn.winsaveview() or {}
   if self:_move_listitem('up') then return end
   vim.fn.winrestview(win_view)
-  local item = self.files:get_closest_heading()
-  local prev_heading = item:get_prev_heading_same_level()
-  if not prev_heading then return utils.echo_warning('Cannot move past superior level.') end
-  local range = item:get_range()
-  local target_line = prev_heading:get_range().start_line - 1
-  local foldclosed = vim.fn.foldclosed('.')
-  vim.cmd(string.format(':%d,%dmove %d', range.start_line, range.end_line, target_line))
-  local pos = vim.fn.getcurpos()
-  vim.fn.cursor(target_line + 1, pos[3])
-  if foldclosed > -1 and vim.fn.foldlevel('.') > 0 and vim.fn.foldclosed('.') == -1 then vim.cmd([[norm!zc]]) end
-  EventManager.dispatch(events.HeadingPromoted:new(self.files:get_closest_heading(), item:get_level()))
+  return self:_move_heading('up')
 end
 
 function FeyMappings:move_subtree_down()
   local win_view = vim.fn.winsaveview() or {}
   if self:_move_listitem('down') then return end
   vim.fn.winrestview(win_view)
-  local item = self.files:get_closest_heading()
-  local next_heading = item:get_next_heading_same_level()
-  if not next_heading then return utils.echo_warning('Cannot move past superior level.') end
-  local range = item:get_range()
-  local target_line = next_heading:get_range().end_line
-  local foldclosed = vim.fn.foldclosed('.')
-  vim.cmd(string.format(':%d,%dmove %d', range.start_line, range.end_line, target_line))
-  local pos = vim.fn.getcurpos()
-  vim.fn.cursor(target_line + range.start_line - range.end_line, pos[3])
-  if foldclosed > -1 and vim.fn.foldlevel('.') > 0 and vim.fn.foldclosed('.') == -1 then vim.cmd([[norm!zc]]) end
-  EventManager.dispatch(events.HeadingPromoted:new(self.files:get_closest_heading(), item:get_level()))
+  return self:_move_heading('down')
 end
 
 function FeyMappings:show_help(type) return Help.show(type) end

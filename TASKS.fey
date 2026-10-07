@@ -2205,6 +2205,19 @@ Done (2026-10-07): highlighting, concealment and folds.
 -  Vault:  none.
 -  After:  nothing.
 
+Done (2026-10-07): heading commands audit.
+
+-  Audit:  every command was run on a Fey outline (`tests/headings.lua`, 34 checks). Already native and passing: the navigation
+   (`next/previous visible`, same level, up, last child), promote and demote, the insert commands, `cycle` and `global_cycle`,
+   `fey_startup_folded`. Found and fixed:
+   `toggle_heading` wrote org stars (`** text`), rewritten: a heading becomes its title as plain text, a list item or a plain line a child heading
+   (the checkbox becomes a `status` tag), with the next signature and a renumbering; `move_subtree_up` failed with E134 and
+   `move_subtree_down` did nothing when the heading was in a closed fold (`:move` widens its range to the fold, so the heading moved into
+   itself), now buffer lines are moved directly, the cursor follows and the signatures are renumbered; `insert_todo_heading*` wrote the keyword as
+   text, now as `{# status, TODO #}`.
+-  Not done:  none known; `meta_return` keeps the position of org (the new heading goes under the heading line, before its content).
+-  Tests:  `tests/headings.lua` (34 checks) and three screen checks: startup folding, the ellipsis, showing everything.
+
   III.N. Retire FeyFiles
 
 -  Now:  `Fey:init` still loads `FeyFiles` for `fey_agenda_files`, builds a
@@ -2514,3 +2527,16 @@ Things that are wanted but not part of converting the org code. They start when 
    functions), the labels after `#`, the files in quotes and the links after `[[`, from the index. Why it matters: a query writes its result with
    links to the files, a `feydb` shows only the data, so tables of contents and indexes of notes should be queries, and completion should
    make writing one easy.
+
+  VI.E. Sync the agenda with calendars
+
+-  Wanted later: the agenda and a calendar show the same events. The protocol you were trying to remember is CalDAV (calendars as
+   a web service, with the iCalendar format, `.ics`, for the events themselves).
+-  Targets: local calendars (KOrganizer or `kcal`, Thunderbird, Evolution, Apple Calendar and Outlook desktop, mostly through `.ics` files or a local CalDAV
+   server such as Radicale or vdirsyncer); Google Calendar and Outlook on the web (Microsoft 365), which have their own APIs
+   (Google Calendar API, Microsoft Graph) next to CalDAV; and any other online calendar that speaks CalDAV (Nextcloud, Fastmail, iCloud, Zoho).
+-  Open questions for the design: one way (calendars into the agenda, read only) first, then both ways (scheduled and deadline dates
+   and clocks written out as events, edits coming back); how a calendar event is kept in a note (a `calendar` source with a file per
+   calendar, or events only in the index, as dates of a new kind); recurring events against the repeaters of the dates; time zones;
+   which credentials, stored where (a keyring, not the notes), and the same care as for the `plugin` tag about what a note may make the
+   editor do over the network.
