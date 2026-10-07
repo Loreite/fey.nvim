@@ -701,6 +701,49 @@ end
 
 -- Queries -------------------------------------------------------------------
 
+---What the index says about itself and the folder, for `:checkhealth`: the schema, the state, the files that changed on disk since they were
+---indexed (`changed`), appeared (`new`) or went (`removed`), and the files that did not parse cleanly
+---@return { state: string, schema: integer, db_schema?: integer, files: integer, changed: string[], new: string[], removed: string[], errors: { path: string, count: integer }[], last_error?: string }
+function Vault:status()
+  local out = {
+    state = self.state,
+    schema = SCHEMA_VERSION,
+    files = 0,
+    changed = {},
+    new = {},
+    removed = {},
+    errors = {},
+    last_error = self.last_error,
+  }
+  if not self:open() then return out end
+  local db = assert(self.db)
+  out.db_schema = db:run('PRAGMA user_version')[1].user_version
+  local found = fs.scan_fey_files(self.root, { ignore = self.opts.ignore, vault_dirname = self.opts.dirname })
+  local existing = {}
+  for _, row in ipairs(db:run('SELECT path, mtime, size, errors FROM files')) do
+    existing[row.path] = row
+    out.files = out.files + 1
+    local ok, errs = pcall(vim.json.decode, row.errors or '[]')
+    if ok and type(errs) == 'table' and #errs > 0 then out.errors[#out.errors + 1] = { path = row.path, count = #errs } end
+  end
+  for rel, entry in pairs(found) do
+    local old = existing[rel]
+    if not old then
+      out.new[#out.new + 1] = rel
+    elseif old.mtime ~= entry.mtime or old.size ~= entry.size then
+      out.changed[#out.changed + 1] = rel
+    end
+  end
+  for rel in pairs(existing) do
+    if not found[rel] then out.removed[#out.removed + 1] = rel end
+  end
+  table.sort(out.new)
+  table.sort(out.changed)
+  table.sort(out.removed)
+  table.sort(out.errors, function(a, b) return a.path < b.path end)
+  return out
+end
+
 ---Run a read-only query against the index
 ---@param sql string
 ---@param params? table

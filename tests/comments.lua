@@ -97,6 +97,31 @@ local list = index('  I. H\n\n-  [ ] one\n-  {# comment #}\n-  [ ] three\n\nbrea
 check('a commented list has no tasks, another list has', #vim.tbl_filter(function(t) return t.kind == 'item' end, list.tasks), 1)
 
 
+
+-- `Tag.body` is the body: decided once, for every handler ---------------------------------------------------------------------
+local function body_of(text, name)
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(text, '\n', { plain = true }))
+  vim.bo[buf].filetype = 'fey'
+  local root = vim.treesitter.get_parser(buf, 'fey'):parse()[1]:root()
+  for _, node in query:iter_captures(root, buf) do
+    local head = node:type() == 'pair_tag' and node:field('open')[1] or node
+    if vim.treesitter.get_node_text(head:field('name')[1], buf) == name then
+      local tag = Tag.parse_tag_node(buf, node)
+      return tag.body and tag.body:type(), tag.body and vim.trim(vim.treesitter.get_node_text(tag.body, buf))
+    end
+  end
+end
+local function type_of(text, name) return (body_of(text, name)) end
+check('Tag.body: a scope tag in a paragraph', type_of('  I. H\n\nword {# hl #} more\n', 'hl'), 'paragraph')
+check('Tag.body: alone in a list item with other contents', type_of('  I. H\n\n-  {# hl #}\n   para\n', 'hl'), 'listitem')
+check('Tag.body: the only content of a list item', type_of('  I. H\n\n-  one\n-  {# hl #}\n', 'hl'), 'list')
+check('Tag.body: above the first heading', type_of('{# hl #}\n\ntext\n\n  I. H\n', 'hl'), 'document')
+check('Tag.body: a line tag', select(2, body_of('  I. H\n\n#[ hl ] some words #\n', 'hl')), 'some words')
+check('Tag.body: a block tag', type_of('  I. H\n\n[ hl ]#\n   text\n', 'hl'), 'body')
+check('Tag.body: a pair tag', type_of('  I. H\n\n[ hl #]\ntext\n[# hl ]\n', 'hl'), 'body')
+check('the comment tag asks it', comment.body_node(root_of('  I. H\n\n-  one\n-  {# comment #}\n'):named_descendant_for_range(3, 4, 3, 4):parent()):type(), 'list')
+
 -- indexing on request -----------------------------------------------------------------------------
 local kept = index('  I. H\n\n[ comment, true #]\n{# labels, kept #}\n[# comment ]\n')
 check('comment, true keeps indexing', #kept.labels, 1)

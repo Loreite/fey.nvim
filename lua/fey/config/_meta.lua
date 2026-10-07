@@ -163,6 +163,10 @@
 ---@field fey_insert_link? FeyMappingValue Default: '<prefix>li'
 ---@field fey_store_link? FeyMappingValue Default: '<prefix>ls'
 ---@field fey_check_links? FeyMappingValue Default: '<prefix>lc'
+---@field fey_toggle_link_conceal? FeyMappingValue Default: '<prefix>Tl'
+---@field fey_toggle_query_conceal? FeyMappingValue Default: '<prefix>Tq'
+---@field fey_toggle_checkbox_icons? FeyMappingValue Default: '<prefix>Ti'
+---@field fey_toggle_overdue? FeyMappingValue Default: '<prefix>To'
 ---@field fey_clock_in? FeyMappingValue Default: '<prefix>xi'
 ---@field fey_clock_out? FeyMappingValue Default: '<prefix>xo'
 ---@field fey_clock_cancel? FeyMappingValue Default: '<prefix>xq'
@@ -188,10 +192,6 @@
 ---@field fey_edit_src_save? FeyMappingValue Default: '<prefix>w'
 ---@field fey_edit_src_save_exit? FeyMappingValue Default: "<prefix>'"
 ---@field fey_edit_src_show_help? FeyMappingValue Default: 'g?'
----
----@class FeyEmacsConfig
----@field executable_path? string path to emacs executable. Default: 'emacs'
----@field config_path? string | nil path to emacs config file. If nil, attempts to find the config automatically. Default: nil
 ---
 
 ---@class FeyUiConfig
@@ -277,7 +277,6 @@
 ---@field fey_startup_folded? 'overview' | 'content' | 'showeverything' |'inherit' How many levels of headings to show when opening a file. Default: 'overview'
 ---@field fey_agenda_skip_scheduled_if_done? boolean If true, scheduled entries marked as done will not be shown in the agenda. Default: false
 ---@field fey_agenda_skip_deadline_if_done? boolean If true, deadline entries marked as done will not be shown in the agenda. Default: false
----@field fey_agenda_text_search_extra_files? ('agenda-archives')[] Additional files to earch from agenda search prompt. Default: {}
 ---@field fey_agenda_hide_empty_blocks? boolean Hide empty custom agenda commands in agenda view. Default: false
 ---@field fey_agenda_custom_commands? table<string, FeyAgendaCustomCommand> Custom commands for the agenda view. Default: {}
 ---@field fey_agenda_block_separator? string Separator for blocks in the agenda view. Default: '-'
@@ -294,7 +293,6 @@
 ---@field fey_refile_scope? FeyScopeSpec Hollows refile offers as destinations. Default: 'court'
 ---@field fey_refile_leave_link? boolean Leave a link where a refiled heading was. Default: false
 ---@field fey_archive_location? string Location where to archive subtrees. `%s` indicates the file name from where archiving is done. Default: '%s_archive'
----@field fey_tags_column? number Padding for tags column. Negative indicates how many columns to pad from heading. Positive indicates specific column. Default: -80
 ---@field fey_use_tag_inheritance? boolean If true, tags will be inherited from parent headings. Default: true
 ---@field fey_tags_exclude_from_inheritance? string[] List of tags that should be excluded from tag inheritance. Default: {}
 ---@field fey_hide_leading_signature? boolean If true, leading signature on the headings with level > 1 will be hidden. Default: false
@@ -330,7 +328,7 @@
 ---@field win_border? 'none' | 'single' | 'double' | 'rounded' | 'solid' | 'shadow' | string[] Border configuration for `win_split_mode = 'float'`. Default: 'single'
 ---@field notifications? FeyNotificationsConfig Notification settings
 ---@field mappings? FeyMappingsConfig Mappings configuration
----@field emacs_config? FeyEmacsConfig Emacs cnfiguration
 ---@field ui? FeyUiConfig UI configuration
 ---@field vault? FeyVaultConfig Vault (per directory metadata index) configuration
+---@field tag_exports? table<string, table|string|function> How a tag of your own is written in an export, by tag name: a pattern (or a function) for each of `scope_tag`, `line_tag`, `block_tag` and `pair_tag`, `%s` being what the tag holds. See `fey.export.tags`. Default: {}
 ---@field fey_link_schemes? table<string, fun(target: string, tag: FeyTag|nil): boolean|nil> What following a link does for a scheme of its own: `{@ link, jira:ABC-1 @}` calls `fey_link_schemes.jira('ABC-1', tag)`. Default: {}

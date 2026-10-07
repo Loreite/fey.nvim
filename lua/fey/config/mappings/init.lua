@@ -333,10 +333,10 @@ return {
         },
       }
     ),
-    --   fey_toggle_heading = m.action(
-    --     'fey_mappings.toggle_heading',
-    --     { opts = { desc = 'fey toggle heading', help_desc = 'Toggle current line to heading and vice versa' } }
-    --   ),
+      fey_toggle_heading = m.action(
+        'fey_mappings.toggle_heading',
+        { opts = { desc = 'fey toggle heading', help_desc = 'Toggle current line to heading and vice versa' } }
+      ),
     fey_open_at_point = m.action(
       'fey_mappings.open_at_point',
       { opts = { desc = 'fey open', help_desc = 'Follow the link or section tag under the cursor' } }
@@ -686,14 +686,14 @@ return {
     ),
     -- END:
 
-    --   fey_insert_todo_heading = m.action(
-    --     'fey_mappings.insert_todo_heading',
-    --     { opts = { desc = 'fey insert todo', help_desc = 'Add new TODO heading on line right after current line' } }
-    --   ),
-    --   fey_insert_todo_heading_respect_content = m.action('fey_mappings.insert_todo_heading_respect_content', {
-    --     opts = { desc = 'fey insert todo (respect content)', help_desc = 'Add new TODO heading after current subtree' },
-    --   }),
-    --   fey_export = m.action('fey_mappings.export', { opts = { desc = 'fey export', help_desc = 'Open export options' } }),
+      fey_insert_todo_heading = m.action(
+        'fey_mappings.insert_todo_heading',
+        { opts = { desc = 'fey insert todo', help_desc = 'Add new TODO heading on line right after current line' } }
+      ),
+      fey_insert_todo_heading_respect_content = m.action('fey_mappings.insert_todo_heading_respect_content', {
+        opts = { desc = 'fey insert todo (respect content)', help_desc = 'Add new TODO heading after current subtree' },
+      }),
+    fey_export = m.action('fey_mappings.export', { opts = { desc = 'fey export', help_desc = 'Export this file: Markdown, HTML, iCalendar, or LaTeX, PDF, Word, EPUB through pandoc' } }),
     fey_return = m.action('fey_mappings.fey_return', {
       modes = { 'i' },
       opts = {
@@ -772,10 +772,10 @@ return {
       'clock.fey_set_effort',
       { opts = { desc = 'fey set effort', help_desc = 'Set effort estimate on current heading' } }
     ),
-    --   fey_show_help = m.action('fey_mappings.show_help', {
-    --     args = { 'fey' },
-    --     opts = { desc = 'fey show help', help_desc = 'Show this help' },
-    --   }),
+      fey_show_help = m.action('fey_mappings.show_help', {
+        args = { 'fey' },
+        opts = { desc = 'fey show help', help_desc = 'Show this help' },
+      }),
     fey_babel_tangle = m.action('fey_mappings.fey_babel_tangle', {
       opts = { desc = 'fey tangle', help_desc = 'Write the source blocks of this file that have a :tangle target' },
     }),
@@ -789,6 +789,22 @@ return {
       'fey_mappings.fey_toggle_timestamp_type',
       { opts = { desc = 'fey toggle timestamp type', help_desc = 'Toggle timestamp active/inactive type' } }
     ),
+    fey_toggle_link_conceal = m.action('fey_mappings.toggle_option', {
+      args = { 'fey_link_conceal_default' },
+      opts = { desc = 'fey toggle link concealment', help_desc = 'Hide the head of links, or show it' },
+    }),
+    fey_toggle_query_conceal = m.action('fey_mappings.toggle_option', {
+      args = { 'fey_query_conceal_default' },
+      opts = { desc = 'fey toggle query concealment', help_desc = 'Hide queries and their result heads, or show them' },
+    }),
+    fey_toggle_checkbox_icons = m.action('fey_mappings.toggle_option', {
+      args = { 'fey_show_checkbox_state_as_icons' },
+      opts = { desc = 'fey toggle checkbox icons', help_desc = 'Show checkboxes as icons, or as written' },
+    }),
+    fey_toggle_overdue = m.action('fey_mappings.toggle_option', {
+      args = { 'fey_highlight_overdue' },
+      opts = { desc = 'fey toggle overdue dates', help_desc = 'Paint the overdue dates, or stop' },
+    }),
     fey_toggle_conceal_task_tags = m.action('fey_mappings.toggle_conceal_task_tags', {
       opts = {
         desc = 'fey toggle task tag concealment',

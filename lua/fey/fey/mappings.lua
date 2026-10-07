@@ -1447,6 +1447,33 @@ function FeyMappings:toggle_conceal_task_tags()
   utils.echo_info('Task tags are ' .. (enabled and 'concealed' or 'shown'))
 end
 
+-- the toggles of the `<prefix>T` tree: an option that changes how the notes look, switched in the whole editor until it is set again
+local TOGGLES = {
+  fey_link_conceal_default = 'Links are concealed',
+  fey_query_conceal_default = 'Queries are concealed',
+  fey_show_checkbox_state_as_icons = 'Checkboxes are icons',
+  fey_highlight_overdue = 'Overdue dates are painted',
+}
+
+---Switch an option on or off and draw the open notes again
+---@param name string one of `TOGGLES`
+function FeyMappings:toggle_option(name)
+  local config = require('fey.config')
+  local label = TOGGLES[name]
+  if not label then return utils.echo_error('Not a toggle: ' .. tostring(name)) end
+  local enabled = not config[name]
+  config:extend({ [name] = enabled })
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].filetype == 'fey' then
+      pcall(require('fey.files.elements.tags.handlers.link_conceal').refresh, buf)
+      pcall(require('fey.files.elements.tags.handlers.conceal').refresh, buf)
+      pcall(require('fey.colors.highlighter.overdue').refresh, buf)
+      vim.api.nvim__redraw({ buf = buf, valid = false })
+    end
+  end
+  utils.echo_info(('%s: %s'):format(label, enabled and 'on' or 'off'))
+end
+
 function FeyMappings:fey_toggle_timestamp_type()
   local date = self:_get_date_under_cursor()
   if not date then return end

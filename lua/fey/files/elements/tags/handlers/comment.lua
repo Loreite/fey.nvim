@@ -1,4 +1,5 @@
--- The `comment` tag: its body is a comment. Every form works. The body of a scope tag is its parent node.
+-- The `comment` tag: its body is a comment. Every form works. What the body of a tag is, is decided in one place,
+-- `Tag.body_node` (`fey.files.elements.tags`): for a scope tag it is the node that holds it, as follows.
 --
 --   * a line tag `#[ comment ] text #`, a block tag and a pair tag comment their body
 --   * a scope tag in a paragraph, a title or a table cell comments that node
@@ -16,33 +17,10 @@ local M = {}
 local ns = vim.api.nvim_create_namespace('fey_tag_comment')
 local timers = {}
 
----The node a comment tag comments
+---The node a comment tag comments: the body of the tag, see `Tag.body_node`
 ---@param node TSNode a scope_tag, line_tag, block_tag or pair_tag
 ---@return TSNode|nil
-function M.body_node(node)
-  local kind = node:type()
-  if kind == 'pair_tag' or kind == 'block_tag' then return node:field('body')[1] end
-  if kind == 'line_tag' then
-    for child in node:iter_children() do
-      if child:type() == 'body' then return child end
-    end
-    return nil
-  end
-  if kind ~= 'scope_tag' then return nil end
-  local parent = node:parent()
-  if not parent then return nil end
-  if parent:type() == 'listitem' then
-    local contents = 0
-    for _, child in ipairs(parent:field('contents')) do
-      if child:named() then contents = contents + 1 end
-    end
-    if contents == 1 then return parent:parent() or parent end
-  elseif parent:type() == 'body' and parent:parent() and parent:parent():type() == 'document' then
-    -- above the first heading: the file
-    return parent:parent()
-  end
-  return parent
-end
+function M.body_node(node) return require('fey.files.elements.tags').body_node(node) end
 
 ---Name of a tag node
 ---@param node TSNode
@@ -84,12 +62,13 @@ end
 ---@param src integer|string buffer or text
 ---@param query vim.treesitter.Query the tags query
 ---@param name? string tag name, default `fey_comment_tag_name`
+---@param all? boolean the comments that are indexed too (an export leaves out all of them)
 ---@return { node: TSNode, from: integer, to: integer }[]
-function M.bodies(root, src, query, name)
+function M.bodies(root, src, query, name, all)
   name = name or config.fey_comment_tag_name
   local out = {}
   for _, node in query:iter_captures(root, src) do
-    if name_of(node, src) == name and not M.is_indexed(node, src) then
+    if name_of(node, src) == name and (all or not M.is_indexed(node, src)) then
       local body = M.body_node(node)
       if body then
         local _, _, from = body:start()

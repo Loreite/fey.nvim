@@ -49,21 +49,45 @@ function Tag:apply()
   end
 end
 
+---The node a tag applies to: its body. This is the one place that decides it, `Tag.body` is what a handler should use.
+---
+---  * a line, block or pair tag: its body
+---  * a scope tag: the node that holds it, with two cases where that is not the node itself
+---      - the only content of a list item (nothing else in it, not even a paragraph or a nested list) applies to the whole list
+---        the item is in: the only way to say something about a list with a scope tag. With other contents it is the item
+---      - above the first heading of a file it applies to the whole file (the document)
+---@param node TSNode a scope_tag, line_tag, block_tag or pair_tag
+---@return TSNode|nil
+function Tag.body_node(node)
+  local kind = node:type()
+  if kind == 'pair_tag' or kind == 'block_tag' then return node:field('body')[1] end
+  if kind == 'line_tag' then
+    -- the line tag body is an unnamed child rather than a field
+    for child in node:iter_children() do
+      if child:type() == 'body' then return child end
+    end
+    return nil
+  end
+  if kind ~= 'scope_tag' then return nil end
+  local parent = node:parent()
+  if not parent then return nil end
+  if parent:type() == 'listitem' then
+    local contents = 0
+    for _, child in ipairs(parent:field('contents')) do
+      if child:named() then contents = contents + 1 end
+    end
+    if contents == 1 then return parent:parent() or parent end
+  elseif parent:type() == 'body' and parent:parent() and parent:parent():type() == 'document' then
+    return parent:parent()
+  end
+  return parent
+end
+
 function Tag.parse_tag_node(bufnr, node)
   local head = node:type() == 'pair_tag' and node:field('open')[1] or node
   local name = head:field('name')[1]
   local name_text = vim.treesitter.get_node_text(name, bufnr)
-  local body
-  if node:type() == 'scope_tag' then
-    body = node:parent()
-  elseif node:type() == 'line_tag' then
-    -- the line tag body is an unnamed child rather than a field
-    for child in node:iter_children() do
-      if child:type() == 'body' then body = child end
-    end
-  else
-    body = node:field('body')[1]
-  end
+  local body = Tag.body_node(node)
 
   local values = {}
   for _, value in ipairs(head:field('value')) do

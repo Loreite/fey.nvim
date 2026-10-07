@@ -7,6 +7,8 @@ _G.fey = _G.fey or {}
 _G.Fey = _G.Fey or {}
 ---@type Fey | nil
 local instance = nil
+---@type table the options of the last `setup`, for the health check
+local instance_opts = {}
 
 local auto_instance_keys = {
   files = true,
@@ -194,10 +196,21 @@ function Fey:setup_autocmds()
   })
 end
 
+---The options the user gave to the last `setup`
+---@return table
+function Fey.setup_options() return instance_opts end
+
 ---@param opts? FeyConfigOpts
 ---@return Fey
 function Fey.setup(opts)
   opts = opts or {}
+  -- what is wrong with the options is said, and they are used all the same
+  local validate = require('fey.config.validate')
+  local problems = validate.check(opts, require('fey.config.defaults'))
+  for _, problem in ipairs(problems) do
+    vim.notify('fey: ' .. problem.message, vim.log.levels.WARN)
+  end
+  instance_opts = opts
   local config = require('fey.config'):extend(opts)
   config:install_grammar()
   instance = Fey:new()

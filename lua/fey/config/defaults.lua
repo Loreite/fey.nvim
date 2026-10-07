@@ -17,7 +17,6 @@ local DefaultConfig = {
   --
   fey_treesitter_local_install = '',
   --
-  -- fey_reindex_fey_src_blocks = true,
   fey_nvim_config_tag_name = 'nvim', -- editor options of a note, see `settings`
   fey_plugin_tag_name = 'plugin', -- `{# plugin, fey; key: value #}`: options of a plugin
   -- Settings written in the notes (`nvim` and `plugin` tags), applied while you edit, merged from the court's and
@@ -64,8 +63,6 @@ local DefaultConfig = {
   fey_conceal_icons = {}, -- icons of concealed query, feydb and clocktable tags by tag name, over the defaults
   fey_checkbox_icons = 'auto', -- 'nerd', 'unicode', or 'auto': Nerd Font glyphs when nvim-web-devicons is installed
   fey_checkbox_icon_overrides = {}, -- a mark to an icon, for example { ['!'] = '' }
-  fey_use_cwd_config = false,
-  fey_use_buffer_config = true,
   fey_allow_modeline = true,
 
   -- the court: the top of the tree of hollows (a hollow is a directory with a `.fey` folder, its vault is the
@@ -107,7 +104,6 @@ local DefaultConfig = {
   fey_startup_folded = 'overview',
   fey_agenda_skip_scheduled_if_done = false,
   fey_agenda_skip_deadline_if_done = false,
-  fey_agenda_text_search_extra_files = {},
   fey_agenda_custom_commands = {},
   fey_agenda_hide_empty_blocks = false,
   fey_agenda_block_separator = '-',
@@ -133,7 +129,6 @@ local DefaultConfig = {
   fey_archive_location = '%s_archive', -- a template, `%s` is the name of the file: `a.fey` is archived to `a.fey_archive`
   fey_refile_scope = 'court', -- the hollows refile offers as destinations: 'current', 'tree', 'court' or a list of references
   fey_refile_leave_link = false, -- leave a link to the new place where a refiled heading was
-  fey_tags_column = -80,
   fey_use_tag_inheritance = true,
   fey_tags_exclude_from_inheritance = {},
   fey_hide_leading_signature = false,
@@ -182,13 +177,12 @@ local DefaultConfig = {
   },
   fey_link_schemes = {}, -- a link `{@ link, jira:ABC-1 @}` calls fey_link_schemes.jira('ABC-1', tag)
   tag_handlers = {},
+  tag_exports = {}, -- how tags of your own are exported, by name: patterns for each form of the tag, see `fey.export.tags`
   mappings = {
     disable_all = false,
     fey_return_uses_meta_return = false,
     prefix = '<Leader>;',
     global = {
-      fey_toggle_use_cwd_config = '',
-      fey_toggle_use_buffer_config = '',
       fey_agenda = '<prefix>a',
       fey_hollow_init = '<prefix>vi',
       fey_vault_reindex = '<prefix>vr',
@@ -253,10 +247,10 @@ local DefaultConfig = {
       fey_run_buffer_commands_at_tag = '<prefix>!t',
       fey_query_run_at_tag = '<prefix>qq',
       fey_query_run_all = '<prefix>qa',
-      fey_toggle_run_all_buffer_commands_at_buffer_enter = '<prefix>!e',
+      fey_toggle_run_all_buffer_commands_at_buffer_enter = { '<prefix>!e', '<prefix>Te' },
       fey_apply_all_settings = '<prefix>?a',
       fey_apply_settings_at_tag = '<prefix>?t',
-      fey_toggle_apply_all_settings_at_buffer_enter = '<prefix>?e',
+      fey_toggle_apply_all_settings_at_buffer_enter = { '<prefix>?e', '<prefix>Ts' },
       fey_refile = '<prefix>r',
       fey_timestamp_up_day = '<S-UP>',
       fey_timestamp_down_day = '<S-DOWN>',
@@ -271,7 +265,7 @@ local DefaultConfig = {
       fey_toggle_checkbox = '<C-Space>',
       fey_set_checkbox_state = '<prefix>sc',
       fey_insert_footnote = '<prefix>nf',
-      -- fey_toggle_heading = '<prefix>*',
+      fey_toggle_heading = '<prefix>*',
       fey_open_at_point = '<prefix>o',
       fey_edit_special = [[<prefix>']],
       fey_add_note = '<prefix>na',
@@ -354,9 +348,9 @@ local DefaultConfig = {
       fey_table_insert_boundary_end_after = '<prefix>tie',
       fey_table_insert_section_divider_after = '<prefix>tid',
 
-      -- fey_insert_todo_heading = '<prefix>iT', -- Add new todo heading right after current heading (same level)
-      -- fey_insert_todo_heading_respect_content = '<prefix>it', -- Add new todo heading after current heading block (same level)
-      -- fey_export = '<prefix>e',
+      fey_insert_todo_heading = '<prefix>iT', -- Add new todo heading right after current heading (same level)
+      fey_insert_todo_heading_respect_content = '<prefix>it', -- Add new todo heading after current heading block (same level)
+      fey_export = '<prefix>e',
       fey_next_visible_heading = '}',
       fey_previous_visible_heading = '{',
       fey_forward_heading_same_level = ']]',
@@ -369,6 +363,10 @@ local DefaultConfig = {
       fey_time_stamp_inactive = '<prefix>i!',
       fey_toggle_timestamp_type = '<prefix>d!',
       fey_toggle_conceal_task_tags = '<prefix>Tc',
+      fey_toggle_link_conceal = '<prefix>Tl',
+      fey_toggle_query_conceal = '<prefix>Tq',
+      fey_toggle_checkbox_icons = '<prefix>Ti',
+      fey_toggle_overdue = '<prefix>To',
       fey_insert_link = '<prefix>li',
       fey_store_link = '<prefix>ls',
       fey_check_links = '<prefix>lc',
@@ -377,7 +375,7 @@ local DefaultConfig = {
       fey_clock_cancel = '<prefix>xq',
       fey_clock_goto = '<prefix>xj',
       fey_set_effort = '<prefix>xe',
-      -- fey_show_help = 'g?',
+      fey_show_help = 'g?',
       fey_babel_tangle = '<prefix>yt',
       fey_babel_tangle_vault = '<prefix>yv',
       fey_babel_check = '<prefix>yc',
@@ -398,10 +396,6 @@ local DefaultConfig = {
       inner_subtree_from_root = 'Or',
       around_subtree_from_root = 'OR',
     },
-  },
-  emacs_config = {
-    executable_path = 'emacs',
-    config_path = nil,
   },
   vault = {
     enabled = true,

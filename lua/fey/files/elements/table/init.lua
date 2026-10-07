@@ -51,7 +51,14 @@ function Table.from_current_node(cursor)
   if node:type() ~= 'table' then node = ts_utils.closest_node(node, 'table') end
   if not node then return nil end
 
-  local bufnr = vim.api.nvim_get_current_buf()
+  return Table.from_node(node, vim.api.nvim_get_current_buf())
+end
+
+---The table of a `table` node
+---@param node TSNode
+---@param bufnr integer|string the buffer, or the text, the node is from
+---@return FeyTable
+function Table.from_node(node, bufnr)
   local tbl = Table:new(Range.from_node(node))
   tbl.node = node
 

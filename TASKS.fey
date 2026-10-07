@@ -2258,6 +2258,32 @@ Done (2026-10-07): FeyFiles retired as a preloaded set.
 -  Vault:  yes, for exporting a set of files or a whole label.
 -  After:  everything above.
 
+Done (2026-10-07): export.
+
+-  Chose:  a Lua exporter, no reader for pandoc to write: `export/model.lua` turns the tree into a document of sections, blocks and inline
+   items (the rules are in its header: comments hide what they comment, the machinery is dropped, query results are content), `markdown.lua` and `html.lua`
+   write it, `inline.lua` reads the emphasis markers with rules that leave paths and `snake_case` alone, `ics.lua` writes the dates of the index as
+   events. Everything else is pandoc reading the Markdown (LaTeX, PDF, Word, EPUB), checked with the pandoc of this machine. The emacs exporters and
+   `emacs_config` are removed. A link to a note becomes a link to the exported file, a section an anchor
+   (`sec-II-A`, unique per document), an `id:` or hollow link is its text. Block and pair link tags wrap what they hold.
+   The exporter of `comment.body_node` now has its user: a scope comment above the first heading makes the whole file nothing to export.
+   `fey_export` `<prefix>e` is on.
+-  Added (same day): OpenDocument (`odt`) through pandoc; merged cells (`FeyTable.from_node` now reads a table from text, the grid with its spans
+   comes from the table of the editor) as an HTML table with `colspan` and `rowspan`, embedded in the Markdown, written as is in HTML; tags named like an
+   HTML element (a list in `model.lua`, line, block and pair forms, keys as attributes, no `on*` attributes or `javascript:`, the names of the notes' own
+   tags win) as that element, embedded or written. And the body of a scope tag: `Tag.body_node` in `tags/init.lua` is the one place that decides
+   it (the item only, or the whole list when the tag is alone in it, the document above the first heading), `Tag.body` is what a handler uses, `comment`
+   and the `hl` tag ask it; 8 more checks in `tests/comments.lua`, 13 more in `tests/export.lua`.
+-  Names and exports (same day): a name that something else has (the plugin's tags, a `tag_exports` entry, a handler in `Tag.handlers`) keeps its meaning
+   and the weaker name ends with `_`: `section_` and `table_` are the HTML elements where `section` is the link and `table` the data tag, `div_` where
+   the user has a `div` of their own; names nothing else uses need no underscore (`fey/export/tags.lua`, which has the interface in its header). `tag_exports`
+   (and `Export.tag`) give a tag of the user a pattern per form (`%s` is the body, `\n`, `%%`), a function `function(body, tag, target)`, or forms per target;
+   a scope tag wraps what `Tag.body` says it applies to. In Markdown the wrapper is HTML around Markdown with blank lines so the body stays Markdown.
+   23 more checks in `tests/export.lua`.
+-  Not done:  see VII.
+-  Tests:  `tests/export.lua` (52 checks): the emphasis rules, headings, keyword, labels, lists, tables, code, links in every form, footnotes, math, comments in every form
+   and the commented file, query results, HTML ids and escaping, iCalendar (timed, all day, folded, CRLF), the files, a label, LaTeX and Word through pandoc.
+
   III.P. Config, mappings, help and docs
 
 -  Now:  `config/defaults.lua` still has org only options and many commented
@@ -2275,13 +2301,18 @@ Done (2026-10-07): FeyFiles retired as a preloaded set.
    index and unknown tags.
 -  After:  continuous.
 
-Toggles (2026-10-06): there are enough toggles now to want a tree of their
-own. Today `<prefix>Tc` hides or shows the task tags, and the older toggles
-sit at `<prefix>!e`, `<prefix>?e` and the global config toggles. Proposal:
-`<prefix>T` is the toggle root, with `Tc` for the concealment, and the others
-get a letter under it (`Te` for run commands on enter, `Ts` for apply settings
-on enter, `Tb` and `Tw` for the buffer and cwd config) while the old keys keep
-working for a release. To decide.
+Done (2026-10-07): config, mappings, help.
+
+-  Chose:  the mappings of the finished features are on (`toggle_heading` `<prefix>*`, `insert_todo_heading*`, `fey_show_help` `g?`). The options were checked
+   against the code: the ones nothing reads are removed (`fey_use_cwd_config`, `fey_use_buffer_config` and their mappings, `fey_tags_column`,
+   `fey_agenda_text_search_extra_files`, `fey_reindex_fey_src_blocks`, `emacs_config`, the `hyperlinks` table). `config/validate.lua` checks the options of `setup`
+   (the names come from `_meta.lua`, so an option with no default is known too; removed ones say what replaces them; booleans, tag names and choices are type checked)
+   and warns. The toggles tree is decided and built: `<prefix>T` with `Tc Tl Tq Ti To` (one function, `toggle_option`) and `Te` and `Ts` as second keys of the two
+   older toggles, which keep `<prefix>!e` and `<prefix>?e`; `Tb` and `Tw` are not needed, their options are gone. `Vault:status()` and `:checkhealth fey`: options, and per hollow the state,
+   the schema (`db_schema` against the plugin's), the stale files (changed, new, gone), the files with parse errors and the tags nothing knows.
+-  Not done:  see VII.
+-  Tests:  `tests/health.lua` (31 checks): the validation, setup warning and going on, the status of a vault, the health report with a stale index and an unknown tag, the toggles,
+   the old and the new keys, the help windows of the four groups.
 
   III.Q. Tests
 
@@ -2487,7 +2518,6 @@ working for a release. To decide.
 -  Which default keys for new mappings that collide (babel tangle versus
    database tab, both `<prefix>bt`)?
 
-
   VI. Post-rewrite planned features
 
 Things that are wanted but not part of converting the org code. They start when the conversion
@@ -2554,3 +2584,46 @@ Things that are wanted but not part of converting the org code. They start when 
    calendar, or events only in the index, as dates of a new kind); recurring events against the repeaters of the dates; time zones;
    which credentials, stored where (a keyring, not the notes), and the same care as for the `plugin` tag about what a note may make the
    editor do over the network.
+
+  VII. Deferred from finished tasks
+
+Everything a finished task left undone and that is wanted later lives here, one entry per task, so that a Done entry only says what was
+done. Add to it when a task leaves something out.
+
+  VII.A. Todo state, the `at:` key (from II.E)
+-  The optional `at:` key of the status tag (when the state was set).
+
+  VII.B. Comments (from III.F)
+-  A comment tag in the title of a heading commenting the whole section.
+
+  VII.C. Clock tables (from III.G)
+-  `maxlevel` and `tcolumns` of org, and the clock table of one heading's subtree only (`scope: subtree`).
+
+  VII.D. Equations as images (from III.H)
+-  Draw `math` as an image, in `images.scm`.
+
+  VII.E. Source blocks (from III.I)
+-  Noweb across files (also in VI.C) and block types other than `src`.
+
+  VII.F. Links across hollows (from III.J)
+-  The link picker lists only the current hollow, and the broken link report searches only the hollows that are open for `id:` targets.
+
+  VII.G. Completion (from III.K)
+-  The text of a tag body (a query, a table cell; the query language is VI.D), the name of a hollow in `scope:`, and the position of a tag in
+   the document (a tag directly after a heading, for example).
+
+  VII.H. Highlighting (from III.L)
+-  Repaint the overdue dates at midnight with the editor open.
+
+  VII.I. Leftovers of the old files (from III.N)
+-  The unused `find_*` methods of `FeyFile` (one is used by the footnotes) and `fey.buffers`, when nothing uses them.
+
+  VII.J. Export (from III.O)
+-  `%{key}` placeholders in the patterns of `tag_exports` (a function does it now), scope tag exports on a title or a table cell, completion of the names
+   and forms of `tag_exports`, and a check that warns about a tag name that ends with `_` and is not an HTML element.
+-  One file or a site from a whole label or hollow (`Export.label` writes a file per note), resolving `id:` links through the index, styling by `hl`,
+   images, and scope tags named like an HTML element (their implied body is the paragraph or list around them, which needs its own rules).
+
+  VII.K. Options (from III.P)
+-  The check of the options knows booleans, tag names and a few choices; a schema for every option (numbers, tables, the shape of the nested ones such as `ui`, `notifications`
+   and the agenda commands) would catch more. And the `docs/*.org` and `doc/*.txt` are still old (III.S).
