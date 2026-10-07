@@ -235,6 +235,7 @@ function Fey.setup(opts)
   require('fey.hollow.court').setup()
   require('fey.query').setup()
   require('fey.db').setup()
+  require('fey.import').setup()
   -- the navigator: `<prefix>;` opens it on the current file, `<prefix>:` where it was left
   local prefix = (config.mappings and config.mappings.prefix) or '<Leader>;'
   vim.keymap.set('n', prefix .. ';', function() require('fey.ui.navigator').open() end, { desc = 'open fey navigator' })

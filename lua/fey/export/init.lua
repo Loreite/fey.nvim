@@ -118,9 +118,9 @@ function Export.file(format, bufnr)
   if format == 'ics' then
     local content = Export.ics(vim.fn.fnamemodify(path, ':p'))
     if not content then
-    utils.echo_error('Export: the file is not in an indexed hollow')
-    return nil
-  end
+      utils.echo_error('Export: the file is not in an indexed hollow')
+      return nil
+    end
     local target = base .. '.ics'
     write(target, content)
     Export.done(target)
@@ -129,9 +129,9 @@ function Export.file(format, bufnr)
   if format == 'markdown' or format == 'html' then
     local content = Export[format](src)
     if not content then
-    utils.echo_warning('Nothing to export: everything is commented')
-    return nil
-  end
+      utils.echo_warning('Nothing to export: everything is commented')
+      return nil
+    end
     local target = base .. (format == 'markdown' and '.md' or '.html')
     write(target, content)
     Export.done(target)
@@ -155,6 +155,54 @@ function Export.file(format, bufnr)
   write(middle, content)
   local target = base .. '.' .. spec.extension
   Export._exporter({ 'pandoc', middle, '-f', 'gfm+tex_math_dollars+footnotes', '-s', '-o', target }, target)
+  return target
+end
+
+---Export a file to a file of another kind, with nothing asked and nothing shown (for the command line and for scripts). The note is always kept: the
+---result is `name.<extension>` next to it, or in `opts.outdir`. pandoc formats wait for pandoc to finish.
+---@param format 'markdown'|'html'|'ics'|'latex'|'pdf'|'docx'|'odt'|'epub'|'rst'
+---@param path string the Fey file
+---@param opts? { outdir?: string, force?: boolean }
+---@return string|nil target
+---@return string|nil err
+function Export.convert(format, path, opts)
+  opts = opts or {}
+  path = vim.fn.fnamemodify(path, ':p')
+  local fh, ferr = io.open(path, 'rb')
+  if not fh then return nil, ferr end
+  local src = fh:read('*a')
+  fh:close()
+  local stem = vim.fn.fnamemodify(path, ':t:r')
+  local dir = opts.outdir and vim.fn.fnamemodify(opts.outdir, ':p'):gsub('/$', '') or vim.fn.fnamemodify(path, ':h')
+  if opts.outdir then vim.fn.mkdir(dir, 'p') end
+  local ext = ({ markdown = 'md', html = 'html', ics = 'ics' })[format] or (PANDOC[format] and PANDOC[format].extension)
+  if not ext then return nil, 'unknown format: ' .. tostring(format) end
+  local target = dir .. '/' .. stem .. '.' .. ext
+  if vim.uv.fs_stat(target) and not opts.force then
+    return nil, 'the file exists: ' .. target .. ' (pass --force to write over it)'
+  end
+  if format == 'ics' then
+    local content = Export.ics(path)
+    if not content then return nil, 'the file is not in an indexed hollow, the dates come from the index' end
+    if write(target, content) then return target end
+    return nil, 'could not write ' .. target
+  end
+  if format == 'markdown' or format == 'html' then
+    local content = Export[format](src)
+    if not content then return nil, 'nothing to export: everything is commented' end
+    if write(target, content) then return target end
+    return nil, 'could not write ' .. target
+  end
+  if vim.fn.executable('pandoc') ~= 1 then return nil, 'pandoc executable not found. Make sure pandoc is in $PATH.' end
+  local content = Export.markdown(src, { extension = ext })
+  if not content then return nil, 'nothing to export: everything is commented' end
+  local middle = vim.fn.tempname() .. '.md'
+  write(middle, content)
+  local res = vim
+    .system({ 'pandoc', middle, '-f', 'gfm+tex_math_dollars+footnotes', '-s', '-o', target }, { text = true })
+    :wait()
+  os.remove(middle)
+  if res.code ~= 0 then return nil, 'pandoc failed: ' .. vim.trim(res.stderr or '') end
   return target
 end
 

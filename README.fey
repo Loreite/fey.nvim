@@ -988,6 +988,42 @@ contributing (with the glossary) and the changelog. `:Fey help` opens them in Ne
   -  `tests/docs.lua` also checks that every page parses, that every link of the pages resolves in a vault of a copy of the docs, and that the help file and its tags have every page
 
 
+  II.M.xv. Import, and the command line
+
+Markdown (Obsidian's flavour too) and org come in as Fey. The importers do not read the text themselves: they walk the tree of the tree-sitter parsers, `markdown` and `markdown_inline`
+(nvim-treesitter installs them) and `org` (the one the orgmode plugin installs; `FEY_ORG_PARSER` names the file, and `lazy/*/parser/org.so` and `site/parser/org.so` under the data directory are looked
+in). What the grammars do not know is matched in the text between the nodes: the emphasis markers of org, and Obsidian's own syntax.
+
+  -  `:FeyImport [markdown|org] [rename]` changes the buffer in place, in one undo step (the format comes from the name or the filetype); `rename` also gives the buffer the `.fey` name. `:FeyExport [format]` is the
+     export of `<prefix>e`: a menu, or the format given; the note stays and the result is a new file next to it
+  -  `require('fey.import')`: `.text(src, format, opts)` gives the Fey text and the notes about what did not come across, `.buffer(bufnr, format, opts)`, `.file(path, opts)` and `.files(paths, opts)`; `opts.write` is `adjacent` (the
+     default: `name.fey` next to the source, which is kept), `replace` (the Fey text over the file itself) or `rename` (over the file, with the extension `.fey`); `force` writes over a file that exists, `dry_run` writes nothing,
+     `link_extension = false` leaves the `.md` and `.org` targets of links alone
+  -  `bin/fey` on the command line, for batches (it runs a headless Neovim, `NVIM_BIN` names it, `FEY_PARSER` the Fey parser when Neovim does not find it):
+
+         ###  src sh
+         bin/fey import notes/*.md                       # a .fey next to each note
+         bin/fey import --write replace --format org *.txt
+         bin/fey import --write rename --dry-run vault/**/*.org
+         bin/fey export --format html --outdir out docs/*.fey
+         bin/fey export --format pdf notes/plan.fey
+         ###
+
+     an export is always a new file (`--force` to write over one), the Fey file is kept; a file that fails does not stop the others, the exit status is 1 if any did, and the notes about what was dropped go to the
+     standard error
+  -  Markdown comes in as: front matter keys as the `table` data tag of the document (`tags` as the labels of the document, lists joined), headings by their level (the Fey signatures are made, a skipped level
+     is not), emphasis, strike and code, links (a `.md` target becomes `.fey`), `[[wikilinks]]` with their alias, `![[embeds]]` and images as a `link` with `embed: true`, `#tags` as `labels` tags,
+     task boxes with Obsidian's other marks (`[/]`, `[!]`, ...), the dates of the Tasks plugin, callouts and quotes as a `blockquote` with a class, tables (the header gets the rule under it), fenced
+     blocks, `$math$` and `$$display$$`, footnotes (references and definitions), `%%comments%%` and HTML comments as `comment` tags. HTML blocks are kept as `html` source blocks and inline HTML is dropped
+  -  org comes in as: `#+title:` and the other keywords as document data (`#+filetags:` as labels, `#+todo:` as the keywords), headings with their keyword and priority as the `status` tag and their
+     tags as labels, `SCHEDULED:`, `DEADLINE:` and `CLOSED:` as planning tags, the property drawer as a `prop` tag, `CLOCK:` lines as `clock` tags in a `logbook`, other drawers as block tags, lists with boxes
+     (`[-]` is `[/]`), tables, source blocks with their arguments and `#+name:`, quote blocks, footnotes, timestamps in the text as `date` tags, and links (`file:` and `.org` targets become `.fey`)
+  -  not carried: highlights (`==x==`), table formulas (`#+tblfm`), links to a heading of the same file, blocks of other kinds in org (kept as comments), nested YAML in the front matter, and tag openers in
+     the text, which cannot be written in a paragraph (a blank is put inside). Each of these is named in the notes the import gives back. The result is read back with the Fey grammar and a syntax error is one of the notes
+  -  adjacent lists of different kinds (a bulleted and a numbered one) are one list in Fey
+
+
+
   II.N. Queries and databases
 
 Notes can hold queries (a Dataview style language, with TABLE, LIST and TASK) and

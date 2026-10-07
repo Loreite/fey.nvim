@@ -147,7 +147,22 @@ The options a note may set are a white list, see {@ link, configuration.fey; des
 of the notes (properties, planning dates, clocks, the logbook).
 
 
-  XII. Further
+  XII. Import, and the command line
+
+Notes you already have come in. `:FeyImport` changes the buffer you are in from Markdown (Obsidian's too) or org to Fey, in place, and one undo brings the old text back; `:FeyImport rename` also renames the
+buffer to `.fey`. For a whole folder, the command line does it, writing a `.fey` file next to each note, or over the file with `--write replace`, or over it with the new extension with `--write rename`:
+
+###  src sh
+bin/fey import notes/*.md
+bin/fey import --write rename --dry-run vault/**/*.org
+bin/fey export --format html --outdir out notes/*.fey
+###
+
+The import reads the files with the tree-sitter parsers of Markdown and org, so those have to be installed. What cannot come across (highlights, table formulas, the
+opener of a tag written in a paragraph) is listed in the notes it prints. Export from the command line always writes a new file and keeps the Fey one.
+
+
+  XIII. Further
 
 -  {@ link, mappings.fey; desc: Every default mapping @}
 -  {@ link, configuration.fey; desc: Every option @}

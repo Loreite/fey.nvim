@@ -39,9 +39,27 @@ local SAMPLES = {
   { 'scheduled', 'scope_tag', { '  I. H', '{# scheduled, 2026-10-07 Wed #}' }, 1, 0 },
   { 'deadline', 'scope_tag', { '  I. H', '{# deadline, 2026-10-07 Wed #}' }, 1, 0 },
   { 'closed', 'scope_tag', { '  I. H', '{# closed, 2026-10-07 Wed 10:00 #}' }, 1, 0 },
-  { 'clock', 'scope_tag', { '  I. H', '[ logbook #]', '{# clock, 2026-10-06 Tue 10:00; end: 2026-10-06 Tue 11:00; dur: 1:00 #}', '[# logbook ]' }, 2, 0 },
-  { 'logbook', 'pair_tag', { '  I. H', '[ logbook #]', '-  {@ date, 2026-10-06 Tue; active: false @}  Note taken: x', '[# logbook ]' }, 1, 0 },
-  { 'logbook', 'block_tag', { '  I. H', '[ logbook ]#', '   -  {@ date, 2026-10-06 Tue; active: false @}  Note taken: x' }, 1, 0 },
+  {
+    'clock',
+    'scope_tag',
+    { '  I. H', '[ logbook #]', '{# clock, 2026-10-06 Tue 10:00; end: 2026-10-06 Tue 11:00; dur: 1:00 #}', '[# logbook ]' },
+    2,
+    0,
+  },
+  {
+    'logbook',
+    'pair_tag',
+    { '  I. H', '[ logbook #]', '-  {@ date, 2026-10-06 Tue; active: false @}  Note taken: x', '[# logbook ]' },
+    1,
+    0,
+  },
+  {
+    'logbook',
+    'block_tag',
+    { '  I. H', '[ logbook ]#', '   -  {@ date, 2026-10-06 Tue; active: false @}  Note taken: x' },
+    1,
+    0,
+  },
   { 'fn', 'scope_tag', { '  I. H', '', 'a note {@ fn, one @} here' }, 2, 7 },
   { 'fn', 'pair_tag', { '  I. H', '', '[ fn, one #]', 'The note.', '[# fn ]' }, 2, 0 },
   { 'fn', 'block_tag', { '  I. H', '', '[ fn, one ]#', '   The note.' }, 2, 0 },
@@ -112,12 +130,29 @@ for _, sample in ipairs(SAMPLES) do
   check(label .. ': the tag handlers see it', all and #vim.tbl_filter(function(t) return t.name == name end, all) >= 1, true)
   -- the tags that have a handler in the editor have one for the form
   local HANDLED = {
-    status = true, date = true, scheduled = true, deadline = true, closed = true, fn = true, link = true, section = true,
-    comment = true, hl = true, query = true, feydb = true, clocktable = true, nvim = true, plugin = true,
+    status = true,
+    date = true,
+    scheduled = true,
+    deadline = true,
+    closed = true,
+    fn = true,
+    link = true,
+    section = true,
+    comment = true,
+    hl = true,
+    query = true,
+    feydb = true,
+    clocktable = true,
+    nvim = true,
+    plugin = true,
   }
   if HANDLED[name] then
     local handlers = Tag.handlers[name]
-    check(label .. ': it has a handler', handlers ~= nil and handlers[form] ~= nil or name == 'status' and handlers ~= nil, true)
+    check(
+      label .. ': it has a handler',
+      handlers ~= nil and handlers[form] ~= nil or name == 'status' and handlers ~= nil,
+      true
+    )
   end
   -- the ones that only draw can be run
   if all and (name == 'hl' or name == 'comment') then
@@ -133,7 +168,9 @@ for _, sample in ipairs(SAMPLES) do
   local md_ok, md = pcall(Export.markdown, src)
   local html_ok = pcall(Export.html, src)
   check(label .. ': exports', { md_ok, html_ok }, { true, true })
-  if md_ok and name ~= 'comment' then check(label .. ': the Markdown is text or nothing', type(md) == 'string' or md == nil, true) end
+  if md_ok and name ~= 'comment' then
+    check(label .. ': the Markdown is text or nothing', type(md) == 'string' or md == nil, true)
+  end
   check(label .. ': completion knows the name', vim.tbl_contains(data.tag_names(), name), true)
   vim.api.nvim_buf_delete(buf, { force = true })
 end
@@ -155,7 +192,7 @@ for _, line in ipairs(tasks) do
         if not covered[n] and not vim.tbl_contains({ 'exists', 'name', 'earlier' }, n) then missing[#missing + 1] = n end
       end
     end
-    if in_table and not line:match('^[|+]') then in_table = false end
+    if in_table and not line:match('^[|+v^]') then in_table = false end
   end
 end
 table.sort(missing)

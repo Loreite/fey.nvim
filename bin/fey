@@ -1,0 +1,5 @@
+#!/bin/sh
+# Fey on the command line: import Markdown and org, export Fey files. See `fey help`.
+# NVIM_BIN names the Neovim to use. FEY_PARSER is the built fey parser, FEY_ORG_PARSER the org one, when Neovim does not find them.
+here=$(dirname "$(readlink -f "$0")")
+exec "${NVIM_BIN:-nvim}" --headless -u NONE -l "$here/../scripts/fey_cli.lua" "$@"

@@ -22,23 +22,49 @@ local TERMS = {
     name = 'tags of a heading',
     say = 'labels',
     patterns = {
-      'get_tags', 'set_tags', 'add_tag%f[%W]', 'tags_to_string', 'align_tags', 'get_own_tags', 'has_tag%f[%W]',
-      'fey_use_tag_inheritance', 'fey_tags_exclude_from_inheritance', 'fey_agenda_remove_tags', 'fey_set_tags',
+      'get_tags',
+      'set_tags',
+      'add_tag%f[%W]',
+      'tags_to_string',
+      'align_tags',
+      'get_own_tags',
+      'has_tag%f[%W]',
+      'fey_use_tag_inheritance',
+      'fey_tags_exclude_from_inheritance',
+      'fey_agenda_remove_tags',
+      'fey_set_tags',
     },
   },
   { name = 'stars', say = 'signature', patterns = { '%f[%w]stars%f[%W]' } },
-  { name = 'timestamp', say = 'date', patterns = { 'time_stamp', 'timestamp_up', 'timestamp_down', 'timestamp_type', '[Tt]ime stamp' } },
-  { name = 'plan', say = 'planning tags', patterns = { '%f[%w_]get_plan_', '%f[%w_]get_non_plan_', '_plan_dates', '%f[%w_]plan_dates', 'FeyPlanDateTypes' } },
+  {
+    name = 'timestamp',
+    say = 'date',
+    patterns = { 'time_stamp', 'timestamp_up', 'timestamp_down', 'timestamp_type', '[Tt]ime stamp' },
+  },
+  {
+    name = 'plan',
+    say = 'planning tags',
+    patterns = { '%f[%w_]get_plan_', '%f[%w_]get_non_plan_', '_plan_dates', '%f[%w_]plan_dates', 'FeyPlanDateTypes' },
+  },
   { name = 'drawer option', say = 'logbook (a pair or block tag)', patterns = { 'fey_log_into_drawer' } },
-  { name = 'directive', say = 'key of the document data', patterns = { 'todo_directives', 'directive_name', 'org directive', 'get_directive', '_get_directive' } },
-  { name = 'agenda files', say = 'the vault (the hollows); the deprecated option `fey_agenda_files` is not counted', patterns = { '%f[%w_]agenda_files' } },
+  {
+    name = 'directive',
+    say = 'key of the document data',
+    patterns = { 'todo_directives', 'directive_name', 'org directive', 'get_directive', '_get_directive' },
+  },
+  {
+    name = 'agenda files',
+    say = 'the vault (the hollows); the deprecated option `fey_agenda_files` is not counted',
+    patterns = { '%f[%w_]agenda_files' },
+  },
   { name = 'src block, babel', say = 'fenced block named src', patterns = { 'src_block', 'end_src' } },
   { name = 'outline path', say = 'path of a heading', patterns = { 'outline_path' } },
   { name = 'org', say = 'fey', patterns = { '%f[%w]org%f[%W]', '[Oo]rgmode', '%.org%f[%W]' } },
 }
 
 -- lines that are the old name on purpose: the aliases that keep it working
-local IGNORE_LINE = { 'alias%(', 'vim%.deprecate', '^utils%.tags_to_string = ', 'is the old name of the key', 'agenda_files` before' }
+local IGNORE_LINE =
+  { 'alias%(', 'vim%.deprecate', '^utils%.tags_to_string = ', 'is the old name of the key', 'agenda_files` before' }
 
 -- where the code is, and what is left out of the check
 local DIRS = { 'lua', 'ftplugin', 'plugin', 'queries', 'syntax', 'indent', 'scripts', 'after' }
@@ -47,6 +73,10 @@ local SKIP = {
   ['scripts/terms_baseline.json'] = true,
   ['lua/fey/config/validate.lua'] = true, -- names the removed options to tell the user
   ['lua/fey/config/migrate.lua'] = true, -- names the old options and mappings to move them
+  ['lua/fey/import/init.lua'] = true, -- the importers read org (and Markdown): the word is the name of the format
+  ['lua/fey/import/org.lua'] = true, -- and the names of the nodes of the org grammar (headline, ...)
+  ['lua/fey/import/writer.lua'] = true,
+  ['scripts/fey_cli.lua'] = true,
 }
 local BASELINE = root .. '/scripts/terms_baseline.json'
 
@@ -95,10 +125,16 @@ local function inventory(counts)
   end
   for _, term in ipairs(TERMS) do
     local entry = by_word[term.name]
-    print(('%-20s -> %-34s %d use%s in %d file%s'):format(
-      term.name, term.say, entry and entry.total or 0, entry and entry.total == 1 and '' or 's',
-      entry and #entry.files or 0, entry and #entry.files == 1 and '' or 's'
-    ))
+    print(
+      ('%-20s -> %-34s %d use%s in %d file%s'):format(
+        term.name,
+        term.say,
+        entry and entry.total or 0,
+        entry and entry.total == 1 and '' or 's',
+        entry and #entry.files or 0,
+        entry and #entry.files == 1 and '' or 's'
+      )
+    )
     if entry then
       table.sort(entry.files, function(a, b) return a.n > b.n or (a.n == b.n and a.file < b.file) end)
       for i, f in ipairs(entry.files) do
@@ -168,10 +204,19 @@ elseif mode == '--check' then
     print('OLD WORD ' .. w)
   end
   if #worse > 0 then
-    print(('terms: %d new use%s of an old word. Say what the glossary says (see III.R), or if it has to stay, scripts/terms.lua --update.'):format(#worse, #worse == 1 and '' or 's'))
+    print(
+      ('terms: %d new use%s of an old word. Say what the glossary says (see III.R), or if it has to stay, scripts/terms.lua --update.'):format(
+        #worse,
+        #worse == 1 and '' or 's'
+      )
+    )
     vim.cmd('cquit 1')
   end
-  print(('terms: no new use of an old word%s'):format(better > 0 and (' (%d count%s went down: run --update to keep it)'):format(better, better == 1 and '' or 's') or ''))
+  print(
+    ('terms: no new use of an old word%s'):format(
+      better > 0 and (' (%d count%s went down: run --update to keep it)'):format(better, better == 1 and '' or 's') or ''
+    )
+  )
   vim.cmd('qa!')
 else
   inventory(counts)

@@ -14,13 +14,19 @@ end
 local function closes(text, i, marker)
   local before = text:sub(i - 1, i - 1)
   local after = text:sub(i + 1, i + 1)
-  return before ~= '' and not before:match('%s') and before ~= marker and (after == '' or after:match('[%s%)%]}"\'%.,;:!?]') ~= nil)
+  return before ~= ''
+    and not before:match('%s')
+    and before ~= marker
+    and (after == '' or after:match('[%s%)%]}"\'%.,;:!?]') ~= nil)
 end
 
 ---Split plain text into inline items: `{ t = 'text', s }` and `{ t = 'em', kind, children }`, `{ t = 'code', s }`
 ---@param text string
+---@param opts? { kinds?: table<string, string>, escapes?: boolean } other markers (the importer reads other markup with its own) and whether a backslash escapes
 ---@return table[]
-function M.parse(text)
+function M.parse(text, opts)
+  local KINDS = opts and opts.kinds or KINDS
+  local escapes = not (opts and opts.escapes == false)
   local out = {}
   local pos, i = 1, 1
   local function flush(upto)
@@ -28,14 +34,14 @@ function M.parse(text)
   end
   while i <= #text do
     local c = text:sub(i, i)
-    if c == '\\' then
+    if c == '\\' and escapes then
       i = i + 2
     elseif KINDS[c] and opens(text, i) then
       local j = i + 1
       local found
       while j <= #text do
         local d = text:sub(j, j)
-        if d == '\\' then
+        if d == '\\' and escapes then
           j = j + 2
         elseif d == c and closes(text, j, c) then
           found = j
@@ -50,7 +56,7 @@ function M.parse(text)
         if KINDS[c] == 'code' then
           out[#out + 1] = { t = 'code', s = inner }
         else
-          out[#out + 1] = { t = 'em', kind = KINDS[c], children = M.parse(inner) }
+          out[#out + 1] = { t = 'em', kind = KINDS[c], children = M.parse(inner, opts) }
         end
         pos, i = found + 1, found + 1
       else
@@ -68,7 +74,7 @@ function M.parse(text)
       if item.children then unescape(item.children) end
     end
   end
-  unescape(out)
+  if escapes then unescape(out) end
   return out
 end
 

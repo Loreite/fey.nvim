@@ -82,14 +82,11 @@ node) are described so the decision is recorded.
 
   I.B.iii. Status
 
-Phase 1 is done (2026-10-06): II.A to II.R, each with a Done entry under its
-text that says what was chosen, what it looks like now, what was tested and what
-was left. The code section above describes the starting point, not today. Still
-open from phase 1, by design: II.O.i (rewriting links after a move), the match
-compiled to SQL (II.K), a saved agenda view as a TASK query (II.K), refiling a
-list item, a restore command for archived headings, and the org manuals
-(III.S). The suites in `tests/` (nineteen of them) all pass, and
-`scripts/check_docs.sh` keeps the documentation true.
+Phase 1 (II.A to II.R, 2026-10-06) and phase 2 (III.A to III.S, 2026-10-07) are done,
+each task with a Done entry under its text that says what was chosen, what it looks like
+now, what was tested and what was left. The code section above describes the starting
+point, not today. What the tasks left is in VII, one entry per task, and what is planned
+for after the rewrite is in VI. `scripts/test.sh` runs every suite.
 
 
   I.C. Naming and documentation rules while the conversion runs
@@ -878,6 +875,11 @@ this is what is true.
    vaults do not disagree, so `contains(file.outlinks, this.file.link)` still
    works. `FROM` is worked out inside each vault: a label or a folder matches
    in every vault, and `incoming` / `outgoing` follow links inside a vault only.
+
+ 48956 48956 [ query_result #]
+ 48956 48956 No results to show for table query.
+ 48956 48956 [# query_result ]
+
 -  Editing:  a cell of a row of another vault is written to the file of that
    vault, and to the unsaved buffer when the file is open in one: the buffer
    is changed and stays unsaved, the file on the disk is not touched. The user
@@ -2487,6 +2489,36 @@ Done (2026-10-07): the documentation, the final pass. This is also the work of I
 -  After:  III.S, and every task that adds a tag (III.F, III.G, III.H and those
    after them).
 
+  III.T. Import, and the command line
+
+-  Now:  Fey has an exporter and nothing that brings notes in. Trying the plugin on real hollows means converting Markdown and org by hand.
+-  Reuse:  the exporter's model as the mirror image (`fey.export.model`), its emphasis rules (`fey.export.inline`), the tag builder (`tags.edit.build`), the
+   signature styles (`utils.sequences`), and the tree-sitter parsers that are installed: `markdown`, `markdown_inline`, `org`.
+-  Fey:  Lua. No tokenizer of our own: the importers walk the trees into one document (`fey.import.markdown`, `fey.import.org`) and one writer (`fey.import.writer`) writes it as Fey.
+   In place on a buffer, on files (next to the source, over it, or over it with the extension `.fey`), in batches, and from a command line; the exporter gets the same command line.
+-  Triggers:  `:FeyImport`, `:FeyExport`, `bin/fey import|export`.
+-  Vault:  none.
+-  After:  III.O, III.R.
+
+Done (2026-10-07): import.
+
+-  Chose:  the importers read the trees; what the grammars do not know is matched on the plain text between the nodes (org's emphasis markers, Obsidian's wikilinks, tags, math,
+   highlights, comments, callouts, footnote definitions, task marks and the dates of the Tasks plugin; `[[note]]` comes out of `markdown_inline` as a shortcut link inside a pair of brackets and is
+   recognised by its text). Headings nest by level (the markdown grammar makes sections for ATX headings only, so setext headings are laid out with the others and nested again), and the Fey signatures are made.
+   `fey.import.writer` is the one place that knows Fey syntax: `fey.export.inline` took an option for other markers.
+-  Modes:  `Import.buffer` (one undo step), `Import.file` / `Import.files` (`adjacent`, `replace`, `rename`; `force`, `dry_run`; one file failing does not stop a batch), `Import.text`.
+   The result is read back with the Fey grammar and an error is one of the notes returned. Files with carriage returns or a byte order mark are normalised first.
+-  Command line:  `bin/fey` runs `scripts/fey_cli.lua` in a headless Neovim without the user's config (`-u NONE`): `import` and `export` with `--format`, `--write`, `--force`, `--dry-run`,
+   `--outdir`, `--quiet`; exit status 1 when a file failed. `Export.convert(format, path, opts)` is the export without a menu, always a new file. The org parser is found at `FEY_ORG_PARSER`, on the
+   runtime path, or under the data directory (`lazy/*/parser`, `site/parser`).
+-  Found by importing 400 real Markdown files:  the grammar has three quirks the writer works around. A closing angle bracket in the head of a tag is an error unless escaped (`\>`); a bar in a paragraph of a
+   pair tag body is an error even escaped, so quotes, math, comments, footnotes and drawers are written as block tags (a bar is fine there); and a fence on the line of a bullet confuses the fences that
+   follow it, so such an item starts with its bullet alone and the fence under it. They are worth a look in tree-sitter-fey (VII.W).
+-  Not done:  see VII.
+-  Tests:  `tests/import.lua` (97 checks): Markdown (front matter, headings of every kind, emphasis, links and wikilinks, embeds, tags, math, footnotes, boxes and marks, callouts, tables, code, comments),
+   the same through the exporter, the Tasks dates, a link reference, HTML; org (keywords, status and labels, planning, properties, clocks, drawers, links, footnotes, boxes, source blocks, quotes, tables, comments);
+   a buffer in place and its undo; files in every mode; and the command line. 400 real Markdown files import with no failure (2 templates of a changelog generator do not parse as Fey) and the local org files as well.
+
   IV. Summary tables
 
   IV.A. New tags
@@ -2553,16 +2585,20 @@ v---------------------v---------------------v--------------------------v--------
 
   V. Open questions
 
--  Is the default sigil convention (`#` for metadata, `@` for reference-like
-   inline tags) acceptable, or should planning tags use their own?
--  Should the agenda require a vault? The proposal says yes. A fallback for
-   files outside any vault would be an in-memory index of `fey_agenda_files`.
--  Is one `todo` tag per heading title enough, or should the keyword also be
-   allowed as a positional prefix of the title, parsed by Lua?
--  Is a `metadata` grammar field worth the paragraph conflict, once the Lua
-   helper exists?
--  Which default keys for new mappings that collide (babel tangle versus
-   database tab, both `<prefix>bt`)?
+The questions of the proposal were answered by the work and are gone: the sigil convention (the `#` sigil for what is about the text, `@` for what is in it, and the planning
+tags are scope tags with the `#` sigil), whether the agenda needs a vault (it reads the court and its hollows, and `fey_agenda_files` only limits a view), one tag or a
+positional keyword for the status (the `status` tag, first in the title, keyword and priority together), and the keys of the colliding mappings (`<prefix>yt` for the tangle,
+`<prefix>bt` stays the database tab). What is open now:
+
+-  Is a `metadata` grammar field worth the paragraph conflict? The Lua helper (`tags.edit`, the metadata region) has been in use through both phases and was neither too slow
+   nor too ambiguous, so the answer is probably no. Decide, then delete the commented rule in `grammar.js` or build it.
+-  Should the checkbox items show on the agenda? They are `tasks` rows of kind item with no dates of their own and the headings that hold them are on the agenda already:
+   all open items under their heading, only the ones with a date tag of their own, or never.
+-  Is the saved agenda view a `TASK` query (VII.D), and does the match language (`+garden-spring/TODO`) then stay only as the prompt, or does one language replace the other?
+-  When refile and the heading moves rewrite links (VII.E), do they rewrite signatures or should a linked heading get an `id` prop so that the link needs no rewrite at all? The
+   second one makes the notes more stable and a little noisier.
+-  Which release removes the deprecated names (the old options, mappings and methods of III.R, `fey_agenda_files`) and the migration that carries them?
+-  Is a footnote label local to its file for good (VII.I), or should a hollow share its footnotes?
 
   VI. Post-rewrite planned features
 
@@ -2633,57 +2669,99 @@ Things that are wanted but not part of converting the org code. They start when 
 
   VII. Deferred from finished tasks
 
-Everything a finished task left undone and that is wanted later lives here, one entry per task, so that a Done entry only says what was
-done. Add to it when a task leaves something out.
+Everything a finished task left undone and that is wanted later lives here, one entry per task, in the order of the tasks, so that a Done entry only says what was
+done. Add to it when a task leaves something out. Checked against every "not done" and "not yet" of II and III on 2026-10-07: what a later task or a later request built
+is not listed.
 
-  VII.A. Todo state, the `at:` key (from II.E)
+  VII.A. Dates (from II.D)
+-  The date picker suggests nothing. It was to offer the dates already used in the hollow, which the `dates` table of II.I now makes a query.
+
+  VII.B. Todo state, the `at:` key (from II.E)
 -  The optional `at:` key of the status tag (when the state was set).
 
-  VII.B. Comments (from III.F)
+  VII.C. Hollows and the court (from II.I.i)
+-  A command to rename a hollow that rewrites the references to its old id (the links keep the vault part in `links.target_ref`, so the index
+   half is there), and `FROM "court:notes"` to name a hollow inside a query (a `scope` does the job today).
+
+  VII.D. Agenda (from II.J and II.K)
+-  The scope as a key of the agenda prompt (it is an option, `fey_agenda_scope`, and a key of a custom command and of the API). A saved agenda view written as
+   a `TASK` query, a custom command of the type `query`, which needs the items of a result turned into agenda lines that know their place. The match compiled to SQL,
+   if a hollow gets too big to filter in Lua.
+
+  VII.E. Refile, archive and the links to a moved heading (from II.N, II.O and II.O.i)
+-  II.O.i, which was planned and not started: rewriting the `link` and `section` references to a heading that moves (refile, archive, a subtree move, a renumbering),
+   with `fey_refile_rewrite_links` (`ask`, `always`, `never`), one undo step per file, the references found through the backlinks of the index. Today the count is shown and
+   the references are left. Refiling a list item subtree. A command that restores an archived heading from its `archived_*` props.
+
+  VII.F. Capture (from II.P)
+-  A template key that asks for the labels, the `properties` of a template other than `empty_lines`, capturing a list item, and `whole_file` (accepted and ignored: the
+   whole text is always written).
+
+  VII.G. Clock (from III.A)
+-  The clock table by label (the per day, per file and per heading tables are there), and the clock report of the agenda over the same code.
+
+  VII.H. Checkboxes (from III.B)
+-  The percent done of a heading as a field of the query language, and the checkbox items on the agenda (they are `tasks` rows of kind item, which have no dates
+   of their own; see the open questions). The Nerd Font glyphs of the checkbox states were chosen by name and never looked at in a font.
+
+  VII.I. Footnotes (from III.C)
+-  Footnotes across files (a label is local to its file), renaming a label together with its references, and the text of a note as virtual text or in a float.
+
+  VII.J. Comments (from III.F)
 -  A comment tag in the title of a heading commenting the whole section.
 
-  VII.C. Clock tables (from III.G)
+  VII.K. Clock tables (from III.G)
 -  `maxlevel` and `tcolumns` of org, and the clock table of one heading's subtree only (`scope: subtree`).
 
-  VII.D. Equations as images (from III.H)
+  VII.L. Equations as images (from III.H)
 -  Draw `math` as an image, in `images.scm`.
 
-  VII.E. Source blocks (from III.I)
+  VII.M. Source blocks (from III.I)
 -  Noweb across files (also in VI.C) and block types other than `src`.
 
-  VII.F. Links across hollows (from III.J)
+  VII.N. Links across hollows (from III.J)
 -  The link picker lists only the current hollow, and the broken link report searches only the hollows that are open for `id:` targets.
 
-  VII.G. Completion (from III.K)
+  VII.O. Completion (from III.K)
 -  The text of a tag body (a query, a table cell; the query language is VI.D), the name of a hollow in `scope:`, and the position of a tag in
    the document (a tag directly after a heading, for example).
 
-  VII.H. Highlighting (from III.L)
+  VII.P. Highlighting (from III.L)
 -  Repaint the overdue dates at midnight with the editor open.
 
-  VII.I. Leftovers of the old files (from III.N)
+  VII.Q. Leftovers of the old files (from III.N)
 -  The unused `find_*` methods of `FeyFile` (one is used by the footnotes) and `fey.buffers`, when nothing uses them.
 
-  VII.J. Export (from III.O)
+  VII.R. Export (from III.O)
 -  `%{key}` placeholders in the patterns of `tag_exports` (a function does it now), scope tag exports on a title or a table cell, completion of the names
    and forms of `tag_exports`, and a check that warns about a tag name that ends with `_` and is not an HTML element.
 -  One file or a site from a whole label or hollow (`Export.label` writes a file per note), resolving `id:` links through the index, styling by `hl`,
    images, and scope tags named like an HTML element (their implied body is the paragraph or list around them, which needs its own rules).
 
-  VII.K. Options (from III.P)
+  VII.S. Options (from III.P)
 -  The check of the options knows booleans, tag names and a few choices; a schema for every option (numbers, tables, the shape of the nested ones such as `ui`, `notifications`
-   and the agenda commands) would catch more. And the `docs/*.org` and `doc/*.txt` are still old (III.S).
+   and the agenda commands) would catch more.
 
-  VII.L. Tests (from III.Q)
+  VII.T. Tests (from III.Q)
 -  Run the suites in parallel in `scripts/test.sh` (about a minute with the screen checks now), a continuous integration workflow that runs it, a measure of which
    lines of Lua no suite reaches, and screen checks for the agenda and the database views (the suites read their text, the screen checks would read what is drawn).
 
-  VII.M. Terminology (from III.R)
+  VII.U. Terminology (from III.R)
 -  The words of the agenda views: the view types `tags` and `tags_todo` (and the match language they use) say tags for labels, the agenda filter and the sorting say `tag` for a label, and about
    sixty variables in the agenda, the notifications, refile and capture do the same; rename them with the view types as aliases. The old names of the options and the Lua API are removed
-   after a release (`fey.config.migrate`, `fey.utils.deprecate`), and the docs (`docs/*.org`, `doc/*.txt`) still speak org until III.S.
+   after a release (`fey.config.migrate`, `fey.utils.deprecate`; which release is an open question).
 
-
-  VII.N. Documentation (from III.S)
+  VII.V. Documentation (from III.S and II.R)
 -  The descriptions of 37 options are missing and many of the others are the wording of the org manual (a "tags" that means labels, "Fey files", agenda files): read `config/_meta.lua` option by option. A web version of the docs
    (the old pages were published at fey.github.io), the screenshots of the tutorial, the page of the Lua API as a generated reference instead of the hand written `fey_api.txt`, and a `query` in the configuration page in place of the generated list.
+   The tutorial of the test vault (outside this repository) was brought up to date at II.R and has nothing of phase 2 (the clock table, footnotes, comments, math, source blocks, export, settings tags).
+
+  VII.W. Import (from III.T)
+-  Formats beyond the two (reStructuredText, plain HTML, Logseq and Roam pages, Joplin and Notion exports), org's inline footnotes, radio targets, `#+include`, `#+results:` blocks and table formulas (VI.A), and org links
+   to a heading or a custom id of the same file (kept as their text; they could become `section` links once the signatures are known).
+-  Markdown: highlights (no Fey form), nested YAML in the front matter, wikilinks to a heading (`Note#Heading` becomes a link to the note with the heading in the description, because the signature of the heading is
+   not known when the file is read; resolving it needs the vault), block ids (`^id`, dropped), embeds of notes (a link, not the transcluded text), Dataview queries (kept as code blocks; they could become `query` tags),
+   and a list of one kind next to a list of another kind, which Fey reads as one list.
+-  A report mode for a whole folder (a table of the notes, the warnings and the files that did not parse), `--jobs` for large batches, `.fey` files that exist as a reason to skip rather than fail, and rewriting the
+   links between the imported files (a link to `a.md` becomes `a.fey` already; a link to a note by its title, the way Obsidian resolves them, does not).
+-  tree-sitter-fey, to look at: the three quirks of III.T (an unescaped closing angle bracket in a head, a bar in a paragraph of a pair tag body, a fence on the line of a bullet).

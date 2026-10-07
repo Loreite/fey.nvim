@@ -28,6 +28,7 @@ Table of Contents                                      *fey-table-of-contents*
   - Footnotes, comments and math   |fey-tutorial-footnotes,-comments-and-math|
   - Settings of a note                       |fey-tutorial-settings-of-a-note|
   - Export                                               |fey-tutorial-export|
+  - Import, and the command line   |fey-tutorial-import,-and-the-command-line|
   - Further                                             |fey-tutorial-further|
 4. Configuration                                           |fey-configuration|
   - The setup                                    |fey-configuration-the-setup|
@@ -454,6 +455,28 @@ EXPORT                                                   *fey-tutorial-export*
 LaTeX, PDF, Word, OpenDocument and EPUB by pandoc, and an iCalendar file has
 the dates. The exports leave out comments and the machinery of the notes
 (properties, planning dates, clocks, the logbook).
+
+
+IMPORT, AND THE COMMAND LINE       *fey-tutorial-import,-and-the-command-line*
+
+Notes you already have come in. `:FeyImport` changes the buffer you are in from
+Markdown (Obsidian's too) or org to Fey, in place, and one undo brings the old
+text back; `:FeyImport rename` also renames the buffer to `.fey`. For a whole
+folder, the command line does it, writing a `.fey` file next to each note, or
+over the file with `--write replace`, or over it with the new extension with
+`--write rename`:
+
+>sh
+    bin/fey import notes/*.md
+    bin/fey import --write rename --dry-run vault/**/*.org
+    bin/fey export --format html --outdir out notes/*.fey
+<
+
+The import reads the files with the tree-sitter parsers of Markdown and org, so
+those have to be installed. What cannot come across (highlights, table
+formulas, the opener of a tag written in a paragraph) is listed in the notes it
+prints. Export from the command line always writes a new file and keeps the Fey
+one.
 
 
 FURTHER                                                 *fey-tutorial-further*
@@ -1836,6 +1859,7 @@ Features:
 
 Changes:
 
+- documentation overhaul (6845826)
 - III.R task completed (53bff71)
 - III.Q task completed (6ac7f4e)
 - III.P task completed (5949206)
