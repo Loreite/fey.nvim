@@ -303,6 +303,7 @@
 ---@field fey_log_done? 'time' | 'note' How to log done tasks. `time` indicates adding CLOSED date. `note` prompts for closing note. Default: 'time'
 ---@field fey_log_repeat? 'time' | 'note' | false How to log repeated tasks. `time` just logs the time of repeat. `note` prompts for closing note alongside the time. `false` disables. Default: 'time'
 ---@field fey_log_into_logbook? boolean Write notes into the logbook of the heading as well. Default: false
+---@field fey_conceal_icons? table<string, string> The icon shown for a concealed query, feydb or clocktable tag, by the name of the tag, over the defaults (a Nerd Font glyph, or a one cell Unicode symbol without a Nerd Font, see `fey_checkbox_icons`). Default: {}
 ---@field fey_math_tag_name? string Tag name of math: a line, block or pair tag whose text is LaTeX, highlighted with the `latex` tree-sitter parser when it is installed. Default: 'math'
 ---@field fey_custom_exports? table<string, FeyCustomExport> List of custom exports. Default: {}
 ---@field fey_adapt_indentation? boolean Add spaces as indents to the content. Default: true

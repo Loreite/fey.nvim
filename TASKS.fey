@@ -1994,8 +1994,13 @@ Added to III.G (2026-10-07): the `conceal` key.
    body. A node that fills its lines is hidden with `conceal_lines`, a scope tag in the middle of a line
    with plain `conceal`. A scope query tag no longer passes its keys to the query parser
    (`; scope: tree` was part of the text before).
--  Tests:  five screen checks (the body of a result stays, a concealed body, head and closer are hidden, a
-   tag inside a line, a result without the key) and five in `tests/clocktable.lua`.
+-  Changed (same day): a concealed tag and its result are one object (`Query.result_node` pairs them). Away
+   from it an icon stands where the tag was (`fey_conceal_icons`, Nerd Font glyph or one cell symbol by
+   `fey_checkbox_icons`), the rest is hidden; the cursor anywhere from the first line of the tag to the last
+   of the result shows everything as written (CursorMoved redraws only the objects entered or left). A result
+   with the key and no concealed tag is an object of its own, the icon in place of its head.
+-  Tests:  screen checks (the body of a result stays, the icon, a concealed body, head and closer are hidden, a
+   tag inside a line, a result without the key, the cursor entering and leaving) and five in `tests/clocktable.lua`.
 
   III.H. LaTeX
 

@@ -59,6 +59,7 @@ local DefaultConfig = {
   fey_property_tag_name = 'prop',
   fey_conceal_task_tags = true,
   fey_show_checkbox_state_as_icons = true, -- show `[x]` `[/]` `[!]` ... as an icon (the line of the cursor shows the box)
+  fey_conceal_icons = {}, -- icons of concealed query, feydb and clocktable tags by tag name, over the defaults
   fey_checkbox_icons = 'auto', -- 'nerd', 'unicode', or 'auto': Nerd Font glyphs when nvim-web-devicons is installed
   fey_checkbox_icon_overrides = {}, -- a mark to an icon, for example { ['!'] = '' }
   fey_use_cwd_config = false,

@@ -763,9 +763,11 @@ replacing the last result. It reads the clocks of the index, so it needs no logb
   -  `scope`: as for a query tag, `current`, `tree`, `court` or hollows
   -  a finished clock counts when it starts or ends in the span; a running clock does not
   -  `fey_clocktable_tag_name` and `fey_clocktable_result_tag_name` rename the tags
-  -  `conceal: true`, on a `clocktable`, `query` or `feydb` tag, hides the tag and its body, and writes the result
-     as `[ clocktable_result; conceal: true #]`, which hides only the head and the closer of the result and leaves the
-     body in view (lines it fills alone are hidden whole, so it needs `conceallevel`; the cursor line shows the text)
+  -  `conceal: true`, on a `clocktable`, `query` or `feydb` tag, makes the tag and its result one object. Away from it you
+     see the result and an icon where the tag was (a database or a clock, a one cell symbol without a Nerd Font;
+     `fey_conceal_icons` changes it by tag name). The tag, its body and the head and closer of the result are hidden.
+     With the cursor anywhere from the first line of the tag to the last line of the result, all of it shows as
+     written. The tag writes its result as `[ clocktable_result; conceal: true #]`. Needs `conceallevel`
 
 
   II.M.iv. Math

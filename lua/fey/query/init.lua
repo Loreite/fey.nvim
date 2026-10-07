@@ -152,6 +152,21 @@ local function anchor_of(node)
   return a
 end
 
+---The result tag after a `query`, `feydb` or `clocktable` tag, nil when it has none
+---@param bufnr integer
+---@param node TSNode
+---@return TSNode|nil pair_tag
+function M.result_node(bufnr, node)
+  local name = name_node(node)
+  local kind = name and tag_kind(text(bufnr, name))
+  if not kind then return nil end
+  local sib = anchor_of(node):next_named_sibling()
+  if sib and sib:type() == 'pair_tag' then
+    local n = name_node(sib)
+    if n and text(bufnr, n) == result_name_for(kind) then return sib end
+  end
+end
+
 ---Inclusive 0-indexed row range of a node (an end at column 0 belongs to the previous row)
 ---@param node TSNode
 ---@return integer, integer

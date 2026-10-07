@@ -112,20 +112,31 @@ before
 
 after {# query, LIST; conceal: true #} the line
 
+between
+
 [ query_result #]
 -  plain result
 [# query_result ]
 EOF
-export FEY_OPTS="{ fey_court_dir = '$TMP/court' }"
+export FEY_OPTS="{ fey_court_dir = '$TMP/court', fey_checkbox_icons = 'unicode' }"
 out=$(screen_of "$TMP/conceal.fey" ':set conceallevel=2' ':normal zR' ':normal G')
 check 'the body of a result stays' "$out" 'shown result' yes
+check 'an icon stands where the query was' "$out" '≣' yes
 check 'a concealed query body is hidden' "$out" 'LIST WITHOUT ID' no
 check 'a concealed result head is hidden' "$out" 'query_result; conceal' no
 total=$((total + 1))
 [ "$(grep -cF -- '[# query_result ]' <<<"$out")" = 1 ] || { echo "FAIL only the closer of the plain result is drawn"; failed=$((failed + 1)); }
-check 'an inline concealed tag is hidden' "$out" 'conceal: true #}' no
-check 'text around it stays' "$out" 'after  the line' yes
+check 'an inline concealed tag is an icon' "$out" 'after ≣ the line' yes
 check 'a result with no conceal shows its head' "$out" '[ query_result #]' yes
+# the cursor in the object shows all of it, from the first line of the query to the closer of the result
+out=$(screen_of "$TMP/conceal.fey" ':set conceallevel=2' ':normal zR' ':normal 7G')
+check 'the cursor in the result shows the query' "$out" 'LIST WITHOUT ID file.name' yes
+check 'and the head of the result' "$out" '[ query_result; conceal: true #]' yes
+check 'and the closer of the result' "$out" '[# query_result ]' yes
+total=$((total + 1))
+[ "$(grep -cF -- '≣' <<<"$out")" = 1 ] || { echo "FAIL the object the cursor is in has no icon, the other one has"; failed=$((failed + 1)); }
+out=$(screen_of "$TMP/conceal.fey" ':set conceallevel=2' ':normal zR' ':normal 7G' ':normal 3G')
+check 'leaving it hides it again' "$out" 'LIST WITHOUT ID' no
 
 rm -rf "$TMP"
 if [ "$failed" -gt 0 ]; then echo "screen: $failed of $total checks failed"; exit 1; fi
