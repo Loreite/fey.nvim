@@ -1,4 +1,4 @@
--- Turn a query result into Fey source: a table (TABLE queries) or a list (LIST queries).
+-- Turn a query result into Fey source: a table (TABLE queries) or a list (LIST and TASK queries).
 local V = require('fey.query.values')
 local ops = require('fey.query.ops')
 
@@ -7,6 +7,7 @@ local M = {}
 ---@class FeyQueryRenderOpts
 ---@field link_tag? string tag name used for links. Default 'link'
 ---@field sigil? string tag token used for links. Default '@'
+---@field hollow_id? string id of the hollow the result is written in: links to files of other hollows name their hollow
 
 ---Escape text for a tag head value (`,` `;` and `\` are the head's delimiters)
 ---@param s string
@@ -19,7 +20,10 @@ end
 ---@param opts FeyQueryRenderOpts
 local function link_text(link, opts)
   local sigil = opts.sigil or '@'
-  local parts = { opts.link_tag or 'link', ', ', head_text(link.path) }
+  local path = link.path
+  -- a file of another hollow is written with the hollow: court:notes/a.fey
+  if link.hollow and opts.hollow_id and link.hollow ~= opts.hollow_id then path = link.hollow .. '/' .. path end
+  local parts = { opts.link_tag or 'link', ', ', head_text(path) }
   if link.display and link.display ~= '' and link.display ~= link.path then
     parts[#parts + 1] = '; desc: ' .. head_text(link.display)
   end
@@ -110,7 +114,15 @@ end
 local function render_items(items, indent, opts, out)
   for _, item in ipairs(items) do
     local text
-    if item.id ~= nil and item.value ~= nil then
+    if item.task ~= nil then
+      -- a task: its keyword, a link to its heading and its priority
+      local state, priority = ops.get(item.task, 'state'), ops.get(item.task, 'priority')
+      local parts = {}
+      if state ~= V.NULL then parts[#parts + 1] = ops.tostring(state) end
+      parts[#parts + 1] = value_text(ops.get(item.task, 'link'), opts)
+      if priority ~= V.NULL then parts[#parts + 1] = '(' .. ops.tostring(priority) .. ')' end
+      text = table.concat(parts, ' ')
+    elseif item.id ~= nil and item.value ~= nil then
       text = value_text(item.id, opts) .. ': ' .. value_text(item.value, opts)
     elseif item.id ~= nil then
       text = value_text(item.id, opts)

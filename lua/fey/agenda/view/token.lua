@@ -45,7 +45,8 @@ function FeyAgendaLineToken:get_highlights()
     })
   end
 
-  if self.add_markup_to_heading and self.highlighter then
+  -- a heading read from the vault (an agenda entry) has no syntax tree to take the markup from
+  if self.add_markup_to_heading and self.highlighter and self.add_markup_to_heading.node then
     local markup_highlights = self.highlighter.markup:get_prepared_heading_highlights(self.add_markup_to_heading)
     local _, offset = self.add_markup_to_heading:get_title()
 

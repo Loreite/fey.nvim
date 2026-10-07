@@ -419,7 +419,7 @@ end
 ---@return boolean ok
 ---@return string|nil err
 function M.set(vault, rel, key, value)
-  local abs = vim.fs.joinpath(vault.root, rel)
+  local abs = vault:abs(rel)
   local bufnr = vim.fn.bufnr(abs)
   local loaded = bufnr > 0 and vim.api.nvim_buf_is_loaded(bufnr)
 

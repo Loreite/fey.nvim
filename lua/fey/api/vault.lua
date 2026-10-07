@@ -111,6 +111,16 @@ function FeyVault:labels(opts) return self._vault:labels(opts) end
 ---@return table[]
 function FeyVault:tags(name) return self._vault:tags(name) end
 
+---Dates written in the notes (the date tag and the planning tags) with the heading and the task each belongs to
+---@param opts? { from?: integer, to?: integer, kinds?: string[], active?: boolean, open_only?: boolean, path?: string } see `Vault:dates`
+---@return table[]
+function FeyVault:dates(opts) return self._vault:dates(opts) end
+
+---Tasks of the notes: headings with a todo keyword or a priority
+---@param opts? { state?: string|string[], done?: boolean, priority?: string, label?: string, path?: string } see `Vault:tasks`
+---@return table[]
+function FeyVault:tasks(opts) return self._vault:tasks(opts) end
+
 ---Names of the databases in `.fey/dbs`
 ---@return string[]
 function FeyVault:databases()
@@ -119,13 +129,13 @@ end
 
 ---Run a query-language query (the `TABLE`/`LIST` language of `query` tags)
 ---@param src string
----@param opts? { this?: string } vault relative path of the note the query lives in
----@return FeyQueryResult result `type`, `count`, and `headers`/`rows` (TABLE) or `items` (LIST)
+---@param opts? { this?: string, scope?: FeyScopeSpec } `this`: vault relative path of the note the query lives in; `scope`: `current` (default), `tree`, `court` or a list of hollow references
+---@return FeyQueryResult result `type`, `count`, and `headers`/`rows` (TABLE) or `items` (LIST and TASK)
 function FeyVault:run_query(src, opts)
   opts = opts or {}
   local this
   if opts.this then this = require('fey.query.pages').store(self._vault):page(opts.this) end
-  return require('fey.query.engine').run(self._vault, src, { this = this })
+  return require('fey.query.engine').run(self._vault, src, { this = this, scope = opts.scope })
 end
 
 ---Rows of a database view, computed like the view shows them

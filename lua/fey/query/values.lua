@@ -6,7 +6,7 @@
 --   object    table with metatable V.OBJECT (or a lazy page, see query/pages.lua)
 --   date      { ts = epoch seconds, time = has a time component }
 --   duration  { years, months, weeks, days, hours, minutes, seconds, milliseconds }
---   link      { path, display, subpath, embed }
+--   link      { path, display, subpath, embed, hollow }   `hollow`: id of the hollow the file is in (court:notes), when known
 --   function  Lua function (lambdas)
 local M = {}
 
@@ -277,7 +277,10 @@ function M.compare(a, b)
   end
   if ta == 'link' then
     local x, y = link_key(a), link_key(b)
-    return x < y and -1 or (x > y and 1 or 0)
+    if x ~= y then return x < y and -1 or 1 end
+    -- the same path in two hollows is two files; a link that does not say which hollow matches either
+    if a.hollow and b.hollow and a.hollow ~= b.hollow then return a.hollow < b.hollow and -1 or 1 end
+    return 0
   end
   if ta == 'array' then
     for i = 1, math.min(#a, #b) do
@@ -335,8 +338,9 @@ end
 ---@param path string
 ---@param display? string
 ---@param subpath? string
-function M.link(path, display, subpath)
-  return setmetatable({ path = path, display = display, subpath = subpath, embed = false }, M.LINK)
+---@param hollow? string id of the hollow the file is in
+function M.link(path, display, subpath, hollow)
+  return setmetatable({ path = path, display = display, subpath = subpath, embed = false, hollow = hollow }, M.LINK)
 end
 
 ---Recursively convert decoded JSON into query values.

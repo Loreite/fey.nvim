@@ -5,7 +5,12 @@
 ---@class FeyAgendaCustomCommandTypeInterface
 ---@field type? 'agenda' | 'tags' | 'tags_todo'
 ---@field fey_agenda_overriding_header? string
+---@field fey_court_dir? string The court directory, the top of the tree of hollows: its vault, its agenda files (in `agenda/`) and the registrations of every hollow below it (in `.fey/hollows/`). Created when missing. Default: '~/feyhollow'
+---@field court? FeyCourtConfig The court
 ---@field fey_agenda_files? string[]
+---@field fey_agenda_scope? FeyScopeSpec
+---@field fey_agenda_show_scope? boolean
+---@field fey_agenda_show_hollow? 'auto'|'always'|'never'|boolean
 ---@field fey_agenda_tag_filter_preset? string
 ---@field fey_agenda_category_filter_preset? string
 ---@field fey_agenda_sorting_strategy? FeyAgendaSortingStrategy[]
@@ -183,6 +188,13 @@
 ---@field input? { use_vim_ui: boolean } Input configuration
 ---@field agenda? { preview_window?: vim.lsp.util.open_floating_preview.Opts } Agenda preview window option
 
+---@class FeyCourtConfig
+---@field enabled? boolean Use a court. Default: true
+---@field agenda_dirname? string Name of the agenda directory inside the court directory. Default: 'agenda'
+---@field refresh_on_start? boolean Update the vault of every registered hollow in the background at startup. Default: true
+---@field jump_cwd? boolean Jumping to a hollow changes the working directory. Default: true
+---@field jump_tab? boolean Jumping to a hollow opens it in a new tab. Default: false
+
 ---@class FeyVaultConfig
 ---@field enabled? boolean Index `./.fey/` directories on startup and when the cwd changes. Default: true
 ---@field dirname? string Name of the vault directory. Default: '.fey'
@@ -191,6 +203,7 @@
 ---@field label_tags? string[] Tag names whose values are labels. Default: { 'label', 'labels' }
 ---@field link_tags? string[] Tag names that reference a file or section. Default: { 'link', 'section' }
 ---@field meta_tags? string[] Tag names that are heading metadata. They are left out of the title (and path) of a heading in the index. Default: { 'label', 'labels', 'status', 'prop', 'scheduled', 'deadline', 'closed' }
+---@field live_index? boolean Index buffers while they are edited (after a short pause), not only when they are saved. Default: true
 ---@field time_budget_ms? integer Longest time one indexing slice may block the editor. Default: 10
 ---@field run_on_load? boolean Update `query` and `feydb` tags when a buffer first loads. Default: true
 ---@field db_open_mode? 'split'|'vsplit'|'tab'|'current' How database views open. Default: 'vsplit'

@@ -80,6 +80,27 @@ node) are described so the decision is recorded.
 -  all example syntax in this file is in fenced blocks, so it stays raw text.
 
 
+  I.C. Naming and documentation rules while the conversion runs
+
+Two rules apply to every task below, so that the clean up at the end stays
+small.
+
+-  Naming:  new code, new options and new text use Fey words from the start
+   (the table in III.R). Where an old org name is in the way, the new code
+   still calls it by its Fey name in comments and docs, and the rename itself
+   waits for III.R so a finished area is touched once. For example the heading
+   method `get_tags` returns labels: say labels everywhere new.
+-  Documentation:  progressive, in three steps.
+   1. Each task, when it is finished, gets a short user facing section in
+      `README.fey` (feature set, keys, an example) and its Done entry in this
+      file says which docs it touched.
+   2. At the end of each phase a checkpoint task goes over everything the phase
+      changed (II.R for phase 1), including the vault tutorial of the test
+      vault and the generated `doc/fey_api.txt`.
+   3. The complete rewrite of the old org docs and the help files is III.S, at
+      the very end.
+
+
   II. Phase 1: timestamps, agenda, refile
 
 These come first. The order inside the phase is the order to build them: the
@@ -645,6 +666,44 @@ Done in part (2026-10-06): the schema is at version 2 with `tags.region` and
 `labels.container` / `labels.line` (see II.G). The `dates` and `tasks` tables,
 `headings.props` and `Vault:index_text` are still to do.
 
+Done (2026-10-06):
+
+-  Chose:  as proposed, with the names the tags ended up with. Schema version
+   3 (an old index is rebuilt by itself). The tables `dates` (file_id,
+   heading_ord, line, col, kind, active, start_ts, start_time, end_ts,
+   end_time, repeater, warn) and `tasks` (file_id, heading_ord, line, kind,
+   state, done, priority, title), and the column `headings.props` (the keys of
+   the `prop` tags of a heading, JSON). Dates are epoch seconds in local time;
+   `start_time` and `end_time` say whether there is a time of day.
+-  Extraction:  `fey.vault.extract` reads every date tag and planning tag with
+   `FeyDate.from_parts` (new, needs no buffer), so a range, a time range, a
+   repeater (`+1w`, `.+1d`, `++2m`) and a warning (`-3d`, or the `warn` key)
+   are all there. A task is a heading whose title starts with a status tag; its
+   `state` is the first value, `done` says whether the keyword is a done
+   keyword (the keywords of the file win: its `todo` key, else the config), and
+   `priority` is the second value or the key. The vault gives the extractor the
+   tag names and the keyword lookup, so the extractor itself stays free of config.
+-  Vault API:  `Vault:dates(opts)` (`from` and `to` in epoch seconds, `kinds`,
+   `active`, `open_only` to leave out the dates of done tasks, `path`; a
+   repeating date counts when it started before `to`) with the heading and
+   task of each row, and `Vault:tasks(opts)` (`state`, `done`, `priority`,
+   `label`, `path`, labels of the heading included). Also on `FeyApiVault`.
+-  Unsaved text:  `Vault:index_text(path, lines)` indexes a buffer that was not
+   saved. The file keeps the modification time and size of the disk, so a scan
+   does not undo it, and saving (`index_path`) or discarding the buffer
+   replaces it with the disk. Buffers are indexed after a 300 ms pause on
+   `TextChanged` and `InsertLeave` (option `vault.live_index`, default true), and
+   `FeyVaultFileIndexed` carries `live = true` for these.
+-  Query language:  `page.tasks`; and TASK queries, which were refused before.
+   A task has `text`, `state`, `completed`, `priority`, `line`, `file`,
+   `signature`, `link`, `labels`, and the dates `scheduled`, `deadline`,
+   `closed` and `date`. WHERE, SORT, GROUP BY, LIMIT and FROM (also by label)
+   work as for pages. A TASK result is written as a list:
+   `-  TODO {link to the heading} (A)`.
+-  Not done:  checkbox tasks of list items (they come with III.B, `kind = item`),
+   clock dates (III.A), the mappings for effort.
+-  Tests:  `tests/index.lua` (40 checks).
+
 Example:
 
     ###  src sql
@@ -665,6 +724,201 @@ Example:
     );
     ###
 
+
+  II.I.i. The master vault
+
+This came out of II.I: the data of many vaults has to be one view, for the
+agenda most of all. It is still being thought through, so what exists is a
+base, and the open questions are at the end.
+
+-  Chose:  the config option is the Fey files directory, `fey_files_dir`
+   (default `~/feyfiles`), and it is the master vault. It is created when
+   it is missing, with this layout:
+
+    ###  src
+    ~/feyfiles/
+      agenda/            the agenda files (option master.agenda_dirname)
+      .fey/
+        vault.db         the index of the master vault, a vault like any other
+        dbs/             databases of the master vault (cross vault ones later)
+        vaults/          one link per registered vault
+    ###
+
+   The option `master` has `enabled`, `agenda_dirname`, `refresh_on_start`,
+   `jump_cwd` and `jump_tab`. `fey_agenda_files` is deprecated: it is no
+   longer what the agenda reads.
+-  Registry:  when a vault is attached (a directory with a `.fey` folder) it
+   registers itself with a symbolic link in `.fey/vaults/`, named after its
+   directory (`alpha`, then `alpha-2` for a second vault with that name).
+   The link points at the vault root and not at the database file: the index
+   is `<link>/.fey/vault.db` all the same, the master vault can be browsed
+   into other vaults like any folder, and a vault is one thing to move or
+   delete. Registering twice does nothing. Without symbolic links (Windows) the
+   registration is a `<name>.link` file with the path. A link to a vault that
+   is gone stays in the list marked as not available, until `:FeyVaultsPrune`.
+   The master vault does not scan the links (hidden directories are skipped).
+-  Merged view:  `fey.vault.master` (and `require('fey.api').master()`):
+   `vaults()`, `dates(opts)`, `tasks(opts)`, `labels(opts)`, `query(sql)`,
+   `abs(vault, path)`, `revision()`, `refresh()`. The rows of every vault come
+   back together, each with `vault` (the name; the master vault is `master`)
+   and `abs` (the file to write to); dates are ordered by start. Nothing is
+   copied and nothing is attached: every vault keeps its own index and the
+   master opens them. SQLite attaches 10 databases at most by default, ids
+   collide between vaults, and a copy would duplicate the data and need a
+   sync, so the merge is done per vault and put together in Lua.
+-  Keeping them current:  the master index and, with `refresh_on_start`, the
+   index of every registered vault are updated in the background at startup,
+   one after the other. A file saved in a vault this session did not open is
+   found through the registry and indexed. Edited buffers are indexed live
+   (II.I), in whichever vault they belong to.
+-  Jumping:  `:FeyVaults [tab] [cwd|nocwd]` picks a vault and opens it; the keys
+   `<prefix>vj` and `<prefix>vJ` (in a new tab). Jumping sets the working
+   directory (`tcd` in a new tab, `cd` otherwise, so the vault attaches), unless
+   `master.jump_cwd` is off, and opens the vault directory.
+-  Editing:  rows of the merged view say where their file is, so a write goes
+   to the right vault: the code that writes a cell, opens a note or reads a
+   file date asks the vault for the path (`vault:abs(path)`) instead of joining
+   the root itself.
+-  Tests:  `tests/master.lua` (55 checks).
+-  Open questions:
+   1. The query language and the database views still see one vault. For the
+      merged view the page needs a vault: `FROM` could take a prefix
+      (`FROM "alpha:notes"`), or a database could have a scope (this vault, all
+      vaults, a list). Which?
+   2. How are links between vaults written, `{@ link, alpha:notes/a.fey @}`?
+   3. The agenda reads the master view. Should every registered vault show up,
+      or can a vault opt out (a flag in its own `.fey`), and may a database or
+      agenda be limited to a list of vaults?
+   4. Editing a cell of a merged database works through the path of the row
+      (the code is ready for it). Should an unsaved buffer of that file be
+      written to instead of the file, as it is for one vault now?
+   5. Is `~/feyfiles` the right default, and is `master` the right name for the
+      merged view in the code and the docs?
+
+Decided and built (2026-10-06): the answers to the questions above, with what
+they turned into. The text above stays for the history; where it disagrees,
+this is what is true.
+
+-  Vaults nest:  a vault is any directory with a `.fey` folder, also one inside
+   another vault. The files of a vault are the Fey files below its root up to
+   the first directory that has a `.fey` of its own: scanning stops there, and
+   the parent neither indexes nor reacts to the files of the vault inside it.
+   Module `fey.vault.tree`.
+-  Registration:  a vault registers with its NEAREST ancestor vault, the one it
+   lives in, found by looking up the file system tree to the root of the drive.
+   Only a vault with no vault above it registers with the master vault. Every
+   vault has its own registry, `<vault>/.fey/vaults/`, with one link per vault
+   directly below it. Attaching a vault also registers the vaults above it, so
+   the chain from the master vault is whole. A vault created above existing
+   ones takes them over: their old registration in the master vault is
+   marked misplaced and left out, they re-register with the new vault the next
+   time they attach, and `:FeyVaultsPrune` (now for every registry in the tree)
+   removes the stale links.
+-  Names and ids:  a name is unique in its registry. `:FeyVaultInit [name]`
+   asks for it (the directory name is the default, a taken name is refused and
+   asked again), and keeps it in the vault's own `.fey/vault.fey`, a Fey data
+   file with one table tag, so the id does not change when the vault is
+   registered again. The id of a vault is the chain of names from the master
+   vault: `master`, `master:notes`, `master:notes:history`.
+-  Settings:  `.fey/vault.fey` has `name` and `merge`. `merge: false` is the
+   opt-out: the vault, and everything below it, stays out of the merged views
+   of the vaults above it (the `tree` and `master` scopes, so the master
+   agenda). It is called merge and not agenda because it governs databases,
+   queries and labels too. The vault still sees itself and its own tree. A
+   list scope that names the vault includes it. `:FeyVaultMerge [on|off]`
+   flips it for the vault of the working directory.
+-  References:  a keyword, the names down to the vault, and the file after the
+   first `/`: `master:notes:history/a.fey`, `current:sub/b.fey` (`current` is the
+   vault the reference is written in), `master/agenda/inbox.fey` for a file of
+   the master vault, `master:notes` for the vault alone. A text that does not
+   start with `master` or `current` is a plain path, so a folder that is really
+   named master is written `./master/x.fey`.
+-  Links between vaults:  `{@ link, master:notes:history/a.fey @}`, also in a
+   `section` tag and with the `section` key. The index keeps the vault part of
+   the link in `links.target_ref` (schema version 4) next to the path, and
+   resolves it when it is used, so a link follows a vault that moved. Opening
+   such a link opens the file; a link to a vault alone jumps to the vault.
+   Backlinks work over a scope: `vault:foreign_backlinks`, and
+   `scope.backlinks(spec, current, target_root, path)` which also finds the
+   links that name the vault. Not built: a rename of a vault does not rewrite
+   the references to its old id.
+-  Scopes:  `current` (default), `tree` (this vault and every vault below it),
+   `master` (all of them), or a list of references, which can end in `:*` for a
+   vault and what is below it (`master:notes:*`). Module `fey.vault.scope`:
+   `resolve`, `dates`, `tasks`, `labels`, `query`, `backlinks`, `revision`. The
+   agenda will take the same scope: its own vault, the master agenda, or the
+   vault and the vaults below it.
+-  Queries and databases over a scope:  the query language reads a merged
+   store of the stores of those vaults, so pages are the pages of their own
+   vault. A `query` tag (and the API) takes a scope: `{# query, TABLE rating;
+   scope: master #}`, with a list written separated by blanks, `scope: master:a
+   master:b:*`. A database has a `scope` key in its own file, and the view has
+   an action for it (`gs`, or the palette) and shows it in the status line.
+   New field `file.vault` (the id), a column of database views too. A link
+   object carries the vault of its file, and is written with it when it points
+   into another vault than the file the result is written in
+   (`master:beta/b.fey`); links compare equal when the path matches and the
+   vaults do not disagree, so `contains(file.outlinks, this.file.link)` still
+   works. `FROM` is worked out inside each vault: a label or a folder matches
+   in every vault, and `incoming` / `outgoing` follow links inside a vault only.
+-  Editing:  a cell of a row of another vault is written to the file of that
+   vault, and to the unsaved buffer when the file is open in one: the buffer
+   is changed and stays unsaved, the file on the disk is not touched. The user
+   is told about unsaved changes by Neovim when quitting.
+-  Names:  `feyfiles` and `master` stay. If a name from the world of the fey is
+   wanted, `court` (the fey court that holds the vaults) or `hollow` fit; the
+   keyword is one word in `fey.vault.tree` and the docs, so changing it later is
+   cheap.
+-  Tests:  `tests/tree.lua` (98 checks), `tests/scope_query.lua` (45),
+   `tests/master.lua` (55).
+-  Open:  1. The agenda option for its default scope (planned `fey_agenda_scope`,
+   default master) comes with II.J. 2. A command to rename a vault and rewrite
+   the references to it. 3. `FROM "master:notes"` for a vault inside a query
+   (the scope covers the need today). 4. The jump picker lists every vault; it
+   could group them as a tree.
+
+Renamed, and the navigator as the jump picker (2026-10-06): the words changed,
+and the picker is now the navigator. The text above uses the old words, read
+`master vault` as court, and `vault` where it means a directory as hollow.
+
+-  Words:  a hollow is a directory with a `.fey` folder (hollows nest), its
+   vault is the database in that folder, and the court is the master hollow,
+   the top of the tree. So: `fey_files_dir` is `fey_court_dir` (default
+   `~/feyhollow`) and the option table `master` is `court`; the keyword of a
+   reference is `court` (`court:notes:history/a.fey`, `court/agenda/inbox.fey`,
+   scope `court`); the registry of a hollow is `.fey/hollows/` and its settings
+   file `.fey/hollow.fey`; modules `fey.hollow.tree`, `fey.hollow.scope`,
+   `fey.hollow.court` and `require('fey.api').court()`; commands
+   `:FeyHollowInit`, `:FeyHollows`, `:FeyHollowsPrune`, `:FeyHollowMerge`
+   (`:FeyVaultReindex` stays, it reindexes a vault); mappings
+   `fey_hollow_init`, `fey_hollow_jump`, `fey_hollow_jump_tab`. A row, a page
+   or a link says which hollow it is in: `file.hollow`, `link.hollow`,
+   `row.hollow`, `hollows` in the label lists; `vault` is only ever the
+   database, as in `vault_of(row)` and `vault:query`.
+-  Navigator:  the jump picker is the navigator view, extended in three ways.
+   1. A thin pane on the left lists the level above, with the place we came
+      from marked (options `show_parent` and `parent_width`).
+   2. `h` at the top of a document leaves it for its directory. From there `h`
+      climbs the directories to the root of the hollow, goes on through the
+      directories of the hollow it lives in when it is a subhollow, and from a
+      hollow with no hollow above it up into the list of hollows of the court
+      (the cursor on it), then to the court itself. `l` goes back down; on a
+      file it opens the document, with the place in it kept. A file that was
+      only loaded to look at it is unloaded again when the navigator closes.
+   3. `H` switches to a level that lists only hollows, next to the hollow of
+      what is shown; there `l` goes to the hollows below one, `h` to the
+      hollows next to its parent, up to the court.
+   `<CR>` jumps: to an object, to a file, or, on a hollow, to the hollow
+   (`court.jump_cwd`, `court.jump_tab`), and `<C-t>` jumps in a new tab. The
+   preview shows a file, the directory listing, or what a hollow is (id, path,
+   its vault, the hollows below it, whether it is in merged views).
+-  Opening:  `<prefix>;` opens it on the current file (and, as before, `<prefix>:`
+   where it was left; both now follow `mappings.prefix`). `<prefix>vj` and
+   `<prefix>vJ` (new tab), `:FeyHollows [tab] [cwd|nocwd]` and
+   `:FeyNavigate hollows` open it straight on the hollows. In a buffer that is
+   not a Fey file it opens on the directory of the file.
+-  Tests:  `tests/navigator.lua` (75 checks), and the other suites with the new
+   names.
 
   II.J. Agenda core
 
@@ -691,6 +945,70 @@ Example:
    every agenda file in `Fey:init`), agenda across the whole vault, and the
    query tag `TASK` can render the same lists inside a note.
 -  After:  II.I.
+
+Changed (2026-10-06): the agenda reads the master view (II.I.i), not one vault
+and not `fey_agenda_files`. It takes a scope: the vault itself, `tree`, or
+`master`, which is the default, and a vault that set `merge: false` stays out
+of the master agenda. A project keeps its agenda in its own vault and it
+shows in the global agenda; the agenda of the vault of the working directory
+is the same query limited to that vault. Items carry the vault name and the
+path of their file, so the actions of II.L write to the right vault. The data
+comes from `master.dates` and `master.tasks`, repeating dates are expanded in
+Lua from the rows that have a repeater.
+
+Done (2026-10-06): the agenda reads the vaults.
+
+-  Chose:  an agenda entry (`agenda/entry.lua`) is a heading read from a vault
+   row. It answers what the views ask of a heading (`get_todo`, `is_done`,
+   `get_priority`, `get_priority_sort_value`, `get_title`, `get_category`,
+   `get_tags`, `has_tag`, `tags_to_string`, `matches_category`) and knows where
+   it lives (`hollow`, `path`, `abs`, `line`, `ord`, `signature`), so the
+   sorting strategy, the filters and the line builder did not change. The
+   category is the `category` prop of the heading, else the `category` of
+   the document, else the file name. Labels are the tags of the filters.
+-  Source:  `agenda/source.lua` builds the entries and their `FeyDate` values
+   from `scope.dates`. It reads open planning dates up to the end of the
+   range (an overdue scheduled item stays on the agenda, a deadline shows
+   ahead of time), plain dates and ranges that overlap the range, and
+   everything that repeats. A date range becomes the start and the end,
+   linked, as before. The scope is `fey_agenda_scope`, default `court`, and
+   falls back to `current` when the court is switched off. A source also takes
+   `scope`, `root` (the hollow `current` and `tree` start from, default the
+   hollow of the working directory) and `paths`.
+-  Vault:  `FeyVault:dates` rows now carry `heading_line`, `props`,
+   `category` (of the document) and `labels` (of the heading).
+-  Changed:  `Agenda:new` takes a `source` and passes it to the views. A view
+   reads its days from `source:dates`, so there is no file loading left in the
+   agenda view: `redo` has nothing to reload. A custom command with
+   `fey_agenda_files` limits the source to those files and directories
+   (globs and `~` work), and so does the global `fey_agenda_files`, which is
+   deprecated for that use only. Titles of items are drawn without the
+   markup highlights, since there is no tree to take them from.
+-  Tests:  `tests/agenda.lua` (54 checks): entries, days with deadlines,
+   scheduled, repeaters, ranges and times, scopes (current, tree, list,
+   court, opt-out), path filters, label and category filters, priority
+   sorting, rendering into a buffer.
+-  Not yet:  the other views (`todo`, `tags`, `tags_todo`, `search`) still
+   read `FeyFiles`, they follow with II.K. The actions on a line
+   (II.L: goto, todo, priority, dates, refile) and the clock still need a
+   heading object that can write, so they keep the old code until then.
+   `fey_agenda_scope` as a prompt key is not built.
+-  Mappings outside of documents:  the mappings that make sense anywhere moved
+   from the `fey` group (documents only) to the `global` group: `fey_agenda`
+   (`<prefix>a`, the agenda prompt), `fey_hollow_init` (`<prefix>vi`),
+   `fey_vault_reindex` (`<prefix>vr`), `fey_hollow_jump` and `fey_hollow_jump_tab`
+   (`<prefix>vj`, `<prefix>vJ`) and the database ones (`<prefix>bn`, `bs`, `bv`,
+   `bt`, `bl`). The query and tag mappings stay with documents. A user mapping
+   for one of them goes under `mappings.global` now. `fey_capture` stays off
+   until II.M.
+-  Details on their own lines:  the title and the item line stay clean. A line
+   under the title says where the agenda looks (`Scope: court (4 hollows)`,
+   `fey_agenda_show_scope`), and under each item a line says its hollow and file
+   (`court:alpha:child · c.fey`, `fey_agenda_show_hollow`: `auto` is when the
+   agenda reads more than one hollow, or `always`, `never`). The line has the
+   same heading as the item, so the actions work on either. Both use the
+   highlight `@fey.agenda.hollow`, linked to Comment. The court counts as a
+   hollow in the count.
 
   II.K. Agenda views and the match language
 
@@ -843,6 +1161,31 @@ Example:
 -  Vault:  yes. Because it needs no buffer, it runs fine in the cron mode
    where the vault is just the database file.
 -  After:  II.I.
+
+
+  II.R. Phase 1 documentation checkpoint
+
+-  Now:  the docs describe the org plugin: `doc/fey.txt` and `docs/*.org` know
+   nothing of headings with tags, dates, planning tags, status, labels,
+   properties, the agenda over a vault, refile or capture. `README.fey` has a
+   feature section only for what was ported first. The tutorial of the test
+   vault documents `file.labels` as "labels as written" and lists the tag names
+   of the index.
+-  Reuse:  the structure of `README.fey` (section II, the feature set), the
+   generators `scripts/gendoc.lua` and `scripts/build_docs.sh`.
+-  Fey:  no syntax. One pass, after II.Q, over everything phase 1 changed:
+   `README.fey` gets a section for each of the date tags, the planning tags,
+   status (keyword and priority), labels and their containers, properties,
+   the agenda, refile, archive, capture and notifications, each with its keys
+   and an example. `doc/fey_api.txt` is regenerated (the API changed: labels,
+   heading labels, the agenda API). The vault tutorial gets the new fields
+   (`file.heading_labels`, the `container` of a label, the new tables).
+   The list of mappings in the README is made from `config/defaults.lua`, not
+   written by hand.
+-  Triggers:  none. Run `scripts/build_docs.sh`.
+-  Vault:  yes, the tutorial vault is both the documentation and the fixture of
+   the index tests, so it is checked by running its live tags.
+-  After:  II.Q.
 
 
   III. Phase 2: the rest of the conversion
@@ -1148,8 +1491,8 @@ file labels come from the index extraction. Not done: `filetags` as a data key
 -  Fey:  go task by task: when a feature is finished, uncomment its mapping,
    add its option to `_meta.lua` with `vim.validate`, and add a section to
    `README.fey`. At the end remove options of features that will not be
-   ported, rewrite `docs/*.org` as `.fey`, and regenerate `doc/*.txt`
-   with `scripts/build_docs.sh`.
+   ported. The rewrite of `docs/*.org` and the regeneration of `doc/*.txt` are
+   III.S, the renaming of old org words is III.R.
 -  Triggers:  none.
 -  Vault:  `:checkhealth fey` should report vault state, schema version, stale
    index and unknown tags.
@@ -1176,6 +1519,90 @@ working for a release. To decide.
    `tests/api.lua`.
 -  After:  continuous.
 
+
+  III.R. Terminology: org words become Fey words
+
+-  Now:  the code, the options, the mappings, the events and the docs still
+   speak orgmode where Fey differs, and some of the old words now mean
+   something else in Fey. The worst one is "tag": in org it is a word of a
+   headline (`:work:`), in Fey it is a piece of syntax, and the headline tags
+   are labels. Code that says `get_tags` and `fey_tags_column` while meaning
+   labels will confuse whoever maintains it later.
+-  Reuse:  every name stays where it is until its area is finished, then it is
+   renamed in one go. Old public names keep working for a release as
+   deprecated aliases.
+-  Fey:  Lua only, a mechanical rename plus a check that keeps it done.
+   The map, to be extended while working through the code:
+
+| org word                       | Fey word                      | where it shows                                           |
++================================+===============================+==========================================================+
+| headline                       | heading                       | comments, docs, config text                              |
+| tags of a headline, `:a:b:`    | labels                        | get_tags, set_tags, add_tag, align_tags, tags_to_string  |
+| (the same, in options)         | labels                        | fey_tags_column, fey_use_tag_inheritance, fey_agenda_remove_tags |
+| (the same, in mappings)        | labels                        | fey_set_tags_command, the agenda tags views and filters  |
+| tag (the word, syntax)         | tag                           | stays, and now only means the syntax                     |
+| stars                          | signature                     | fey_hide_leading_signature is already right, the rest not |
+| headline text, item            | title                         | get_child_node item, FeyFile:get_title                   |
+| TODO keyword                   | status (keyword and priority) | todo_state, fey_todo_keywords stay, text says status     |
+| plan, planning line            | planning tags                 | get_plan_dates, plan, FeyPlanDateTypes                   |
+| timestamp                      | date                          | fey_time_stamp, fey_timestamp_up, to_wrapped_string      |
+| property drawer, drawer        | prop tag, pair tag            | get_drawer, add_to_drawer, fey_log_into_drawer           |
+| directive, `#+name:`           | key of the document data      | get_directive, get_directive_properties                  |
+| agenda files                   | the vault                     | fey_agenda_files, FeyFiles, fey_agenda_text_search_extra_files |
+| src block, babel               | fenced block named src        | is_src_block, end_src in indentkeys                      |
+| dynamic block                  | result tag                    | docs, capture, clock report                              |
+| org file, `.org`               | Fey file, `.fey`              | docs/*.org, is_org_file style helpers                    |
+| outline path                   | path of a heading             | get_outline_path (the index calls it `path`)             |
+| directory with a `.fey` folder | hollow                        | fey.hollow.*, comments, commands, options                |
+| the database in `.fey` (the index)| vault                         | fey.vault.*; a vault belongs to one hollow               |
+| the master vault, the top      | court                         | fey_court_dir, court, the `court` keyword                |
+| org, orgmode, nvim-orgmode     | fey                           | only in the credits and the history                      |
+
+   Steps. 1. A script `scripts/terms.lua` lists every use of the old words by
+   file, as the inventory and as the check. 2. Rename area by area: internal
+   names outright, public names (config options, mapping names, user
+   commands, events, the Lua API) get an alias with a deprecation notice, and
+   the options get a migration table in `config:extend` that maps the old
+   name to the new one and warns once. 3. A deny list in the pre-commit hook
+   fails on a new use of an old word, outside the credits, the legal files,
+   the changelog and this file. 4. After the rename read every remaining use of
+   the word tag: it must mean the syntax. 5. Put the table above in
+   `legal/contributing.fey` as the glossary for maintainers.
+-  Triggers:  the pre-commit hook; `:checkhealth fey` reports old option names
+   that are still in use.
+-  Vault:  none. The index already says labels, container and heading path, and
+   the renames bring the code in line with it.
+-  After:  all of phase 1 and phase 2: rename once everything is ported, so
+   finished code is not touched twice. New code follows the rule of I.C
+   meanwhile.
+
+  III.S. Documentation: the final pass
+
+-  Now:  `docs/*.org` (index, tutorial, configuration, installation, plugins,
+   troubleshoot, contributing, changelog) describe nvim-orgmode, `doc/fey.txt`
+   and `doc/fey_api.txt` are generated from them and from the code, and
+   `README.fey` covers only part of the plugin.
+-  Reuse:  the generators (`scripts/gendoc.lua`, `scripts/panvimdoc.lua`,
+   `scripts/build_docs.sh`, `scripts/generate_changelog.lua`), the structure of
+   the old docs where it still fits, the sections written along the way (I.C,
+   II.R).
+-  Fey:  Fey markup, and the docs are Fey files, which also makes them a vault
+   that can be queried. Rewrite `docs/*.org` as `.fey`: installation (grammar
+   install, vault), a tutorial that follows the real features (headings and
+   signatures, lists, tables, tags and the tag families of this list, dates and
+   planning, status, labels, properties, the agenda, refile, capture, clock,
+   queries and database views), the configuration reference generated from
+   `config/_meta.lua` and `defaults.lua` (every option has a type and a
+   default there), the troubleshoot page, and the contributing page with the
+   glossary of III.R. Regenerate `doc/*.txt`, and the help tags. The
+   changelog is generated from the commit history, and starts at the first Fey
+   release, the org history is one paragraph in the credits.
+-  Triggers:  `scripts/build_docs.sh`; the pre-commit hook rebuilds the help
+   files when the sources change.
+-  Vault:  yes. The docs folder is a vault: the index checks that every
+   `link` and `section` tag in the docs resolves, and the options page can be a
+   `query` over the config documentation instead of a hand written table.
+-  After:  III.R and everything before it.
 
   IV. Summary tables
 

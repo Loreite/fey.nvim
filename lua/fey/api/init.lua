@@ -34,6 +34,10 @@ function FeyApi.init_vault(dir)
   return vault and FeyVault._new(vault) or nil
 end
 
+---The court, the top of the tree of hollows: the registry of every hollow and the merged view of their vaults
+---@return FeyApiCourt
+function FeyApi.court() return require('fey.api.court') end
+
 ---A file of the current vault by vault relative or absolute path
 ---@param path string
 ---@return FeyApiFile|nil
@@ -52,17 +56,17 @@ end
 
 ---Run a query (see `FeyApiVault:run_query`) in the current vault
 ---@param src string
----@param opts? { this?: string }
+---@param opts? { this?: string, scope?: FeyScopeSpec }
 ---@return FeyQueryResult
 function FeyApi.query(src, opts)
   local vault = FeyApi.vault()
-  if not vault then error('No vault here (run :FeyVaultInit)', 0) end
+  if not vault then error('No hollow here (run :FeyHollowInit)', 0) end
   return vault:run_query(src, opts)
 end
 
 ---The Fey source lines a query result is written as (a table or a list)
 ---@param src string
----@param opts? { this?: string }
+---@param opts? { this?: string, scope?: FeyScopeSpec }
 ---@return string[]
 function FeyApi.query_lines(src, opts) return require('fey.query.render').lines(FeyApi.query(src, opts)) end
 

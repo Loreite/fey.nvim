@@ -307,6 +307,7 @@ function M.setup_autocmds()
 end
 
 function M.define_agenda_colors()
+  vim.cmd('hi default link @fey.agenda.hollow Comment')
   local keyword_colors = colors.get_todo_keywords_colors()
   local c = {
     deadline = '@fey.agenda.deadline',

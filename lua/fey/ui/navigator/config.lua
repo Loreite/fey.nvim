@@ -1,7 +1,9 @@
 ---@class FeyNavigatorConfig
 ---@field width number        Total popup width (fraction of &columns if <= 1)
 ---@field height number       Popup height (fraction of &lines if <= 1)
----@field nav_width number    Left pane width (fraction of total if <= 1)
+---@field nav_width number    Width of the navigation pane (fraction of total if <= 1)
+---@field show_parent boolean Show the thin pane with the items of the level above
+---@field parent_width number Width of that pane (fraction of total if <= 1)
 ---@field border string|table|nil  nil = &winborder (0.11+) or 'rounded'
 ---@field context_lines integer  Subdued lines shown above/below the target
 ---@field preview_max_lines integer  Preview is truncated past this many lines
@@ -16,6 +18,8 @@ M.defaults = {
   width = 0.85,
   height = 0.75,
   nav_width = 0.38,
+  show_parent = true,
+  parent_width = 0.16,
   border = nil,
   context_lines = 2,
   preview_max_lines = 2000,
@@ -35,6 +39,10 @@ M.defaults = {
     row = '│',
     tag = '◇',
     paragraph = '¶',
+    file = '▫',
+    dir = '▪',
+    hollow = '◈',
+    court = '◆',
     has_children = '›',
   },
   keys = {
@@ -45,6 +53,8 @@ M.defaults = {
     local_root = '<Tab>',
     jump = '<CR>',
     filter = '/',
+    hollows = 'H',
+    jump_tab = '<C-t>',
     scroll_up = '<C-u>',
     scroll_down = '<C-d>',
     close = { 'q', '<Esc>' },

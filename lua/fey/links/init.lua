@@ -77,13 +77,24 @@ local function existing(path)
   end
 end
 
----Absolute path of a link target: `~/`, absolute, `./` and `../` (relative to the file that
----holds the link) and otherwise relative to the vault root, the file's folder or the cwd
+---Absolute path of a link target: a hollow reference (`court:notes/a.fey`), `~/`, absolute, `./` and `../`
+---(relative to the file that holds the link) and otherwise relative to the vault root, the file's folder
+---or the cwd
 ---@param target string
 ---@param from_path string file that holds the link
 ---@return string|nil
 function M.resolve_path(target, from_path)
   local from_dir = vim.fs.dirname(from_path)
+
+  -- a file of another hollow: `court:notes:history/a.fey`, `current:sub/b.fey`
+  local tree = require('fey.hollow.tree')
+  local ref = tree.parse_ref(target)
+  if ref then
+    local root, path = tree.resolve_ref(ref, tree.hollow_root_of(from_path))
+    if not root or not path then return nil end
+    return existing(vim.fs.joinpath(root, path))
+  end
+
   if target:match('^~') then return existing(vim.fn.expand(target)) end
   if target:sub(1, 1) == '/' then return existing(target) end
   if target:match('^%.%.?/') then return existing(vim.fs.joinpath(from_dir, target)) end
@@ -207,6 +218,15 @@ function M.open_link(tag)
   if not target or target == '' then
     if sig then return M.goto_section({ signature = unescape(sig), n = n }, from) end
     return vim.notify('fey: the link tag has no target', vim.log.levels.WARN)
+  end
+
+  -- a hollow and no file: go to the hollow
+  local tree = require('fey.hollow.tree')
+  local ref = tree.parse_ref(target)
+  if ref and not ref.path then
+    local root, _, err = tree.resolve_ref(ref, tree.hollow_root_of(from))
+    if not root then return vim.notify('fey: ' .. tostring(err), vim.log.levels.WARN) end
+    return require('fey.hollow.court').jump(tree.id_of(root) or root)
   end
 
   local path = M.resolve_path(target, from)

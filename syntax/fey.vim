@@ -2,7 +2,7 @@ if exists('b:current_syntax')
   finish
 endif
 
-let s:highlight_latex = luaeval('require("fey.config").fey_highlight_latex_and_related')
+let s:highlight_latex = luaeval('require("fey.config").fey_highlight_latex_and_related or ""')
 
 if s:highlight_latex == 'native'
   unlet! b:current_syntax

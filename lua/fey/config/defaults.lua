@@ -39,7 +39,21 @@ local DefaultConfig = {
   fey_use_buffer_config = true,
   fey_allow_modeline = true,
 
-  fey_agenda_files = '',
+  -- the court: the top of the tree of hollows (a hollow is a directory with a `.fey` folder, its vault is the
+  -- database in it). Its vault is `<dir>/.fey/vault.db`, its agenda files live in `<dir>/agenda/`, and every
+  -- hollow with no hollow above it registers in `<dir>/.fey/hollows/`. Created when missing.
+  fey_court_dir = '~/feyhollow',
+  court = {
+    enabled = true,
+    agenda_dirname = 'agenda', -- the agenda directory inside the court directory
+    refresh_on_start = true, -- update the vault of every registered hollow in the background at startup
+    jump_cwd = true, -- jumping to a hollow changes the working directory
+    jump_tab = false, -- and opens it in a new tab
+  },
+  fey_agenda_files = '', -- deprecated: only limits the agenda to these files and directories
+  fey_agenda_show_scope = true, -- a line under the title that says which hollows the agenda reads
+  fey_agenda_show_hollow = 'auto', -- a line under each item with its hollow and file: 'auto' (more than one hollow), 'always' or 'never'
+  fey_agenda_scope = 'court', -- which hollows the agenda reads: 'current', 'tree', 'court' or a list of references
   fey_default_notes_file = '',
   fey_todo_keywords = { 'TODO', '|', 'DONE' },
   fey_todo_repeat_to_state = nil,
@@ -143,7 +157,16 @@ local DefaultConfig = {
     global = {
       fey_toggle_use_cwd_config = '',
       fey_toggle_use_buffer_config = '',
-      --   fey_agenda = '<prefix>a',
+      fey_agenda = '<prefix>a',
+      fey_hollow_init = '<prefix>vi',
+      fey_vault_reindex = '<prefix>vr',
+      fey_hollow_jump = '<prefix>vj',
+      fey_hollow_jump_tab = '<prefix>vJ',
+      fey_db_new = '<prefix>bn',
+      fey_db_new_split = '<prefix>bs',
+      fey_db_new_vsplit = '<prefix>bv',
+      fey_db_new_tab = '<prefix>bt',
+      fey_db_pick = '<prefix>bl',
       --   fey_capture = '<prefix>c',
     },
     agenda = {
@@ -196,13 +219,6 @@ local DefaultConfig = {
       fey_run_buffer_commands_at_tag = '<prefix>!t',
       fey_query_run_at_tag = '<prefix>qq',
       fey_query_run_all = '<prefix>qa',
-      fey_vault_init = '<prefix>vi',
-      fey_vault_reindex = '<prefix>vr',
-      fey_db_new = '<prefix>bn',
-      fey_db_new_split = '<prefix>bs',
-      fey_db_new_vsplit = '<prefix>bv',
-      fey_db_new_tab = '<prefix>bt',
-      fey_db_pick = '<prefix>bl',
       fey_toggle_run_all_buffer_commands_at_buffer_enter = '<prefix>!e',
       fey_apply_all_settings = '<prefix>?a',
       fey_apply_settings_at_tag = '<prefix>?t',
@@ -358,6 +374,7 @@ local DefaultConfig = {
     -- heading metadata (see fey_status_tag_name and friends): dropped from heading titles in the index
     meta_tags = { 'label', 'labels', 'status', 'prop', 'scheduled', 'deadline', 'closed' },
     time_budget_ms = 10,
+    live_index = true, -- index buffers while they are edited, not only when saved
     run_on_load = true, -- update query and feydb tags when a buffer first loads
     db_open_mode = 'vsplit', -- how databases open: 'split', 'vsplit', 'tab' or 'current'
   },

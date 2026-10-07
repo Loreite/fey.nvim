@@ -15,11 +15,12 @@ local FeyHyperlink = require('fey.fey.links.hyperlink')
 ---@field views FeyAgendaViewType[]
 ---@field filters FeyAgendaFilter
 ---@field files FeyFiles
+---@field source FeyAgendaSource
 ---@field highlighter FeyHighlighter
 ---@field links FeyLinks
 local Agenda = {}
 
----@param opts? { highlighter: FeyHighlighter, files: FeyFiles, links: FeyLinks }
+---@param opts? { highlighter: FeyHighlighter, files: FeyFiles, links: FeyLinks, source?: FeyAgendaSource }
 ---@return FeyAgenda
 function Agenda:new(opts)
   opts = opts or {}
@@ -29,6 +30,7 @@ function Agenda:new(opts)
     content = {},
     highlights = {},
     files = opts.files,
+    source = opts.source or require('fey.agenda.source').new(),
     highlighter = opts.highlighter,
     links = opts.links,
   }
@@ -43,6 +45,7 @@ function Agenda:open_view(type, opts)
   self.filters:reset()
   local view_opts = vim.tbl_extend('force', opts or {}, {
     files = self.files,
+    source = self.source,
     agenda_filter = self.filters,
     highlighter = self.highlighter,
   })
@@ -148,6 +151,7 @@ function Agenda:_build_custom_commands()
     opts_by_type[opts.type].sorting_strategy = opts.fey_agenda_sorting_strategy
     opts_by_type[opts.type].agenda_filter = self.filters
     opts_by_type[opts.type].files = self.files
+    opts_by_type[opts.type].source = self.source
     opts_by_type[opts.type].header = opts.fey_agenda_overriding_header
     opts_by_type[opts.type].agenda_files = opts.fey_agenda_files
     opts_by_type[opts.type].tag_filter = opts.fey_agenda_tag_filter_preset
@@ -294,8 +298,7 @@ end
 function Agenda:redo(source, preserve_cursor_pos)
   self:_call_all_views('redo')
   local save_view = preserve_cursor_pos and vim.fn.winsaveview()
-  return self.files
-    :load(true)
+  return Promise.resolve(true)
     :next(function()
       if source == 'mapping' then
         return self:_call_view_async('redraw')

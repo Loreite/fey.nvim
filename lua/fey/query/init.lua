@@ -184,7 +184,21 @@ local function feydb_lines(bufnr, node, vault)
   end
   return require('fey.db.export').table_lines(vault, spec, {
     link_tag = (vault.opts.link_tags or {})[1] or 'link',
+    hollow_id = require('fey.hollow.tree').id_of(vault.root),
   })
+end
+
+---The scope of a query tag: its `scope` key, `current` (the default), `tree`, `court` or a list of hollow
+---references separated by blanks (`scope: court:notes court:play:*`)
+---@param tag FeyTag
+---@return FeyScopeSpec|nil
+function M.scope_of(tag)
+  local value = tag.key_values.scope
+  if not value then return nil end
+  local words = vim.split(vim.trim(value:gsub('\\(.)', '%1')), '[%s,]+', { trimempty = true })
+  if #words == 0 then return nil end
+  if #words == 1 and (words[1] == 'current' or words[1] == 'tree' or words[1] == 'court') then return words[1] end
+  return words
 end
 
 ---Run the query held by one tag and plan the buffer edit that writes its result
@@ -203,9 +217,11 @@ local function plan(bufnr, node, vault, this, silent)
     if kind == 'feydb' then return feydb_lines(bufnr, node, vault) end
     local query_src = M.query_text(bufnr, node)
     if query_src == '' then error('query: the tag holds no query', 0) end
-    local result = require('fey.query.engine').run(vault, query_src, { this = this })
+    local tag = require('fey.files.elements.tags').parse_tag_node(bufnr, node)
+    local result = require('fey.query.engine').run(vault, query_src, { this = this, scope = M.scope_of(tag) })
     return require('fey.query.render').lines(result, {
       link_tag = (vault.opts.link_tags or {})[1] or 'link',
+      hollow_id = require('fey.hollow.tree').id_of(vault.root),
     })
   end)
   if ok then

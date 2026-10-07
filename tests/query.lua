@@ -103,7 +103,7 @@ check('sections', #run('TABLE FROM @section AND "notes/alpha"').rows, 2)
 check('group', run('TABLE rows.file.name GROUP BY status').rows[1][1], 'done')
 check('flatten', #run('TABLE x FLATTEN file.labels AS x').rows, 2)
 check('date field', run('TABLE typeof(due) WHERE due').rows[1][2], 'date')
-check('task unsupported', (pcall(run, 'TASK')), false)
+check('task queries run (the notes here have no tasks)', { pcall(run, 'TASK') }, { true, { type = 'task', count = 0, grouped = false, items = {} } })
 
 local lines = render.lines(run('TABLE status SORT file.name'))
 check('table lines', lines, {

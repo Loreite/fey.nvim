@@ -341,6 +341,42 @@ function FeyDate.from_tag_value(value, opts)
   return { start_date, end_date }
 end
 
+---Dates of a date tag from its parts, without a buffer: the name, the plain values and the key values of
+---the tag head. See `from_tag` for what they mean.
+---@param name string tag name
+---@param values string[]
+---@param key_values table<string, string>
+---@param opts? FeyDateOpts
+---@return FeyDate[]
+function FeyDate.from_parts(name, values, key_values, opts)
+  opts = vim.tbl_extend('force', {}, opts or {})
+  local value = values[1]
+  if not value or value == '' then return {} end
+
+  opts.type = opts.type or type_of_tag(name)
+  if opts.active == nil then
+    local active = key_values.active
+    if active ~= nil then
+      opts.active = active:lower() ~= 'false'
+    else
+      opts.active = opts.type ~= 'CLOSED'
+    end
+  end
+
+  -- `time`, `repeat` and `warn` belong to the (first) date
+  local extra = {}
+  if key_values.time then table.insert(extra, key_values.time) end
+  if key_values['repeat'] then table.insert(extra, key_values['repeat']) end
+  if key_values.warn then
+    table.insert(extra, key_values.warn:match('^[%-%+%.]') and key_values.warn or ('-' .. key_values.warn))
+  end
+  if #extra > 0 then
+    local from, rest = value:match('^(.-)(%-%-%d%d%d%d%-%d%d?%-%d%d.*)$')
+    value = (from or value) .. ' ' .. table.concat(extra, ' ') .. (rest or '')
+  end
+  return FeyDate.from_tag_value(value, opts)
+end
+
 ---Dates of a date tag (`{@ date, 2026-10-06 Tue 10:00 +1w @}`) or a planning tag (scheduled, deadline,
 ---closed). The first value is the timestamp text. Keys: `active: false` makes it an inactive date (a
 ---closed tag is inactive unless `active: true`), `time`, `repeat` and `warn` add to the timestamp
@@ -350,18 +386,6 @@ end
 ---@return FeyDate[]
 function FeyDate.from_tag(tag, opts)
   opts = vim.tbl_extend('force', {}, opts or {})
-  local value = tag.values[1]
-  if not value or value == '' then return {} end
-
-  opts.type = opts.type or type_of_tag(tag.name)
-  if opts.active == nil then
-    local active = tag.key_values.active
-    if active ~= nil then
-      opts.active = active:lower() ~= 'false'
-    else
-      opts.active = opts.type ~= 'CLOSED'
-    end
-  end
   if not opts.range then
     local node = tag.head:field('value')[1]
     if node then
@@ -372,18 +396,7 @@ function FeyDate.from_tag(tag, opts)
       opts.range = Range.from_node(tag.node)
     end
   end
-
-  -- `time`, `repeat` and `warn` belong to the (first) date
-  local kv = tag.key_values
-  local extra = {}
-  if kv.time then table.insert(extra, kv.time) end
-  if kv['repeat'] then table.insert(extra, kv['repeat']) end
-  if kv.warn then table.insert(extra, kv.warn:match('^[%-%+%.]') and kv.warn or ('-' .. kv.warn)) end
-  if #extra > 0 then
-    local from, rest = value:match('^(.-)(%-%-%d%d%d%d%-%d%d?%-%d%d.*)$')
-    value = (from or value) .. ' ' .. table.concat(extra, ' ') .. (rest or '')
-  end
-  return FeyDate.from_tag_value(value, opts)
+  return FeyDate.from_parts(tag.name, tag.values, tag.key_values, opts)
 end
 
 ---Dates of a tag node. `source` is a buffer number or the text the node was parsed from.

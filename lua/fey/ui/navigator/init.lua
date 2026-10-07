@@ -1,10 +1,13 @@
--- Yazi-style AST navigator for fey buffers.
+-- Yazi-style navigator: the objects of a fey buffer, the directories of its hollow, the hollows.
 --
---   require('fey.ui.navigator').open()     -- start at the category list
---   require('fey.ui.navigator').resume()   -- re-open at the last position
+--   require('fey.ui.navigator').open()      -- the document of the buffer, at the category list
+--   require('fey.ui.navigator').resume()    -- re-open at the last position
+--   require('fey.ui.navigator').hollows()   -- start in the list of hollows, at the hollow of the buffer
 --
--- Keys (navigation pane): j/k move, l children, h back, <Tab> local root,
--- <CR> jump, / filter, <C-u>/<C-d> scroll preview, q/<Esc> close.
+-- Keys (navigation pane): j/k move, l open, h up (out of a document into its directory, up the
+-- directories to the root of the hollow, then through the hollows above it up to the court), <Tab> local
+-- root, <CR> jump (to the object, the file, or the hollow), <C-t> jump in a new tab, H hollows only, /
+-- filter, <C-u>/<C-d> scroll preview, q/<Esc> close. A thin pane on the left lists the level above.
 
 local config = require('fey.ui.navigator.config')
 local model_mod = require('fey.ui.navigator.model')
@@ -41,6 +44,9 @@ end
 ---@class FeyNavOpenOpts
 ---@field bufnr? integer   source buffer (default: current)
 ---@field resume? boolean  restore the last navigation state
+---@field level? 'hollows' start in the list of hollows instead of a document
+---@field cwd? boolean     jumping to a hollow changes the working directory (default `court.jump_cwd`)
+---@field tab? boolean     jumping to a hollow opens it in a new tab (default `court.jump_tab`)
 
 ---@param opts? FeyNavOpenOpts
 function M.open(opts)
@@ -54,6 +60,31 @@ function M.open(opts)
   if bufnr == 0 then
     bufnr = vim.api.nvim_get_current_buf()
   end
+  local view_opts = {
+    src_win = vim.api.nvim_get_current_win(),
+    jump_opts = { cwd = opts.cwd, tab = opts.tab },
+    on_close = function(s)
+      if session == s then
+        session = nil
+      end
+    end,
+  }
+
+  local levels = require('fey.ui.navigator.levels')
+  local name = vim.api.nvim_buf_get_name(bufnr)
+  if opts.level == 'hollows' then
+    view_opts.loc, view_opts.select = levels.hollow_level_for(name ~= '' and name or nil)
+    session = view.open(nil, nil, view_opts)
+    return session
+  end
+
+  -- a buffer that is not a Fey file is no document: start among the files of its directory
+  if name ~= '' and not require('fey.utils').is_fey_file(name) then
+    view_opts.loc, view_opts.select = { kind = 'dir', path = levels.dir_of_buffer(bufnr) or vim.fn.getcwd() }, name
+    session = view.open(nil, nil, view_opts)
+    return session
+  end
+
   local model, err = model_mod.new(bufnr)
   if not model then
     return notify(err or 'unavailable', vim.log.levels.WARN)
@@ -80,14 +111,7 @@ function M.open(opts)
     stack = state.fresh(model)
   end
 
-  session = view.open(model, stack, {
-    src_win = vim.api.nvim_get_current_win(),
-    on_close = function(s)
-      if session == s then
-        session = nil
-      end
-    end,
-  })
+  session = view.open(model, stack, view_opts)
   return session
 end
 
@@ -95,6 +119,12 @@ end
 ---@param opts? FeyNavOpenOpts
 function M.resume(opts)
   return M.open(vim.tbl_extend('force', opts or {}, { resume = true }))
+end
+
+--- Open the list of hollows, at the hollow of the current buffer (the court when it is in none).
+---@param opts? { cwd?: boolean, tab?: boolean }
+function M.hollows(opts)
+  return M.open(vim.tbl_extend('force', opts or {}, { level = 'hollows' }))
 end
 
 function M.close()
@@ -126,7 +156,9 @@ function M.setup(opts)
   ensure_global_autocmds()
   vim.api.nvim_create_user_command('FeyNavigate', function(cmd)
     local arg = cmd.fargs[1]
-    if arg == 'resume' then
+    if arg == 'hollows' then
+      M.hollows()
+    elseif arg == 'resume' then
       M.resume()
     elseif arg == 'reset' then
       M.reset()
@@ -139,7 +171,7 @@ function M.setup(opts)
     nargs = '?',
     desc = 'Fey: AST navigator',
     complete = function()
-      return { 'open', 'resume', 'reset', 'close' }
+      return { 'open', 'resume', 'hollows', 'reset', 'close' }
     end,
   })
 end

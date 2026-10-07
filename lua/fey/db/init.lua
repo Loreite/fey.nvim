@@ -12,7 +12,7 @@ local function vault()
   local v = require('fey.vault').current()
   if not v then
     vim.notify(
-      ('fey db: no vault here. Run :FeyVaultInit (%s) to create a %s directory in %s'):format(
+      ('fey db: no hollow here. Run :FeyHollowInit (%s) to create a %s folder in %s'):format(
         '<prefix>vi', require('fey.config').vault.dirname, vim.fn.getcwd()
       ),
       vim.log.levels.WARN
@@ -126,8 +126,11 @@ local setup_done = false
 function M.setup()
   if setup_done then return end
   setup_done = true
-  vim.api.nvim_create_user_command('FeyVaultInit', function() require('fey.vault').init() end, {
-    desc = 'Create a .fey vault in the cwd and index it',
+  vim.api.nvim_create_user_command('FeyHollowInit', function(cmd)
+    require('fey.vault').init(nil, { name = cmd.args ~= '' and cmd.args or nil })
+  end, {
+    nargs = '?',
+    desc = 'Make the cwd a hollow (a .fey folder), name it (unique in the hollow above it, or the court), and index it',
   })
   vim.api.nvim_create_user_command('FeyDb', function(cmd)
     if cmd.args == '' then return M.pick() end

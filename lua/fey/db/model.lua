@@ -29,6 +29,7 @@ M.FILE_PROPS = {
   { id = 'file.mtime', type = 'date' },
   { id = 'file.labels', type = 'list' },
   { id = 'file.heading_labels', type = 'list' },
+  { id = 'file.hollow', type = 'string' },
   { id = 'file.outlinks', type = 'list' },
   { id = 'file.inlinks', type = 'list' },
   { id = 'file.aliases', type = 'list' },
@@ -42,7 +43,7 @@ M.FILE_PROPS = {
 function M.new(vault, base)
   local self = setmetatable({ vault = vault, base = base }, Model)
   self.compiled = {}
-  self.revision = -1
+  self.revision = false
   return self
 end
 
@@ -50,10 +51,13 @@ end
 
 ---Drop caches when the index changed. Returns true if anything was dropped.
 function Model:sync()
-  local rev = self.vault.revision or 0
-  if rev == self.revision then return false end
-  self.revision = rev
-  self.store = pages.store(self.vault)
+  local spec = self.base.scope
+  local rev = (spec == nil or spec == 'current') and (self.vault.revision or 0)
+    or require('fey.hollow.scope').revision(spec, self.vault.root)
+  local key = vim.json.encode({ rev, spec })
+  if key == self.revision then return false end
+  self.revision = key
+  self.store = pages.scope_store(self.vault, spec)
   self.rows_cache, self.types, self.result_cache, self.note_props = nil, nil, nil, nil
   return true
 end
@@ -77,9 +81,21 @@ function Model:properties()
   for _, f in ipairs(self.base.formulas or {}) do
     out[#out + 1] = { id = 'formula.' .. f.name, kind = 'formula' }
   end
-  local rows = self.vault:query('SELECT name, COUNT(*) AS c FROM properties GROUP BY name ORDER BY c DESC, name')
+  -- the properties of every hollow of the scope
+  local counts, names = {}, {}
+  local rows = require('fey.hollow.scope').collect(self.base.scope, self.vault.root, function(vault)
+    return vault:query('SELECT name, COUNT(*) AS c FROM properties GROUP BY name')
+  end)
   for _, r in ipairs(rows) do
-    out[#out + 1] = { id = r.name, kind = 'note', count = r.c }
+    if not counts[r.name] then names[#names + 1] = r.name end
+    counts[r.name] = (counts[r.name] or 0) + r.c
+  end
+  table.sort(names, function(a, b)
+    if counts[a] ~= counts[b] then return counts[a] > counts[b] end
+    return a < b
+  end)
+  for _, name in ipairs(names) do
+    out[#out + 1] = { id = name, kind = 'note', count = counts[name] }
   end
   self.note_props = out
   return out

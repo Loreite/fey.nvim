@@ -88,6 +88,34 @@ function M.store(vault)
   return store
 end
 
+---The id of the hollow of this store (`court:notes`), nil when it has none
+---@return string|nil
+function Store:hollow_id()
+  if self._hollow_id == nil then
+    self._hollow_id = require('fey.hollow.tree').id_of(self.vault.root) or false
+  end
+  return self._hollow_id or nil
+end
+
+---Is a page part of what a source selected?
+---@param source table result of `source`
+---@param page table
+---@return boolean
+function Store:accepts(source, page) return source.set == nil or source.set[rawget(page, '__path')] == true end
+
+---The vault a row (a page, a section, a task, or a row made from one) came from: the vault of its hollow
+---@param row any
+---@return FeyVault|nil
+function M.vault_of(row)
+  local seen = 0
+  while type(row) == 'table' and seen < 8 do
+    local store = rawget(row, '__store')
+    if store then return store.vault end
+    row = rawget(row, '__parent')
+    seen = seen + 1
+  end
+end
+
 -- Relation loaders (each runs one query for the whole vault) -------------------
 
 ---Labels by file (all of them, those of the file itself and those of its headings) and by section
@@ -121,23 +149,34 @@ end
 
 function Store:_links()
   if self.outlinks then return self.outlinks, self.inlinks end
+  local tree = require('fey.hollow.tree')
   local out, inn = {}, {}
   local rows = self.vault:query(
-    [[SELECT f.path, l.target, l.target_file, l.target_sig, l.description
+    [[SELECT f.path, l.target, l.target_ref, l.target_file, l.target_sig, l.description
       FROM links l JOIN files f ON f.id = l.file_id ORDER BY f.path, l.line]]
   )
   local seen_in = {}
   for _, r in ipairs(rows) do
-    local dest = r.target_file or r.target
-    local link = V.link(dest, r.description, r.target_sig)
-    out[r.path] = out[r.path] or {}
-    table.insert(out[r.path], link)
-    if r.target_file and r.target_file ~= r.path then
-      local key = r.target_file .. '\0' .. r.path
-      if not seen_in[key] then
-        seen_in[key] = true
-        inn[r.target_file] = inn[r.target_file] or {}
-        table.insert(inn[r.target_file], V.link(r.path))
+    if r.target_ref then
+      -- a file of another hollow: the link says which one
+      local root = tree.resolve_ref(r.target_ref, self.vault.root)
+      local id = root and tree.id_of(root)
+      if r.target_file and id then
+        out[r.path] = out[r.path] or {}
+        table.insert(out[r.path], V.link(r.target_file, r.description, r.target_sig, id))
+      end
+    else
+      local dest = r.target_file or r.target
+      local link = V.link(dest, r.description, r.target_sig)
+      out[r.path] = out[r.path] or {}
+      table.insert(out[r.path], link)
+      if r.target_file and r.target_file ~= r.path then
+        local key = r.target_file .. '\0' .. r.path
+        if not seen_in[key] then
+          seen_in[key] = true
+          inn[r.target_file] = inn[r.target_file] or {}
+          table.insert(inn[r.target_file], V.link(r.path))
+        end
       end
     end
   end
@@ -180,14 +219,15 @@ local function new_file(store, page, row)
     elseif k == 'path' then v = path
     elseif k == 'folder' then v = path:match('^(.*)/[^/]+$') or ''
     elseif k == 'ext' then v = ext
-    elseif k == 'link' then v = V.link(path)
+    elseif k == 'link' then v = V.link(path, nil, nil, store:hollow_id())
+    elseif k == 'hollow' then v = store:hollow_id() or NULL
     elseif k == 'size' then v = row.size
     elseif k == 'mtime' then v = V.date(row.mtime / 1000, true)
     elseif k == 'mday' then
       local f = os.date('*t', math.floor(row.mtime / 1000)) --[[@as osdateparam]]
       v = V.date(V.make_ts(f.year, f.month, f.day))
     elseif k == 'ctime' or k == 'cday' then
-      local stat = vim.uv.fs_stat(vim.fs.joinpath(store.vault.root, path))
+      local stat = vim.uv.fs_stat(store.vault:abs(path))
       local secs = stat and stat.birthtime and stat.birthtime.sec > 0 and stat.birthtime.sec or row.mtime / 1000
       if k == 'ctime' then
         v = V.date(secs, true)
@@ -231,7 +271,7 @@ local function new_file(store, page, row)
       for _, h in ipairs(store:_headings()[path] or {}) do
         out[#out + 1] = V.object({
           title = h.title, level = h.level, signature = h.signature, line = h.line,
-          link = V.link(path, h.title, h.signature),
+          link = V.link(path, h.title, h.signature, store:hollow_id()),
         })
       end
       v = V.list(out)
@@ -240,8 +280,10 @@ local function new_file(store, page, row)
     elseif k == 'day' then
       local d = stem:match(DAILY)
       v = d and V.parse_date(d) or NULL
-    elseif k == 'tasks' or k == 'lists' then
-      v = V.list({}) -- Fey has no task or list-item index (yet)
+    elseif k == 'tasks' then
+      v = V.list(store:tasks_of({ page }))
+    elseif k == 'lists' then
+      v = V.list({}) -- Fey has no list-item index (yet)
     else
       return nil
     end
@@ -252,9 +294,9 @@ local function new_file(store, page, row)
   return lazy(resolve, function()
     return {
       'aliases', 'cday', 'ctime', 'day', 'etags', 'ext', 'folder', 'frontmatter', 'heading_labels', 'headings', 'inlinks', 'labels',
-      'link', 'mday', 'mtime', 'name', 'outlinks', 'path', 'size', 'tags',
+      'link', 'mday', 'mtime', 'name', 'outlinks', 'path', 'size', 'tags', 'hollow',
     }
-  end)
+  end, { __path = path, __store = store })
 end
 
 ---@param store FeyQueryStore
@@ -294,7 +336,7 @@ local function new_page(store, row)
       keys[#keys + 1] = k
     end
     return keys
-  end, { __path = row.path })
+  end, { __path = row.path, __store = store })
   return page
 end
 
@@ -477,6 +519,77 @@ function Store:source(node, eval)
   error('query: unsupported source', 0)
 end
 
+-- Tasks ------------------------------------------------------------------------------
+
+---Tasks and their dates are read for the whole vault once per revision
+---@return table<string, table[]> by_path task rows
+---@return table<string, table<string, table>> dates keyed `path .. '\0' .. heading_ord`, then by kind
+function Store:_tasks()
+  if self.task_rows then return self.task_rows, self.task_dates end
+  local by_path, dates = {}, {}
+  for _, r in ipairs(self.vault:query(
+    [[SELECT f.path, t.line, t.heading_ord, t.title, t.state, t.done, t.priority
+      FROM tasks t JOIN files f ON f.id = t.file_id ORDER BY f.path, t.line]]
+  )) do
+    by_path[r.path] = by_path[r.path] or {}
+    table.insert(by_path[r.path], r)
+  end
+  for _, r in ipairs(self.vault:query(
+    [[SELECT f.path, d.heading_ord, d.kind, d.start_ts, d.start_time
+      FROM dates d JOIN files f ON f.id = d.file_id WHERE d.heading_ord IS NOT NULL ORDER BY d.start_ts]]
+  )) do
+    local key = r.path .. '\0' .. r.heading_ord
+    dates[key] = dates[key] or {}
+    -- the first date of a kind is the date of the task
+    if not dates[key][r.kind] then dates[key][r.kind] = V.date(r.start_ts, r.start_time == 1) end
+  end
+  self.task_rows, self.task_dates = by_path, dates
+  return by_path, dates
+end
+
+---A task (a heading with a todo keyword or a priority) as a query object
+---@param page table
+---@param row table
+function Store:task_object(page, row)
+  local path = rawget(page, '__path')
+  local _, dates = self:_tasks()
+  local own_dates = dates[path .. '\0' .. row.heading_ord] or {}
+  local heading = (self:_headings()[path] or {})[row.heading_ord]
+  return lazy(function(t, k)
+    if k == 'text' or k == 'title' then return row.title end
+    if k == 'state' then return row.state or NULL end
+    if k == 'completed' or k == 'done' then return row.done == 1 end
+    if k == 'priority' then return row.priority or NULL end
+    if k == 'line' then return row.line end
+    if k == 'file' then return page.file end
+    if k == 'signature' then return heading and heading.signature or NULL end
+    if k == 'link' then return V.link(path, row.title, heading and heading.signature or nil, self:hollow_id()) end
+    if k == 'labels' then
+      self:_labels()
+      return V.list(vim.deepcopy(self.section_labels[path .. '\0' .. row.heading_ord] or {}))
+    end
+    if k == 'scheduled' or k == 'deadline' or k == 'closed' then return own_dates[k] or NULL end
+    if k == 'date' then return own_dates.date or NULL end
+    return nil
+  end, function()
+    return { 'closed', 'completed', 'date', 'deadline', 'file', 'labels', 'line', 'link', 'priority', 'scheduled', 'signature', 'state', 'text' }
+  end, { __path = path, __store = self })
+end
+
+---The tasks of some pages, in file order
+---@param pages table[]
+---@return table[]
+function Store:tasks_of(pages)
+  local by_path = self:_tasks()
+  local out = {}
+  for _, page in ipairs(pages) do
+    for _, row in ipairs(by_path[rawget(page, '__path')] or {}) do
+      out[#out + 1] = self:task_object(page, row)
+    end
+  end
+  return out
+end
+
 -- Sections ---------------------------------------------------------------------------
 
 ---@param page table
@@ -499,7 +612,7 @@ function Store:section_object(page, h)
     if k == 'end_line' or k == 'endline' then return h.end_line end
     if k == 'outline' then return h.outline end
     if k == 'parent' then return parent_title or NULL end
-    if k == 'link' then return V.link(path, h.title, h.signature) end
+    if k == 'link' then return V.link(path, h.title, h.signature, self:hollow_id()) end
     if k == 'labels' then
       self:_labels()
       return V.list(vim.deepcopy(self.section_labels[path .. '\0' .. h.ord] or {}))
@@ -513,7 +626,7 @@ function Store:section_object(page, h)
     local keys = { 'end_line', 'file', 'labels', 'level', 'line', 'link', 'outline', 'parent', 'signature', 'title' }
     if V.is_object(data) then vim.list_extend(keys, V.keys(data)) end
     return keys
-  end, { __path = path })
+  end, { __path = path, __store = self })
 end
 
 ---@param pages table[]
@@ -526,6 +639,103 @@ function Store:sections_of(pages)
     end
   end
   return out
+end
+
+-- Several vaults ----------------------------------------------------------------------
+
+---The pages of several hollows as one set. The pages are the pages of the store of each hollow, so a page
+---still knows its hollow (`file.hollow`, `vault_of`) and writes go to the right file. Sources (`FROM`) are
+---worked out inside each hollow, so links between hollows are not followed by `incoming` and `outgoing`.
+---@class FeyQueryMergedStore
+---@field parts { id: string, vault: FeyVault, store: FeyQueryStore }[]
+---@field revision integer
+local Merged = {}
+Merged.__index = Merged
+
+---@return table[]
+function Merged:pages()
+  if self.page_list then return self.page_list end
+  local list = {}
+  for _, part in ipairs(self.parts) do
+    for _, page in ipairs(part.store:pages()) do
+      list[#list + 1] = page
+    end
+  end
+  self.page_list = list
+  return list
+end
+
+---@param node table
+---@param eval fun(ast: table): any
+---@return table
+function Merged:source(node, eval)
+  local per, kind = {}, nil
+  for _, part in ipairs(self.parts) do
+    local result = part.store:source(node, eval)
+    per[part.store] = result
+    kind = kind or result.kind
+  end
+  return { per = per, kind = kind }
+end
+
+---@param source table
+---@param page table
+---@return boolean
+function Merged:accepts(source, page)
+  local result = source.per and source.per[rawget(page, '__store')]
+  if not result then return source.per == nil end -- no FROM
+  return result.set == nil or result.set[rawget(page, '__path')] == true
+end
+
+---@param pages table[]
+---@return table[]
+function Merged:sections_of(pages)
+  local out = {}
+  for _, page in ipairs(pages) do
+    vim.list_extend(out, rawget(page, '__store'):sections_of({ page }))
+  end
+  return out
+end
+
+---@param pages table[]
+---@return table[]
+function Merged:tasks_of(pages)
+  local out = {}
+  for _, page in ipairs(pages) do
+    vim.list_extend(out, rawget(page, '__store'):tasks_of({ page }))
+  end
+  return out
+end
+
+---@type table<string, FeyQueryMergedStore>
+local merged_stores = {}
+
+---The store of a scope (see `fey.hollow.scope`) seen from a hollow. A scope of just that hollow is its own
+---store.
+---@param vault FeyVault the vault of the current hollow
+---@param spec? FeyScopeSpec
+---@return FeyQueryStore|FeyQueryMergedStore
+function M.scope_store(vault, spec)
+  if spec == nil or spec == 'current' then return M.store(vault) end
+  local entries = require('fey.hollow.scope').resolve(spec, vault and vault.root)
+  local key = vim.json.encode({ vault and vault.root, spec })
+  local revision = 0
+  local ids = {}
+  for _, e in ipairs(entries) do
+    revision = revision + (e.vault.revision or 0)
+    ids[#ids + 1] = e.id
+  end
+  local identity = table.concat(ids, '\0')
+  local hit = merged_stores[key]
+  if hit and hit.revision == revision and hit.identity == identity then return hit end
+
+  local parts = {}
+  for _, e in ipairs(entries) do
+    parts[#parts + 1] = { id = e.id, vault = e.vault, store = M.store(e.vault) }
+  end
+  local store = setmetatable({ parts = parts, revision = revision, identity = identity }, Merged)
+  merged_stores[key] = store
+  return store
 end
 
 return M

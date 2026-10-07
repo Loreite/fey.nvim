@@ -18,7 +18,7 @@ local CACHE_SIZE = 64
 ---@field type 'table'|'list'
 ---@field headers? string[] table column titles
 ---@field rows? any[][] table rows (query values)
----@field items? table[] list items: { id?: any, value?: any, children?: table[] }
+---@field items? table[] list items: { id?: any, value?: any, task?: any, children?: table[] }
 ---@field count integer number of result rows
 ---@field grouped boolean
 
@@ -119,6 +119,7 @@ end
 
 ---@class FeyQueryRunOpts
 ---@field this? any page of the file the query lives in
+---@field scope? FeyScopeSpec which hollows the query reads: `current` (the default), `tree`, `court` or a list of hollow references
 
 ---Run query text against a vault
 ---@param vault FeyVault
@@ -129,10 +130,9 @@ function M.run(vault, src, opts)
   opts = opts or {}
   local compiled = get_compiled(src)
   local ast, c = compiled.ast, compiled.c
-  if ast.type == 'task' then error('query: TASK queries are not supported (Fey has no task index)', 0) end
   if ast.type == 'calendar' then error('query: CALENDAR queries need a calendar view and are not supported', 0) end
 
-  local store = pages.store(vault)
+  local store = pages.scope_store(vault, opts.scope)
   local this = opts.this
   local function eval_in_source(node) return eval.compile(node)(eval.new_env(nil, this)) end
 
@@ -149,9 +149,11 @@ function M.run(vault, src, opts)
 
   local rows = {}
   for _, page in ipairs(store:pages()) do
-    if source.set == nil or source.set[rawget(page, '__path')] then rows[#rows + 1] = page end
+    if store:accepts(source, page) then rows[#rows + 1] = page end
   end
   if source.kind == 'section' then rows = store:sections_of(rows) end
+  -- TASK: the rows are the tasks (headings with a todo keyword or a priority) of those pages
+  if ast.type == 'task' then rows = store:tasks_of(rows) end
 
   local grouped = false
   for i = start, #c.commands do
@@ -259,6 +261,23 @@ function M.run(vault, src, opts)
         cells[#cells + 1] = run_expr(f.fn, row, this)
       end
       result.rows[#result.rows + 1] = cells
+    end
+    return result
+  end
+
+  -- TASK: every row is a task, or a group of them
+  if ast.type == 'task' then
+    result.items = {}
+    for _, row in ipairs(rows) do
+      if grouped then
+        local item = { id = ops.get(row, 'key'), children = {} }
+        for _, member in ipairs(ops.get(row, 'rows')) do
+          item.children[#item.children + 1] = { task = member }
+        end
+        result.items[#result.items + 1] = item
+      else
+        result.items[#result.items + 1] = { task = row }
+      end
     end
     return result
   end

@@ -1,5 +1,4 @@
 local Date = require('fey.objects.date')
-local Files = require('fey.files')
 local config = require('fey.config')
 local AgendaFilter = require('fey.agenda.filter')
 local AgendaItem = require('fey.agenda.agenda_item')
@@ -15,6 +14,7 @@ local Promise = require('fey.utils.promise')
 
 ---@class FeyAgendaTypeOpts
 ---@field files FeyFiles
+---@field source FeyAgendaSource
 ---@field highlighter FeyHighlighter
 ---@field agenda_filter FeyAgendaFilter
 ---@field filter? string
@@ -33,6 +33,7 @@ local Promise = require('fey.utils.promise')
 
 ---@class FeyAgendaType:FeyAgendaViewType
 ---@field files FeyFiles
+---@field source FeyAgendaSource
 ---@field highlighter FeyHighlighter
 ---@field agenda_filter FeyAgendaFilter
 ---@field filter? FeyAgendaFilter
@@ -61,6 +62,7 @@ FeyAgendaType.__index = FeyAgendaType
 function FeyAgendaType:new(opts)
   local data = {
     files = opts.files,
+    source = opts.source,
     highlighter = opts.highlighter,
     agenda_filter = opts.agenda_filter,
     filter = opts.filter and AgendaFilter:new():parse(opts.filter, true) or nil,
@@ -98,20 +100,17 @@ function FeyAgendaType:prepare()
   return Promise.resolve(self)
 end
 
-function FeyAgendaType:redo()
-  if self.agenda_files then
-    self.files:load_sync(true)
-  end
-end
+-- the dates are read from the index each time the view is built, there is nothing to reload
+function FeyAgendaType:redo() end
 
+---`agenda_files` of a custom command limits the source to those files and directories
 function FeyAgendaType:_setup_agenda_files()
   if not self.agenda_files then
     return
   end
-  self.files = Files:new({
-    paths = self.agenda_files,
-    cache = true,
-  }):load_sync(true)
+  local source = self.source or require('fey.agenda.source').new()
+  self.source = setmetatable({ paths = nil }, { __index = source })
+  self.source:set_paths(self.agenda_files)
 end
 
 function FeyAgendaType:advance_span(count, direction)
@@ -252,6 +251,14 @@ function FeyAgendaType:render(bufnr, current_line)
     hl_group = '@fey.agenda.header',
   }))
 
+  if config.fey_agenda_show_scope ~= false and self.source then
+    agendaView:add_line(AgendaLine:single_token({
+      content = 'Scope: ' .. self.source:describe(),
+      hl_group = '@fey.agenda.hollow',
+    }))
+  end
+  local show_hollow = self:_show_hollow()
+
   for _, agenda_day in ipairs(agenda_days) do
     local is_today = agenda_day.day:is_today()
     local is_weekend = agenda_day.day:is_weekend()
@@ -272,6 +279,7 @@ function FeyAgendaType:render(bufnr, current_line)
       -- If there is an index value, this is an AgendaItem instance
       if agenda_item.index then
         agendaView:add_line(self:_build_line(agenda_item, agenda_day))
+        if show_hollow then agendaView:add_line(self:_build_hollow_line(agenda_item, agenda_day)) end
       else
         agendaView:add_line(self:_build_time_grid_line(agenda_item, agenda_day))
       end
@@ -550,6 +558,38 @@ function FeyAgendaType:_build_line(agenda_item, metadata)
   return line
 end
 
+---Whether items get a line of their own saying which hollow (and file) they are in: `fey_agenda_show_hollow`
+---is `always`, `never`, or `auto`, which is when the agenda looks at more than one hollow
+---@return boolean
+function FeyAgendaType:_show_hollow()
+  local mode = config.fey_agenda_show_hollow
+  if mode == false or mode == 'never' or not self.source then return false end
+  if mode == true or mode == 'always' then return true end
+  return #self.source:hollows() > 1
+end
+
+---The line under an item with its hollow and file; it belongs to the same heading, so the actions work on it
+---@param agenda_item FeyAgendaItem
+---@param metadata table<string, any>
+---@return FeyAgendaLine
+function FeyAgendaType:_build_hollow_line(agenda_item, metadata)
+  local heading = agenda_item.heading
+  local line = AgendaLine:new({
+    hl_group = '@fey.agenda.hollow',
+    heading = heading,
+    metadata = {
+      agenda_item = agenda_item,
+      category_length = metadata.category_length,
+      label_length = metadata.label_length,
+      detail = true,
+    },
+  })
+  line:add_token(AgendaLineToken:new({
+    content = '  ' .. utils.pad_right('', metadata.category_length) .. ('%s · %s'):format(heading.hollow or '', heading.path or ''),
+  }))
+  return line
+end
+
 ---@param agenda_line FeyAgendaLine
 ---@param heading FeyHeading
 function FeyAgendaType:rerender_agenda_line(agenda_line, heading)
@@ -564,15 +604,11 @@ function FeyAgendaType:_get_agenda_days()
   local agenda_days = {}
 
   local heading_dates = {}
-  for _, feyfile in ipairs(self.files:all()) do
-    for _, heading in ipairs(feyfile:get_opened_headings()) do
-      for _, heading_date in ipairs(heading:get_valid_dates_for_agenda()) do
-        table.insert(heading_dates, {
-          heading_date = heading_date,
-          heading = heading,
-        })
-      end
-    end
+  for _, item in ipairs(self.source:dates(self.from, self.to)) do
+    table.insert(heading_dates, {
+      heading_date = item.date,
+      heading = item.entry,
+    })
   end
 
   local headings = {}

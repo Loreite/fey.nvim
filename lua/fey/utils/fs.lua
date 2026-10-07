@@ -130,11 +130,13 @@ end
 
 ---@class FeyFsScanOpts
 ---@field ignore? string[] directory/file names to skip, besides hidden (dot) directories
+---@field vault_dirname? string name of the folder that makes a directory a vault; a directory below `root` that has one is another vault and is not entered
 ---@field is_file? fun(name: string): boolean defaults to `utils.is_fey_file`
 
 ---Recursively list Fey files under `root`.
----Hidden directories (and anything in `opts.ignore`) are not entered, and symlinked
----directories are not followed so cycles can't happen. Symlinked files are listed.
+---Hidden directories (and anything in `opts.ignore`) are not entered, nor is a directory that is
+---a vault of its own (`opts.vault_dirname`), and symlinked directories are not followed so cycles
+---can't happen. Symlinked files are listed.
 ---@param root string
 ---@param opts? FeyFsScanOpts
 ---@return table<string, FeyFsEntry> entries keyed by relative path
@@ -151,7 +153,11 @@ function M.scan_fey_files(root, opts)
     depth = math.huge,
     skip = function(dir)
       local name = vim.fs.basename(dir)
-      return not (ignored[name] or name:sub(1, 1) == '.')
+      if ignored[name] or name:sub(1, 1) == '.' then return false end
+      if opts.vault_dirname and vim.fn.isdirectory(vim.fs.joinpath(root, dir, opts.vault_dirname)) == 1 then
+        return false -- another vault
+      end
+      return true
     end,
   })
   for name, kind in iter do

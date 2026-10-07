@@ -2,8 +2,35 @@ local m = require('fey.config.mappings.map_entry')
 
 return {
   global = {
-    --   fey_agenda = m.action('agenda.prompt', { opts = { buffer = false, desc = 'fey agenda' } }),
+    fey_agenda = m.action('agenda.prompt', { opts = { buffer = false, desc = 'fey agenda' } }),
     --   fey_capture = m.action('capture.prompt', { opts = { buffer = false, desc = 'fey capture' } }),
+    fey_hollow_init = m.custom([[<Cmd>lua require('fey.vault').init()<CR>]], {
+      opts = { buffer = false, desc = 'init hollow', help_desc = 'Make the cwd a hollow (create its .fey folder) and index its Fey files' },
+    }),
+    fey_vault_reindex = m.custom([[<Cmd>lua require('fey.vault').reindex()<CR>]], {
+      opts = { buffer = false, desc = 'reindex vault', help_desc = 'Update the vault index' },
+    }),
+    fey_hollow_jump = m.custom([[<Cmd>lua require('fey.ui.navigator').hollows()<CR>]], {
+      opts = { buffer = false, desc = 'jump to hollow', help_desc = 'Browse the hollows from the court down and jump to one' },
+    }),
+    fey_hollow_jump_tab = m.custom([[<Cmd>lua require('fey.ui.navigator').hollows({ tab = true })<CR>]], {
+      opts = { buffer = false, desc = 'jump to hollow (tab)', help_desc = 'Browse the hollows and open the one you pick in a new tab' },
+    }),
+    fey_db_new = m.custom([[<Cmd>lua require('fey.db').new()<CR>]], {
+      opts = { buffer = false, desc = 'new database', help_desc = 'Open a new database view of all files in the vault' },
+    }),
+    fey_db_new_split = m.custom([[<Cmd>lua require('fey.db').new('split')<CR>]], {
+      opts = { buffer = false, desc = 'new database (split)', help_desc = 'Open a new database view in a horizontal split' },
+    }),
+    fey_db_new_vsplit = m.custom([[<Cmd>lua require('fey.db').new('vsplit')<CR>]], {
+      opts = { buffer = false, desc = 'new database (vsplit)', help_desc = 'Open a new database view in a vertical split' },
+    }),
+    fey_db_new_tab = m.custom([[<Cmd>lua require('fey.db').new('tab')<CR>]], {
+      opts = { buffer = false, desc = 'new database (tab)', help_desc = 'Open a new database view in a new tab' },
+    }),
+    fey_db_pick = m.custom([[<Cmd>lua require('fey.db').pick()<CR>]], {
+      opts = { buffer = false, desc = 'pick database', help_desc = 'Pick an existing database to open' },
+    }),
   },
   agenda = {
     --   fey_agenda_later = m.action(
@@ -283,27 +310,6 @@ return {
         desc = 'run all queries',
         help_desc = 'Run every query tag in the buffer and write their results',
       },
-    }),
-    fey_vault_init = m.custom([[<Cmd>lua require('fey.vault').init()<CR>]], {
-      opts = { desc = 'init vault', help_desc = 'Create a .fey directory in the cwd and index its Fey files' },
-    }),
-    fey_vault_reindex = m.custom([[<Cmd>lua require('fey.vault').reindex()<CR>]], {
-      opts = { desc = 'reindex vault', help_desc = 'Update the vault index' },
-    }),
-    fey_db_new = m.custom([[<Cmd>lua require('fey.db').new()<CR>]], {
-      opts = { desc = 'new database', help_desc = 'Open a new database view of all files in the vault' },
-    }),
-    fey_db_new_split = m.custom([[<Cmd>lua require('fey.db').new('split')<CR>]], {
-      opts = { desc = 'new database (split)', help_desc = 'Open a new database view in a horizontal split' },
-    }),
-    fey_db_new_vsplit = m.custom([[<Cmd>lua require('fey.db').new('vsplit')<CR>]], {
-      opts = { desc = 'new database (vsplit)', help_desc = 'Open a new database view in a vertical split' },
-    }),
-    fey_db_new_tab = m.custom([[<Cmd>lua require('fey.db').new('tab')<CR>]], {
-      opts = { desc = 'new database (tab)', help_desc = 'Open a new database view in a new tab' },
-    }),
-    fey_db_pick = m.custom([[<Cmd>lua require('fey.db').pick()<CR>]], {
-      opts = { desc = 'pick database', help_desc = 'Pick an existing database to open' },
     }),
     fey_change_list_delimiters = m.action('fey_mappings.change_list_delimiters', {
       opts = {

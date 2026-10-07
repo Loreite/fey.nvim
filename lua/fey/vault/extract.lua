@@ -13,12 +13,17 @@
 -- is called a "label" to avoid colliding with it.
 local constants = require('fey.utils.constants')
 local tag_region = require('fey.files.elements.tags.region')
+local Date = require('fey.objects.date')
 
 local M = {}
 
 ---@class FeyVaultExtractOpts
 ---@field label_tags? string[]  tag names whose values are labels. Default { 'label', 'labels' }
 ---@field link_tags? string[]   tag names that reference another file/section. Default { 'link', 'section' }
+---@field date_tags? table<string, string> tag name -> kind (`date`, `scheduled`, `deadline`, `closed`) of the tags that hold a date. Default: those four names
+---@field status_tag? string     name of the tag with the todo keyword and the priority. Default 'status'
+---@field prop_tag? string       name of the tag with the properties of a heading. Default 'prop'
+---@field todo_lookup? fun(data_todo: any): table<string, { type: string }> todo keywords by value; gets the `todo` key of the document data (nil when it has none). Default: TODO and DONE
 ---@field meta_tags? string[]   names of the tags that are heading metadata (a todo keyword, labels, ...). They
 ---                             are not part of the title of a heading: scope and line tags with one of these
 ---                             names are dropped from `title` and `path`. Default: see `DEFAULT_META_TAGS`
@@ -33,6 +38,7 @@ local M = {}
 ---@field line integer 1-based
 ---@field end_line integer 1-based, inclusive (includes subsections)
 ---@field data? any data value of the section (only for sections without subsections)
+---@field props table<string, string> the keys of the `prop` tags in its metadata region (names lower case)
 
 ---@class FeyVaultTag
 ---@field kind string scope|pair|line|block
@@ -59,6 +65,28 @@ local M = {}
 ---@field container string what holds the label: `title`, `body` or `text` (a label tag in a heading title, in the metadata region of a heading, or elsewhere in its text), `document` (a label tag above the first heading) or `data` (a `labels` key of a data tag or of the document data)
 ---@field line? integer 1-based line of the label
 
+---@class FeyVaultDate
+---@field heading_ord? integer
+---@field line integer
+---@field col integer
+---@field kind string date, scheduled, deadline or closed
+---@field active boolean
+---@field start_ts integer epoch seconds
+---@field start_time boolean the date has a time of day
+---@field end_ts? integer end of a range, or of a time range on the same day
+---@field end_time boolean the end has a time of day
+---@field repeater? string `+1w`, `.+1d`, `++2m`
+---@field warn? string the delay before it is due, `-3d`
+
+---@class FeyVaultTask
+---@field heading_ord integer
+---@field line integer
+---@field kind string heading
+---@field state? string the todo keyword
+---@field done boolean the keyword is a done keyword
+---@field priority? string
+---@field title string
+
 ---@class FeyVaultFileMeta
 ---@field title string
 ---@field data any document data value (nil is null)
@@ -66,6 +94,8 @@ local M = {}
 ---@field tags FeyVaultTag[]
 ---@field links FeyVaultLink[]
 ---@field labels FeyVaultLabel[]
+---@field dates FeyVaultDate[]
+---@field tasks FeyVaultTask[]
 ---@field properties table<string, any> top level keys when the document data is a table
 ---@field errors string[]
 
@@ -495,6 +525,7 @@ local function collect_headings(ctx, root)
         path = parent and (parent.path .. '/' .. title) or title,
         line = section:start() + 1,
         end_line = last_line(section),
+        props = {},
       }
       if #section:field('subsection') == 0 then h.data = section_value(ctx, section) end
       table.insert(headings, h)
@@ -513,8 +544,8 @@ end
 local function label_strings(v)
   local out = {}
   if type(v) == 'string' then
-    for part in v:gmatch('[^,;]+') do
-      part = trim(part)
+    for piece in v:gmatch('[^,;]+') do
+      local part = trim(piece)
       if part ~= '' then table.insert(out, part) end
     end
   elseif type(v) == 'table' then
@@ -544,6 +575,9 @@ function M.extract(src, opts)
 
   local meta_set = {}
   for _, n in ipairs(opts.meta_tags or DEFAULT_META_TAGS) do meta_set[n] = true end
+  local date_kinds = opts.date_tags or { date = 'date', scheduled = 'scheduled', deadline = 'deadline', closed = 'closed' }
+  local status_name = opts.status_tag or 'status'
+  local prop_name = opts.prop_tag or 'prop'
   local ctx = { src = src, lines = vim.split(src, '\n', { plain = true }), errors = {}, opts = opts, meta_set = meta_set }
   local root = vim.treesitter.get_string_parser(src, 'fey'):parse()[1]:root()
   if root:has_error() then table.insert(ctx.errors, 'syntax errors in file') end
@@ -559,6 +593,8 @@ function M.extract(src, opts)
     tags = {},
     links = {},
     labels = {},
+    dates = {},
+    tasks = {},
     properties = {},
     errors = ctx.errors,
   }
@@ -640,6 +676,84 @@ function M.extract(src, opts)
               for _, l in ipairs(label_strings(pv)) do add_label(l, heading_ord, 'data', line) end
             end
           end
+        end
+      end
+    end
+  end
+
+  -- dates, tasks and the properties of headings, from the same tags
+  local todo_lookup = opts.todo_lookup and opts.todo_lookup(type(data) == 'table' and data.todo or nil)
+    or { TODO = { type = 'TODO' }, DONE = { type = 'DONE' } }
+  for _, node in get_tag_query():iter_captures(root, src) do
+    local tag = parse_tag(ctx, node)
+    if tag and not node:has_error() then
+      local kind = date_kinds[tag.name]
+      local heading_ord
+      local section
+      local p = node:parent()
+      while p do
+        if p:type() == 'section' then
+          section = p
+          heading_ord = ord_by_node[p:id()]
+          break
+        end
+        p = p:parent()
+      end
+      local row, col = node:start()
+
+      if kind then
+        local found = Date.from_parts(tag.name, tag.values, tag.attrs)
+        local first, second = found[1], found[2]
+        if first then
+          local repeater, warn
+          for _, adj in ipairs(first.adjustments) do
+            if not repeater and adj:match('^[%+%.]?%+%d+') then repeater = adj end
+            if not warn and adj:match('^%-%d+') then warn = adj end
+          end
+          local end_ts = second and second.timestamp or first.timestamp_end
+          table.insert(meta.dates, {
+            heading_ord = heading_ord,
+            line = row + 1,
+            col = col + 1,
+            kind = kind,
+            active = first.active,
+            start_ts = first.timestamp,
+            start_time = first:has_time(),
+            end_ts = end_ts,
+            end_time = (second and second:has_time()) or first.timestamp_end ~= nil,
+            repeater = repeater,
+            warn = warn,
+          })
+        else
+          err(ctx, node, ('not a date: %s'):format(tag.values[1] or ''))
+        end
+      end
+
+      local region = region_of(node, section)
+
+      -- the status tag has to be the first thing of a title: `{# status, TODO, A #}`
+      if tag.name == status_name and region == 'title' and heading_ord then
+        local title = node:parent()
+        local first_child = title and title:child(0)
+        if first_child and first_child:id() == node:id() then
+          local keyword = tag.values[1]
+          local priority = tag.values[2] or tag.attrs.priority
+          table.insert(meta.tasks, {
+            heading_ord = heading_ord,
+            line = row + 1,
+            kind = 'heading',
+            state = keyword,
+            done = keyword ~= nil and todo_lookup[keyword] ~= nil and todo_lookup[keyword].type == 'DONE',
+            priority = priority,
+            title = headings[heading_ord].title,
+          })
+        end
+      end
+
+      if tag.name == prop_name and heading_ord and (region == 'title' or region == 'body') then
+        local props = headings[heading_ord].props
+        for k, v in pairs(tag.attrs) do
+          props[k:lower()] = v
         end
       end
     end

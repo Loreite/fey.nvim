@@ -108,7 +108,7 @@ def('string', function(v) return ops.tostring(v) end)
 
 def('link', function(path, display)
   if V.is_link(path) then
-    return V.link(path.path, display or path.display, path.subpath)
+    return V.link(path.path, display or path.display, path.subpath, path.hollow)
   end
   if type(path) ~= 'string' then return NULL end
   local p, sub = path:match('^(.-)#(.*)$')

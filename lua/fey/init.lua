@@ -67,8 +67,10 @@ function Fey:init()
     })
     :load_sync(true, 20000)
   self.links = require('fey.fey.links'):new({ files = self.files })
+  local agenda_files = require('fey.config').fey_agenda_files
   self.agenda = require('fey.agenda'):new({
     files = self.files,
+    source = require('fey.agenda.source').new({ paths = agenda_files }),
     highlighter = self.highlighter,
     links = self.links,
   })
@@ -214,10 +216,13 @@ function Fey.setup(opts)
   require('fey.files.elements.tags').setup(config.tag_handlers)
   require('fey.ui.navigator').setup()
   require('fey.vault').setup()
+  require('fey.hollow.court').setup()
   require('fey.query').setup()
   require('fey.db').setup()
-  vim.keymap.set('n', '<leader>;;', function() require('fey.ui.navigator').open() end, { desc = 'open fey navigator' })
-  vim.keymap.set('n', '<leader>;:', function() require('fey.ui.navigator').resume() end, { desc = 'reopen fey navigator' })
+  -- the navigator: `<prefix>;` opens it on the current file, `<prefix>:` where it was left
+  local prefix = (config.mappings and config.mappings.prefix) or '<Leader>;'
+  vim.keymap.set('n', prefix .. ';', function() require('fey.ui.navigator').open() end, { desc = 'open fey navigator' })
+  vim.keymap.set('n', prefix .. ':', function() require('fey.ui.navigator').resume() end, { desc = 'reopen fey navigator' })
   vim.defer_fn(function()
     if config.notifications.enabled and #vim.api.nvim_list_uis() > 0 then
       Fey.files:load():next(vim.schedule_wrap(

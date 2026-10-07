@@ -61,6 +61,12 @@ local function define_highlights()
   set('FeyDbNull', { link = 'NonText' })
 end
 
+---The vault a row came from (the vault of the view for rows that do not say)
+---@param self FeyDbView
+---@param row any
+---@return FeyVault
+local function row_vault(self, row) return require('fey.query.pages').vault_of(row) or self.vault end
+
 ---@param row any
 ---@return string|nil
 local function row_path(row)
@@ -68,6 +74,23 @@ local function row_path(row)
   local file = ops.get(row, 'file')
   local p = V.is_object(file) and ops.get(file, 'path')
   return type(p) == 'string' and p or nil
+end
+
+---Path and vault together: a path alone is not unique over several hollows
+---@param row any
+---@return string|nil
+local function row_key(row)
+  local path = row_path(row)
+  if not path then return nil end
+  local vault = require('fey.query.pages').vault_of(row)
+  return (vault and vault.root or '') .. '\0' .. path
+end
+
+---@param spec any
+---@return string
+local function scope_text(spec)
+  if type(spec) == 'table' then return table.concat(spec, ' ') end
+  return spec or 'current'
 end
 
 -- State -------------------------------------------------------------------------------------
@@ -434,8 +457,10 @@ function View:render()
     status = ' ' .. self.message.text
   else
     local ptype = col and self.model:prop_type(col.prop) or ''
-    status = (' %s (%s) · row %d/%d · <Space> commands · g? help · q quit'):format(
-      col and col.prop or '-', ptype, math.min(self.cur.row, #rows), #rows
+    local scope = self.base.scope
+    status = (' %s (%s) · row %d/%d%s · <Space> commands · g? help · q quit'):format(
+      col and col.prop or '-', ptype, math.min(self.cur.row, #rows), #rows,
+      scope and scope ~= 'current' and (' · scope ' .. scope_text(scope)) or ''
     )
   end
   lines[#lines + 1] = text.truncate(status, W)
@@ -462,12 +487,12 @@ end
 ---Recompute rows, keeping the cursor on the same note when asked to
 ---@param keep? boolean
 function View:refresh(keep)
-  local path = keep and row_path(self.rows and self.rows[self.cur.row]) or nil
+  local path = keep and row_key(self.rows and self.rows[self.cur.row]) or nil
   self._res = nil
   self:result()
   if path then
     for i, r in ipairs(self.rows) do
-      if row_path(r) == path then
+      if row_key(r) == path then
         self.cur.row = i
         break
       end
@@ -720,6 +745,34 @@ function View:set_limit()
   })
 end
 
+-- Scope ----------------------------------------------------------------------------------------------------------------------
+
+---Which hollows the database shows: this one (`current`), this one and the hollows below it (`tree`), all
+---of them (`court`), or a list of hollow references (`court:notes court:play:*`)
+function View:set_scope()
+  Fuzzy.open({
+    prompt = 'Scope (or hollow references)',
+    items = {
+      { text = 'current', desc = 'this hollow' },
+      { text = 'tree', desc = 'this hollow and the hollows below it' },
+      { text = 'court', desc = 'every hollow' },
+    },
+    default = scope_text(self.base.scope),
+    allow_custom = true,
+    on_confirm = function(item, t)
+      local value = item and item.text or t
+      local words = vim.split(vim.trim(value), '[%s,]+', { trimempty = true })
+      local spec
+      if #words == 1 and (words[1] == 'current' or words[1] == 'tree' or words[1] == 'court') then
+        spec = words[1] ~= 'current' and words[1] or nil
+      elseif #words > 0 then
+        spec = words
+      end
+      self:mutate(function() self.base.scope = spec end)
+    end,
+  })
+end
+
 -- Formulas ------------------------------------------------------------------------------------------------------------------
 
 function View:add_formula()
@@ -838,7 +891,7 @@ end
 function View:write_cell(row, prop, value)
   local path = row_path(row)
   if not path then return self:msg('this row is not a note', true) end
-  local ok, err = source_edit.set(self.vault, path, prop, value)
+  local ok, err = source_edit.set(row_vault(self, row), path, prop, value)
   if not ok then
     self:msg('cannot edit: ' .. tostring(err), true)
     return self:render()
@@ -896,9 +949,10 @@ end
 
 ---@param how 'split'|'tab'
 function View:open_note(how)
-  local path = row_path(self:row())
+  local row = self:row()
+  local path = row_path(row)
   if not path then return end
-  vim.cmd((how == 'tab' and 'tabedit ' or 'belowright split ') .. vim.fn.fnameescape(vim.fs.joinpath(self.vault.root, path)))
+  vim.cmd((how == 'tab' and 'tabedit ' or 'belowright split ') .. vim.fn.fnameescape(row_vault(self, row):abs(path)))
 end
 
 -- Search ------------------------------------------------------------------------------------------------------------------------------
@@ -981,6 +1035,7 @@ local ACTIONS = {
   { name = 'Rename view', fn = View.rename_view },
   { name = 'Delete view', fn = View.delete_view },
   { name = 'Rename database', fn = View.rename_database },
+  { name = 'Scope: which hollows to show', key = 'gs', fn = View.set_scope },
   { name = 'Rescan vault', key = 'r', fn = View.refresh_vault },
   { name = 'Undo', key = 'u', fn = View.undo },
   { name = 'Redo', key = '<C-r>', fn = View.redo },

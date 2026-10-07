@@ -98,7 +98,7 @@ function M.get(obj, key)
     return v == nil and NULL or v
   end
   if t == 'link' then
-    if key == 'path' or key == 'display' or key == 'subpath' or key == 'embed' then
+    if key == 'path' or key == 'display' or key == 'subpath' or key == 'embed' or key == 'hollow' then
       local v = obj[key]
       return v == nil and NULL or v
     end
