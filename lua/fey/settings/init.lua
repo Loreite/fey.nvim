@@ -405,6 +405,7 @@ function M.apply(bufnr, opts)
   if not additive then buf_state(bufnr).effective = eff end
   -- options that change what the tags look like
   pcall(function() require('fey.files.elements.tags.handlers.conceal').refresh(bufnr) end)
+  pcall(function() require('fey.files.elements.tags.handlers.link_conceal').refresh(bufnr) end)
   return eff
 end
 

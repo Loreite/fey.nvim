@@ -53,7 +53,9 @@ FeyLspHandlers[methods.textDocument_completion] = function(params)
     :sub(1, params.position.character)
 
   local fey = require('fey')
-  local offset = fey.completion:get_start({ line = line }) + 1
+  local start = fey.completion:get_start({ line = line })
+  if start < 0 then return { isIncomplete = false, items = {} } end
+  local offset = start + 1
   local base = string.sub(line, offset)
 
   local completion = fey.completion:complete({

@@ -120,14 +120,89 @@ local refs = handlers[vim.lsp.protocol.Methods.textDocument_references]({
 })
 check('references of a heading', vim.tbl_map(function(l) return vim.fn.fnamemodify(vim.uri_to_fname(l.uri), ':t') .. ':' .. (l.range.start.line + 1) end, refs), { 'source.fey:3', 'source.fey:9' })
 
+-- every form of a link tag: the text it holds is the link ------------------------------------------------------
+write('other.fey', { '  I. Other', '', 'text' })
+write('forms.fey', {
+  '  I. Forms',
+  '',
+  'scope {@ link, target.fey @} text',
+  '',
+  '#[ link, target.fey ] words of a line tag # after',
+  '',
+  '[ link, target.fey ]#',
+  '   a paragraph under a block tag',
+  '',
+  '   | a | b |',
+  '   +===+===+',
+  '   | 1 | 2 |',
+  '',
+  '[ link, target.fey #]',
+  'a paragraph in a pair tag with {@ link, other.fey @} inside',
+  '',
+  '| cell {@ link, other.fey @} | plain |',
+  '[# link ]',
+  '',
+  '[ section, II., target.fey ]#',
+  '   words that are a section link',
+  '',
+  'no link here',
+})
+local function opens(row, col, with_line)
+  vim.cmd('edit! ' .. vim.fn.fnameescape(root .. '/forms.fey'))
+  vim.bo.filetype = 'fey'
+  vim.treesitter.start(0, 'fey')
+  vim.api.nvim_win_set_cursor(0, { row, col })
+  links.open_at_cursor()
+  local name = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ':t')
+  return with_line and (name .. ':' .. vim.api.nvim_win_get_cursor(0)[1]) or name
+end
+check('a scope tag', opens(3, 9), 'target.fey')
+check('a line tag: its words', opens(5, 25), 'target.fey')
+check('a block tag: its paragraph', opens(8, 8), 'target.fey')
+check('a block tag: its table', opens(12, 8), 'target.fey')
+check('a pair tag: its paragraph', opens(15, 3), 'target.fey')
+check('the link under the cursor beats the one around it', opens(15, 45), 'other.fey')
+check('also in a table inside', opens(17, 12), 'other.fey')
+check('the text beside it is the outer link', opens(17, 30), 'target.fey')
+check('the head of a block tag', opens(7, 4), 'target.fey')
+check('a section tag with a body goes to the heading', opens(21, 8, true), 'target.fey:5')
+check('no link, nothing opens', opens(23, 3), 'forms.fey')
+check('the first link of a text works in every form', links.first_link_in('#[ link, x.fey ] words #'), { target = 'x.fey', sig = nil, n = nil })
+
+-- hiding the head of a link ---------------------------------------------------------------------------------------
+local lc = require('fey.files.elements.tags.handlers.link_conceal')
+check('no key, no default', lc.is_concealed({}), false)
+check('the key', lc.is_concealed({ conceal = 'true' }), true)
+config:extend({ fey_link_conceal_default = true })
+check('the default hides', lc.is_concealed({}), true)
+check('conceal: false beats the default', lc.is_concealed({ conceal = 'false' }), false)
+check('the default can be set with the plugin tag', require('fey.settings.fey_options').allowed('fey_link_conceal_default'), true)
+vim.cmd('edit! ' .. vim.fn.fnameescape(root .. '/forms.fey'))
+vim.bo.filetype = 'fey'
+vim.treesitter.start(0, 'fey')
+vim.api.nvim_win_set_cursor(0, { 23, 0 })
+lc.refresh(vim.api.nvim_get_current_buf())
+local function marks() return vim.api.nvim_buf_get_extmarks(0, lc.ns, 0, -1, { details = true }) end
+local before = #marks()
+check('marks for every link away from the cursor', before > 0, true)
+local virt = vim.tbl_filter(function(m) return m[4].virt_text end, marks())
+check('a scope tag shows what it points to', virt[1][4].virt_text[1][1], 'target')
+vim.api.nvim_win_set_cursor(0, { 3, 0 })
+lc.on_cursor(vim.api.nvim_get_current_buf())
+check('the line of the cursor is shown as written', #marks() < before, true)
+local on_row = vim.tbl_filter(function(m) return m[2] == 2 end, marks())
+check('nothing is hidden on the cursor line', #on_row, 0)
+config:extend({ fey_link_conceal_default = false })
+lc.refresh(vim.api.nvim_get_current_buf())
+check('off again', #marks(), 0)
+
 -- completion ----------------------------------------------------------------------------------------------
-local Source = require('fey.fey.autocompletion.sources.hyperlinks')
-local source = Source:new({ completion = {} })
+local Source = require('fey.fey.autocompletion.sources.tag_head')
+local source = Source:new()
 check('completion starts in the target of a link tag', source:get_start({ line = 'see {@ link, tar' }), 13)
-check('and not elsewhere', source:get_start({ line = 'see {@ date, tar' }), nil)
+check('and not elsewhere', source:get_start({ line = 'see plain tar' }), nil)
 vim.cmd('edit! ' .. vim.fn.fnameescape(root .. '/source.fey'))
-local results = source:get_results({ base = 'tar', matcher = function(item, base) return item:find(base, 1, true) ~= nil end })
-check('completion lists the files', results, { 'target.fey' })
+check('completion lists the files', source:get_results({ line = 'see {@ link, tar' }), { 'source.fey', 'target.fey' })
 
 vault:close()
 print(('links: %d checks, %d failures'):format(total, failures))

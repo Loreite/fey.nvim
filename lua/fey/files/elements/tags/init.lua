@@ -157,6 +157,7 @@ function Tag.setup(handlers)
   hl.setup_query(Tag.parse_all_tags)
   comment_handler.setup_query(Tag.parse_all_tags)
   require('fey.files.elements.tags.handlers.conceal').setup_query(Tag.parse_all_tags)
+  require('fey.files.elements.tags.handlers.link_conceal').setup_query(Tag.parse_all_tags)
 end
 
 return Tag

@@ -94,16 +94,15 @@ local made = id_less:id_get_or_create()
 check('a file without data gets a table tag for it', vim.api.nvim_buf_get_lines(0, 0, 1, false)[1], '{# table; id: ' .. made .. ' #}')
 
 -- completion of the keys ---------------------------------------------------------------------------------------------------------
-local Source = require('fey.fey.autocompletion.sources.directives')
+local Source = require('fey.fey.autocompletion.sources.tag_head')
 local source = Source:new()
 local function start(line) return source:get_start({ line = line }) end
 check('after the table tag name', start('{# table; ti'), 10)
 check('after another key', start('{# table; title: A; ca'), 20)
 check('right after the semicolon', start('{# table;'), 9)
-check('not in another tag', start('{# status; ti'), nil)
 check('not in text', start('table; ti'), nil)
 check('not in a closed tag', start('{# table; title: A #} ti'), nil)
-local results = source:get_results({})
+local results = source:get_results({ line = '{# table; ' })
 check('the keys the plugin reads, with their colon', { results[1], vim.tbl_contains(results, 'header_args: '), vim.tbl_contains(results, 'todo: ') }, { 'title: ', true, true })
 check('and nothing of org is left', #vim.tbl_filter(function(r) return r:find('#+', 1, true) end, results), 0)
 

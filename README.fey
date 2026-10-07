@@ -826,7 +826,32 @@ to a file, a heading of a file, a url, a heading or file by its id, a file of an
   -  `fey_link_schemes = { jira = function(target, tag) ... end }` makes `{@ link, jira:ABC-1 @}` call your function
   -  in the agenda `<prefix>o`... follows the first link of the item; references of a heading in an editor (LSP) are its
      backlinks from the index
+  -  a link can be a line, block or pair tag too, and then the text it holds is the link: `#[ link, a.fey ] some words #`, or
+     a block or pair tag with a paragraph, a list or a table under it. Following climbs from the cursor to the nearest link
+     tag, so a link inside the body of another link is the one that opens when the cursor is on it, and the text beside it
+     opens the outer one
+  -  `conceal: true` on a link or section tag, or `fey_link_conceal_default = true` (it can be set from a note with the plugin
+     tag; `conceal: false` keeps one in view), hides its head: a scope tag is replaced by its `desc` (else the name of the file,
+     with the section, or the url), a line, block or pair tag loses its head and closer and keeps its body. It comes back on the
+     line of the cursor, and only there (a concealed query comes back with the cursor anywhere in it). `FeyLinkText` is the
+     highlight of a replaced tag; needs `conceallevel`
   -  the old org style links (`[[file:..][..]]`, `Fey.links`, `hyperlinks.sources`) are gone
+
+
+  II.M.vii. Completion
+
+Inside the head of a tag the completion knows where it is (`omnifunc`, blink, nvim-cmp and LSP clients get the same
+answers): the name after the opener, a value after a `,`, a key after a `;` and the value of a key.
+
+  -  names: the tags of the plugin and those written in the notes of the hollow, most used first
+  -  values: todo keywords and then priorities for `status`; labels for `labels`; files for `link`; the signatures of the
+     file for `section`; footnote labels for `fn`; spans for `clocktable`; `fey` and the plugins you registered for `plugin`
+  -  keys, with their colon: those a tag has (`desc`, `section`, `scope`, `conceal`, `by`, ...), the ones the notes already
+     use with it, the keys of the document data inside `table`, Vim options inside `nvim` and the options a note may
+     set inside `plugin, fey`
+  -  values of a key: `section` the headings of the file, `scope`, `by`, `span` and the booleans, the colour schemes for
+     `colorscheme`
+  -  it works from the text before the cursor, so it also works while the tag is not finished and the file does not parse
 
 
   II.N. Queries and databases

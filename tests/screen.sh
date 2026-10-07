@@ -138,6 +138,41 @@ total=$((total + 1))
 out=$(screen_of "$TMP/conceal.fey" ':set conceallevel=2' ':normal zR' ':normal 7G' ':normal 3G')
 check 'leaving it hides it again' "$out" 'LIST WITHOUT ID' no
 
+
+# completion inside the head of a tag, through the omnifunc
+printf '  I. Pop\n\n' >"$TMP/pop.fey"
+unset FEY_OPTS
+out=$(screen_of "$TMP/pop.fey" ':normal zR' ':call feedkeys("Go{# status, \<C-x>\<C-o>", "nt")')
+check 'the todo keywords are offered in a status tag' "$out" 'TODO [Fey]' yes
+check 'and the done ones' "$out" 'DONE [Fey]' yes
+
+
+# concealed links: a scope tag shows its description, the other forms lose their head, the cursor line shows all
+cat >"$TMP/linkc.fey" <<'EOF'
+  I. Links
+
+see {@ link, notes/a.fey; desc: The notes; conceal: true @} here
+
+#[ link, b.fey; conceal: true ] linked words #
+
+[ link, c.fey; conceal: true ]#
+   a paragraph that is the link
+
+plain {@ link, e.fey; desc: Visible @} link
+EOF
+export FEY_OPTS="{ fey_court_dir = '$TMP/court' }"
+out=$(screen_of "$TMP/linkc.fey" ':set conceallevel=2' ':normal zR' ':normal G')
+check 'a scope link shows its description' "$out" 'see The notes here' yes
+check 'and not its syntax' "$out" 'notes/a.fey' no
+check 'a line link keeps its words' "$out" 'linked words' yes
+check 'and loses its head' "$out" 'b.fey' no
+check 'a block link keeps its body' "$out" 'a paragraph that is the link' yes
+check 'and loses its head line' "$out" '[ link, c.fey' no
+check 'a link without the key is as written' "$out" '{@ link, e.fey; desc: Visible @}' yes
+out=$(screen_of "$TMP/linkc.fey" ':set conceallevel=2' ':normal zR' ':normal 3G')
+check 'on the cursor line the link is as written' "$out" '{@ link, notes/a.fey; desc: The notes; conceal: true @}' yes
+check 'other links stay hidden there' "$out" 'b.fey' no
+
 rm -rf "$TMP"
 if [ "$failed" -gt 0 ]; then echo "screen: $failed of $total checks failed"; exit 1; fi
 echo "ok: $total screen checks"

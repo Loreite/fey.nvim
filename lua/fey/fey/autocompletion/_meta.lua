@@ -1,6 +1,6 @@
 ---@meta
 
----@alias FeyCompletionContext { line: string, base?: string, fuzzy?: boolean, matcher?: fun(value?: string, pattern?: string): boolean }
+---@alias FeyCompletionContext { line: string, base?: string, fuzzy?: boolean, matcher?: fun(value?: string, pattern?: string): boolean, tag_context?: FeyTagContext }
 ---@alias FeyCompletionItem { word: string, menu: string }
 
 ---@class FeyCompletionSource

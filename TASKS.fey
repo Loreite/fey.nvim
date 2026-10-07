@@ -2134,6 +2134,31 @@ Done (2026-10-07): links consolidation.
 -  Vault:  yes, it is the main data source.
 -  After:  II.A, II.G.
 
+Done (2026-10-07): completion.
+
+-  Chose:  one source, `tag_head`, replaces the six org sources (`directives`, `hyperlinks`, `plan`, `properties`, `tags`,
+   `todo_keywords`). `tag_context.parse` says where the cursor is in a tag from the text of the line before it (not
+   the tree: it has errors while a tag is typed): `name`, `value` (and which one), `key` or `key_value`, for the scope,
+   line, block and pair forms, escapes respected. `data.lua` fills it: the tag names (the plugin's, and the notes' from the
+   `tags` table by count), the values of each tag, the keys of each tag plus the keys the notes used with it (from the
+   `attrs` of the index), the values of a key. The adapters (omnifunc, nvim-cmp, blink, the LSP handler) take the start
+   offset and write with a `textEdit`; trigger characters are `, ; : space @ # [ /`.
+-  Not done:  completing the text of a tag body (a query, a table cell), the name of a hollow in `scope:`, and the
+   position of a tag in the document (a tag directly after a heading, for example).
+-  Tests:  `tests/completion.lua` (46 checks): the context for every kind and form, what is offered for each tag and
+   key, the omnifunc, the LSP handler; two screen checks draw the popup menu.
+
+Added after III.K (2026-10-07): link forms and link concealment.
+
+-  Chose:  a `link` or `section` tag may be a line, block or pair tag: following already climbed from the node under the
+   cursor to the nearest link tag (`links.tag_at_cursor`), which makes the body of such a tag the link and lets a link inside
+   it win; tests now pin it (paragraph, table, list, line tag words, a link in a cell, text beside the inner link, a section tag with
+   a body). `handlers/link_conceal.lua`: `conceal` key and `fey_link_conceal_default` (plugin tag option, redraws on apply). A scope tag
+   shows its `desc`, else the file name with the section, else the url (`§ sig` for a section tag), by an inline virtual text over
+   the concealed tag; the other forms lose only their head and closer. Each hidden piece is its own row, shown only when the cursor
+   is on that row (the query is shown by the cursor anywhere in it: one object). `FeyLinkText` links to `Underlined`.
+-  Tests:  `tests/links.lua` is at 45 checks (every form, precedence, the option, the marks following the cursor) and nine screen checks.
+
   III.L. Highlighting, concealment and folds
 
 -  Now:  `queries/fey/highlights.scm` already colours the tag formats, and
@@ -2467,3 +2492,11 @@ Things that are wanted but not part of converting the org code. They start when 
    lifecycle of a query, like III.G), `:var` (values from other blocks, tables and queries), `:session`, and
    noweb across files. Design it with the tags of III.G, and with the executing of code in mind (the
    same care as the `plugin` tag: nothing runs without the user's say).
+
+  VI.D. Completion for the query language
+
+-  Completion inside the head of a tag works (III.K) but not for what a `query` tag holds. Wanted: complete the query language
+   (`TABLE`, `LIST`, `TASK`, `FROM`, `WHERE`, `SORT`, ..., the fields `file.name`, `file.mtime`, the properties of the notes and the
+   functions), the labels after `#`, the files in quotes and the links after `[[`, from the index. Why it matters: a query writes its result with
+   links to the files, a `feydb` shows only the data, so tables of contents and indexes of notes should be queries, and completion should
+   make writing one easy.

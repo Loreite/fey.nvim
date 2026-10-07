@@ -23,12 +23,7 @@ function FeyCompletion:new(opts)
 end
 
 function FeyCompletion:setup_builtin_sources()
-  self:add_source(require('fey.fey.autocompletion.sources.todo_keywords'):new())
-  self:add_source(require('fey.fey.autocompletion.sources.tags'):new({ completion = self }))
-  self:add_source(require('fey.fey.autocompletion.sources.plan'):new({ completion = self }))
-  self:add_source(require('fey.fey.autocompletion.sources.directives'):new())
-  self:add_source(require('fey.fey.autocompletion.sources.properties'):new({ completion = self }))
-  self:add_source(require('fey.fey.autocompletion.sources.hyperlinks'):new({ completion = self }))
+  self:add_source(require('fey.fey.autocompletion.sources.tag_head'):new())
 end
 
 ---@param source FeyCompletionSource
@@ -117,11 +112,6 @@ end
 function FeyCompletion:get_line()
   local cursor = vim.api.nvim_win_get_cursor(0)
   return vim.api.nvim_get_current_line():sub(1, cursor[2])
-end
-
----@param line string
-function FeyCompletion:is_heading_line(line)
-  return line:find([[^%*+%s+]]) ~= nil
 end
 
 function FeyCompletion:register_frameworks()
