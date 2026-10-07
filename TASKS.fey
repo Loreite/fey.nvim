@@ -2316,17 +2316,17 @@ Done (2026-10-07): config, mappings, help.
 
   III.Q. Tests
 
--  Now:  `tests/api.lua`, `tests/query.lua`, `tests/db.lua` cover the vault,
-   query and databases. There are no tests for heading, date, agenda or the
-   grammar rules added here.
--  Fey:  for every grammar change add a corpus file in `tree-sitter-fey/test/corpus`
-   (the checkbox, and any `metadata` rule). For every tag add a headless Lua
-   test like `tests/api.lua`: parse, write, re-index, read back.
--  Triggers:  the pre-commit hook in `scripts/`.
--  Vault:  the fixture vault is the same temp directory pattern as in
-   `tests/api.lua`.
--  After:  continuous.
+Done (2026-10-07): one command, and the smoke tests that were missing.
 
+-  Chose:  `scripts/test.sh` runs every suite of `tests/` (41 parts today), the parse of README and TASKS, the screen checks and the grammar corpus, one line each, a failure exit,
+   `--fast` and by-name selection, and a message instead of forty failures when the parser is missing. The pre-commit hook (`scripts/pre-commit-hook.sh`, installed by
+   `scripts/install_hooks.sh`, not installed for you) checks that the staged Lua files are formatted and runs the fast tests; it no longer runs `make format` over the whole tree.
+   New suites: `tests/modules.lua` (all 192 modules load; this is what finds a require of a module that was removed) and `tests/tags_matrix.lua` (every tag in every form it takes through
+   parse, index, position, handler, export and completion, 418 checks, and a check that every tag of the table of tags in this roadmap has a sample). The corpus of the
+   grammar: `lists.txt` (checkboxes), `tables.txt` (crown, no rule, merged columns, merged rows, a tag in a cell) and `tags.txt` (every form, keys, escapes, nesting, fenced blocks, headings
+   with tags) are new, two tests of unclosed pairs said the grammar errors where it now closes the pair implicitly and were corrected, and the stale `queries/highlights.scm` of the grammar
+   (it named a node that is gone and made `tree-sitter test` exit with an error) is replaced by a small valid one.
+-  Not done:  see VII.
 
   III.R. Terminology: org words become Fey words
 
@@ -2627,3 +2627,7 @@ done. Add to it when a task leaves something out.
   VII.K. Options (from III.P)
 -  The check of the options knows booleans, tag names and a few choices; a schema for every option (numbers, tables, the shape of the nested ones such as `ui`, `notifications`
    and the agenda commands) would catch more. And the `docs/*.org` and `doc/*.txt` are still old (III.S).
+
+  VII.L. Tests (from III.Q)
+-  Run the suites in parallel in `scripts/test.sh` (about a minute with the screen checks now), a continuous integration workflow that runs it, a measure of which
+   lines of Lua no suite reaches, and screen checks for the agenda and the database views (the suites read their text, the screen checks would read what is drawn).

@@ -945,6 +945,21 @@ The file goes next to the note and the menu offers to open it.
   -  the heading commands that were waiting for their feature are on: `<prefix>*` toggle heading, `<prefix>iT` and `<prefix>it` insert a todo heading, `g?` the help
 
 
+  II.M.xii. Tests
+
+Everything that checks the plugin runs with one command, `scripts/test.sh`: every headless suite in `tests/` (one Neovim per suite, a temporary court and
+hollow so nothing of yours is touched), the parse of this README and of the roadmap, the screen checks (`tests/screen.sh`, a real Neovim in tmux, reading what is
+drawn) and the corpus of the grammar. It prints one line per part and exits with a failure if any failed.
+
+  -  `scripts/test.sh --fast` skips the screen checks and the corpus (a few seconds): what the pre-commit hook runs; `scripts/test.sh agenda export` runs only those suites
+  -  set `FEY_PARSER` to the built `fey.so` (the tests say so if it is missing); the corpus needs the `tree-sitter` command and `FEY_GRAMMAR`, the directory of tree-sitter-fey
+  -  `scripts/install_hooks.sh` installs the hook: staged Lua files have to be formatted (`stylua`; it tells you, it does not touch your files) and the fast tests have to pass
+  -  `tests/modules.lua` loads every module of the plugin, so a require of a module that is gone fails at once; `tests/tags_matrix.lua` takes every tag in every form through
+     parse, index, find at its position, handler, export and completion, and fails when a tag of the table of tags in the roadmap has no sample: a new tag is one line of its `SAMPLES`
+  -  a suite is a Lua file that prints `name: N checks, M failures` and quits with a failure when M is not 0; copy the temporary vault of `tests/api.lua` or
+     `tests/links.lua` for a new one. A change of the grammar needs a corpus case in `test/corpus` of tree-sitter-fey (`tree-sitter test -u` writes the expected tree; read it)
+
+
   II.N. Queries and databases
 
 Notes can hold queries (a Dataview style language, with TABLE, LIST and TASK) and
