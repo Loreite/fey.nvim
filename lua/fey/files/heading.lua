@@ -912,43 +912,78 @@ end
 
 function Heading:child_checkboxes(list_node) return require('fey.files.elements.listitem').boxes_of_list(list_node, self.file) end
 
----A drawer of the heading: the pair tag with that name in its own text (not in a subsection). The logbook of
----the clock and of notes is one, and any pair tag can be: `[ name #]` ... `[# name ]`.
+---A drawer of the heading: the pair tag `[ name #]` ... `[# name ]` or the block tag `[ name ]#` with that name in
+---its own text (not in a subsection). The logbook of the clock and of notes is one.
 ---@param name string matched case insensitively
----@return TSNode | nil pair_tag
+---@return TSNode | nil pair_tag or block_tag
 function Heading:get_drawer(name)
   local section = self:node():parent()
   if not section then return nil end
   local body = section:field('body')[1]
   if not body then return nil end
   for _, node in ipairs(ts_utils.get_named_children(body)) do
-    if node:type() == 'pair_tag' then
-      local open = node:field('open')[1]
-      local tag_name = open and open:field('name')[1]
+    if node:type() == 'pair_tag' or node:type() == 'block_tag' then
+      local head = node:type() == 'pair_tag' and node:field('open')[1] or node
+      local tag_name = head and head:field('name')[1]
       if tag_name and self.file:get_node_text(tag_name):lower() == name:lower() then return node end
     end
   end
 end
 
----The line (0-based, to insert before it) at the top of the drawer with the given name, right under its
----opener: new entries go first. The drawer is made, under the metadata of the heading, when there is none.
+---The lines of a new drawer in the form the config asks for (`fey_drawer_form`): a pair tag, or a block tag with
+---the lines indented under it. A block tag with no lines is only its head.
 ---@param name string
----@return number
+---@param lines? string[]
+---@param indent? string indentation of the tag
+---@return string[]
+function Heading.drawer_lines(name, lines, indent)
+  indent = indent or ''
+  lines = lines or {}
+  if config.fey_drawer_form == 'block' then
+    local out = { ('%s[ %s ]#'):format(indent, name) }
+    for _, line in ipairs(lines) do
+      out[#out + 1] = line ~= '' and (indent .. Heading.DRAWER_INDENT .. line) or ''
+    end
+    return out
+  end
+  local out = { ('%s[ %s #]'):format(indent, name) }
+  for _, line in ipairs(lines) do
+    out[#out + 1] = line ~= '' and (indent .. line) or ''
+  end
+  out[#out + 1] = ('%s[# %s ]'):format(indent, name)
+  return out
+end
+
+---How far the body of a block tag drawer is indented
+Heading.DRAWER_INDENT = '   '
+
+---The line (0-based, to insert before it) at the top of the drawer with the given name, right under its
+---head: new entries go first. The drawer is made, under the metadata of the heading, when there is none.
+---@param name string
+---@return number row
+---@return string indent what the lines written there start with: nothing in a pair tag, the indent of the body of a block tag
 function Heading:get_drawer_append_line(name)
   local drawer = self:get_drawer(name)
+  local bufnr = self.file:get_valid_bufnr()
   if not drawer then
-    local bufnr = self.file:get_valid_bufnr()
     local at = self:get_append_line()
-    local block = { ('[ %s #]'):format(name), ('[# %s ]'):format(name) }
+    local block = Heading.drawer_lines(name)
     local following = vim.api.nvim_buf_get_lines(bufnr, at, at + 1, false)[1]
     if following and following:match('%S') then block[#block + 1] = '' end
     vim.api.nvim_buf_set_lines(bufnr, at, at, false, block)
-    -- the tree is old: the drawer is the block just written
-    return at + 1
+    -- the tree is old: the drawer is what was just written
+    return at + 1, config.fey_drawer_form == 'block' and Heading.DRAWER_INDENT or ''
   end
-  local open = drawer:field('open')[1]
-  local _, _, open_end_row = open:range()
-  return open_end_row + 1
+  local head = drawer:type() == 'pair_tag' and drawer:field('open')[1] or drawer
+  local closure = head:field('tag_closure')
+  local last = closure[#closure] or head
+  local _, _, head_end_row = last:range()
+  local row = head_end_row + 1
+  if drawer:type() == 'pair_tag' then return row, '' end
+  local first = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1]
+  local opener = vim.api.nvim_buf_get_lines(bufnr, (drawer:start()), (drawer:start()) + 1, false)[1] or ''
+  local indent = first and first:match('%S') and first:match('^%s*') or (opener:match('^%s*') .. Heading.DRAWER_INDENT)
+  return row, indent
 end
 
 memoize('get_range')
@@ -1118,8 +1153,11 @@ end
 ---@param content string|string[]
 ---@return FeyHeading
 function Heading:add_to_drawer(drawer_name, content)
-  local append_line = self:get_drawer_append_line(drawer_name)
+  local append_line, indent = self:get_drawer_append_line(drawer_name)
   local lines = type(content) == 'table' and content or { content }
+  if indent ~= '' then
+    lines = vim.tbl_map(function(line) return line ~= '' and (indent .. line) or '' end, lines)
+  end
   vim.api.nvim_buf_set_lines(self.file:get_valid_bufnr(), append_line, append_line, false, lines)
   return self:refresh()
 end

@@ -1,0 +1,142 @@
+-- The `comment` tag: its body is a comment. Every form works. The body of a scope tag is its parent node.
+--
+--   * a line tag `#[ comment ] text #`, a block tag and a pair tag comment their body
+--   * a scope tag in a paragraph, a title or a table cell comments that node
+--   * a scope tag that is the only content of a list item comments the whole list it is in: this is the only way to
+--     comment a list with a scope tag. With other contents (a paragraph, a table, a nested list) it comments the item
+--   * a scope tag at the top of a document, with no heading above it, comments the whole file: the exporter
+--     (later) has nothing to export, the index skips everything in it. In a section it comments the text of
+--     the section, not its subsections
+--
+-- The body is dimmed with the group `FeyComment`, the comment style of orgmode.
+local config = require('fey.config')
+
+local M = {}
+
+local ns = vim.api.nvim_create_namespace('fey_tag_comment')
+local timers = {}
+
+---The node a comment tag comments
+---@param node TSNode a scope_tag, line_tag, block_tag or pair_tag
+---@return TSNode|nil
+function M.body_node(node)
+  local kind = node:type()
+  if kind == 'pair_tag' or kind == 'block_tag' then return node:field('body')[1] end
+  if kind == 'line_tag' then
+    for child in node:iter_children() do
+      if child:type() == 'body' then return child end
+    end
+    return nil
+  end
+  if kind ~= 'scope_tag' then return nil end
+  local parent = node:parent()
+  if not parent then return nil end
+  if parent:type() == 'listitem' then
+    local contents = 0
+    for _, child in ipairs(parent:field('contents')) do
+      if child:named() then contents = contents + 1 end
+    end
+    if contents == 1 then return parent:parent() or parent end
+  elseif parent:type() == 'body' and parent:parent() and parent:parent():type() == 'document' then
+    -- above the first heading: the file
+    return parent:parent()
+  end
+  return parent
+end
+
+---Name of a tag node
+---@param node TSNode
+---@param src integer|string buffer or text
+---@return string|nil
+local function name_of(node, src)
+  local head = node:type() == 'pair_tag' and node:field('open')[1] or node
+  local name = head and head:field('name')[1]
+  return name and vim.treesitter.get_node_text(name, src) or nil
+end
+
+---The bodies of the comment tags of a tree, as byte ranges
+---@param root TSNode
+---@param src integer|string buffer or text
+---@param query vim.treesitter.Query the tags query
+---@param name? string tag name, default `fey_comment_tag_name`
+---@return { node: TSNode, from: integer, to: integer }[]
+function M.bodies(root, src, query, name)
+  name = name or config.fey_comment_tag_name
+  local out = {}
+  for _, node in query:iter_captures(root, src) do
+    if name_of(node, src) == name then
+      local body = M.body_node(node)
+      if body then
+        local _, _, from = body:start()
+        local _, _, to = body:end_()
+        out[#out + 1] = { node = node, from = from, to = to }
+      end
+    end
+  end
+  return out
+end
+
+---Is the node inside the body of one of the comments, other than a comment tag itself?
+---@param node TSNode
+---@param bodies { node: TSNode, from: integer, to: integer }[]
+---@return boolean
+function M.is_commented(node, bodies)
+  local _, _, from = node:start()
+  local _, _, to = node:end_()
+  for _, body in ipairs(bodies) do
+    if body.node:id() ~= node:id() and from >= body.from and to <= body.to then return true end
+  end
+  return false
+end
+
+---@param tag FeyTag
+function M.handler(tag)
+  local body = M.body_node(tag.node)
+  if not body then return end
+  local srow, scol, erow, ecol = body:range()
+  pcall(vim.api.nvim_buf_set_extmark, tag.bufnr, ns, srow, scol, {
+    end_row = erow,
+    end_col = ecol,
+    hl_group = 'FeyComment',
+    priority = 150,
+  })
+end
+
+M.handlers = {
+  scope_tag = M.handler,
+  line_tag = M.handler,
+  block_tag = M.handler,
+  pair_tag = M.handler,
+}
+
+function M.setup_query(parse_tags)
+  vim.api.nvim_set_hl(0, 'FeyComment', { link = 'Comment', default = true })
+  local group = vim.api.nvim_create_augroup('FeyTagComment', { clear = true })
+
+  local apply_all = function(bufnr)
+    if not vim.api.nvim_buf_is_valid(bufnr) then return end
+    local tags = parse_tags(bufnr)
+    if not tags then return end
+    vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
+    for _, tag in ipairs(tags) do
+      if tag.name == config.fey_comment_tag_name then tag:apply() end
+    end
+  end
+
+  vim.api.nvim_create_autocmd({ 'FileType', 'BufEnter', 'TextChanged', 'InsertLeave' }, {
+    group = group,
+    pattern = { 'fey', '*.fey' },
+    callback = function(args)
+      if timers[args.buf] then timers[args.buf]:stop() end
+      timers[args.buf] = vim.defer_fn(function() apply_all(args.buf) end, 300)
+    end,
+  })
+  vim.api.nvim_create_autocmd('ColorScheme', {
+    group = group,
+    callback = function() vim.api.nvim_set_hl(0, 'FeyComment', { link = 'Comment', default = true }) end,
+  })
+end
+
+M.ns = ns
+
+return M

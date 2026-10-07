@@ -716,6 +716,7 @@ function FeyFile:get_meta()
     label_tags = config.vault.label_tags,
     link_tags = config.vault.link_tags,
     meta_tags = config.vault.meta_tags,
+    comment_tag = config.fey_comment_tag_name,
   })
 end
 
@@ -770,17 +771,17 @@ function FeyFile:get_directive_properties()
 end
 
 memoize('get_drawer')
----A drawer of the document: a pair tag with that name above the first heading
+---A drawer of the document: a pair tag or a block tag with that name above the first heading
 ---@param name string matched case insensitively
----@return TSNode | nil pair_tag
+---@return TSNode | nil pair_tag or block_tag
 function FeyFile:get_drawer(name)
   self:parse(true)
   local document_body = self.root:field('body')[1]
   if not document_body then return nil end
   return utils.find(ts_utils.get_named_children(document_body), function(node)
-    if node:type() ~= 'pair_tag' then return false end
-    local open = node:field('open')[1]
-    local tag_name = open and open:field('name')[1]
+    if node:type() ~= 'pair_tag' and node:type() ~= 'block_tag' then return false end
+    local head = node:type() == 'pair_tag' and node:field('open')[1] or node
+    local tag_name = head and head:field('name')[1]
     return tag_name ~= nil and self:get_node_text(tag_name):lower() == name:lower()
   end)
 end

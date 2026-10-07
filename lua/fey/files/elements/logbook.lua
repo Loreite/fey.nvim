@@ -1,9 +1,11 @@
--- The logbook of a heading: a pair tag with one clock tag per period of work.
+-- The logbook of a heading: a pair tag, or a block tag, with one clock tag per period of work.
 --
 --   [ logbook #]
 --   {# clock, 2026-10-06 Tue 10:00; end: 2026-10-06 Tue 11:30; dur: 1:30 #}
 --   {# clock, 2026-10-06 Tue 13:00 #}
 --   [# logbook ]
+--
+-- In the block form the same lines are indented under `[ logbook ]#`.
 --
 -- A clock without an `end` is running. Newest first. The tags are text of the heading's own section (not its
 -- subsections). Everything here works on the buffer the heading is in, so it runs in a window of that buffer.
@@ -20,7 +22,8 @@ local config = require('fey.config')
 ---@class FeyLogbook
 ---@field heading FeyHeading
 ---@field bufnr integer
----@field range? { start_line: integer, end_line: integer } the opener and the closer, 1-based
+---@field range? { start_line: integer, end_line: integer } the opener and the closer (the last line of the body of a block tag), 1-based
+---@field indent string what the lines inside start with: nothing in a pair tag
 ---@field items FeyLogbookItem[]
 local Logbook = {}
 Logbook.__index = Logbook
@@ -38,6 +41,7 @@ local function own_range(heading)
 end
 
 local function open_pattern() return '^%s*%[%s*' .. vim.pesc(config.fey_logbook_tag_name) .. '%s*#%]' end
+local function block_pattern() return '^%s*%[%s*' .. vim.pesc(config.fey_logbook_tag_name) .. '%s*%]#' end
 local function close_pattern() return '^%s*%[#%s*' .. vim.pesc(config.fey_logbook_tag_name) .. '%s*%]' end
 local function clock_pattern() return '^%s*{#%s*' .. vim.pesc(config.fey_clock_tag_name) .. '%s*,' end
 
@@ -67,15 +71,33 @@ function Logbook.from_heading(heading)
   local bufnr = heading.file:get_valid_bufnr()
   local first, last = own_range(heading)
   local lines = vim.api.nvim_buf_get_lines(bufnr, first - 1, last, false)
-  local open, close
+  local open, close, block
   for i, l in ipairs(lines) do
     if not open and l:match(open_pattern()) then open = i
-    elseif open and not close and l:match(close_pattern()) then close = i end
+    elseif not open and l:match(block_pattern()) then open, block = i, true
+    elseif open and not block and not close and l:match(close_pattern()) then close = i end
   end
   if not open then return nil end
-  close = close or #lines
+  local indent, last = '', nil
+  if block then
+    -- the body: the lines under the head that are blank or indented deeper than it
+    local head_indent = #lines[open]:match('^%s*')
+    close = open
+    for i = open + 1, #lines do
+      if lines[i]:match('%S') then
+        if #lines[i]:match('^%s*') <= head_indent then break end
+        if indent == '' then indent = lines[i]:match('^%s*') end
+        close = i
+      end
+    end
+    if indent == '' then indent = lines[open]:match('^%s*') .. '   ' end
+    last = close
+  else
+    close = close or #lines
+    last = close - 1
+  end
   local items = {}
-  for i = open + 1, close - 1 do
+  for i = open + 1, last do
     local start_text, end_text = parse_clock_line(lines[i])
     local started = start_text and date_of(start_text)
     if started then
@@ -92,6 +114,7 @@ function Logbook.from_heading(heading)
     heading = heading,
     bufnr = bufnr,
     range = { start_line = first + open - 1, end_line = first + close - 1 },
+    indent = indent,
     items = items,
   }, Logbook)
 end
@@ -157,12 +180,12 @@ function Logbook.add_clock_in(heading)
   local text = clock_text(now:to_tag_value())
   local logbook = Logbook.from_heading(heading)
   if logbook then
-    vim.api.nvim_buf_set_lines(logbook.bufnr, logbook.range.start_line, logbook.range.start_line, false, { text })
+    vim.api.nvim_buf_set_lines(logbook.bufnr, logbook.range.start_line, logbook.range.start_line, false, { logbook.indent .. text })
     return now
   end
   local bufnr = heading.file:get_valid_bufnr()
   local at = heading:get_append_line()
-  local block = { ('[ %s #]'):format(config.fey_logbook_tag_name), text, ('[# %s ]'):format(config.fey_logbook_tag_name) }
+  local block = require('fey.files.heading').drawer_lines(config.fey_logbook_tag_name, { text })
   local following = vim.api.nvim_buf_get_lines(bufnr, at, at + 1, false)[1]
   if following and following:match('%S') then block[#block + 1] = '' end
   vim.api.nvim_buf_set_lines(bufnr, at, at, false, block)
@@ -180,7 +203,8 @@ function Logbook.clock_out(heading)
   local now = Date.now({ active = false })
   local duration = Duration.from_seconds(now.timestamp - active.start_time.timestamp)
   local text = clock_text(active.start_time:to_tag_value(), now:to_tag_value(), duration:to_string('HH:MM'))
-  vim.api.nvim_buf_set_lines(logbook.bufnr, active.line - 1, active.line, false, { text })
+  local old = vim.api.nvim_buf_get_lines(logbook.bufnr, active.line - 1, active.line, false)[1] or ''
+  vim.api.nvim_buf_set_lines(logbook.bufnr, active.line - 1, active.line, false, { old:match('^%s*') .. text })
   return duration, now
 end
 
@@ -210,7 +234,8 @@ function Logbook.recalculate_line(bufnr, linenr)
   local start_text, end_text = parse_clock_line(line or '')
   local started, ended = start_text and date_of(start_text), end_text and date_of(end_text)
   if not started or not ended then return false end
-  local text = clock_text(start_text, end_text, Duration.from_seconds(ended.timestamp - started.timestamp):to_string('HH:MM'))
+  local text = line:match('^%s*')
+    .. clock_text(start_text, end_text, Duration.from_seconds(ended.timestamp - started.timestamp):to_string('HH:MM'))
   if text == line then return false end
   local view = vim.fn.winsaveview() or {}
   vim.api.nvim_buf_set_lines(bufnr, linenr - 1, linenr, false, { text })

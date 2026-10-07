@@ -204,7 +204,7 @@ function M.parents_until(node, type)
   end
 end
 
----Is a node inside the pair tag (a drawer) with a name
+---Is a node inside the pair or block tag (a drawer) with a name
 ---@param node TSNode
 ---@param drawer string lower case
 ---@param source? number|string
@@ -212,9 +212,9 @@ end
 function M.is_date_in_drawer(node, drawer, source)
   local parent = node:parent()
   while parent do
-    if parent:type() == 'pair_tag' then
-      local open = parent:field('open')[1]
-      local name = open and open:field('name')[1]
+    if parent:type() == 'pair_tag' or parent:type() == 'block_tag' then
+      local head = parent:type() == 'pair_tag' and parent:field('open')[1] or parent
+      local name = head and head:field('name')[1]
       return name ~= nil and vim.treesitter.get_node_text(name, source or 0):lower() == drawer
     end
     parent = parent:parent()

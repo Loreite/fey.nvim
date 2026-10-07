@@ -8,6 +8,7 @@ local link_handler = require('fey.files.elements.tags.handlers.link')
 local section_handler = require('fey.files.elements.tags.handlers.section')
 local date_handler = require('fey.files.elements.tags.handlers.date')
 local status_handler = require('fey.files.elements.tags.handlers.status')
+local comment_handler = require('fey.files.elements.tags.handlers.comment')
 
 ---@type vim.treesitter.Query
 local query = nil
@@ -139,6 +140,7 @@ function Tag.setup(handlers)
   Tag.handlers[config.fey_link_tag_name] = link_handler.handlers
   Tag.handlers[config.fey_section_tag_name] = section_handler.handlers
   Tag.handlers[config.fey_status_tag_name] = status_handler.handlers
+  Tag.handlers[config.fey_comment_tag_name] = comment_handler.handlers
   Tag.handlers[config.fey_footnote_tag_name] = require('fey.footnotes').handlers
   -- tags the open-at-point mapping applies the handler of (the others are run by their own mappings)
   Tag.at_point = { [config.fey_status_tag_name] = true, [config.fey_footnote_tag_name] = true }
@@ -152,6 +154,7 @@ function Tag.setup(handlers)
 
   nvim_config.setup_query(Tag.parse_all_tags)
   hl.setup_query(Tag.parse_all_tags)
+  comment_handler.setup_query(Tag.parse_all_tags)
 end
 
 return Tag

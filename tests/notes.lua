@@ -84,5 +84,62 @@ check('note head', joined:match('%-  {@ date, [^\n]-active: false @}  Note taken
 check('continuation indented', joined:find('\n   more', 1, true) ~= nil, true)
 check('parses with note', parses(buf), true)
 
+
+-- block tag drawers -----------------------------------------------------------------
+config:extend({ fey_log_into_logbook = true, fey_drawer_form = 'pair' })
+buf, file = open({
+  '  I. Head {# status, TODO #}',
+  '',
+  '[ logbook ]#',
+  '   -  {@ date, 2026-10-06 Tue 09:00; active: false @}  Note taken: old',
+  '',
+  'text',
+  '',
+})
+h = file:get_closest_heading({ 1, 0 })
+check('block drawer found', h:get_drawer('logbook') ~= nil and h:get_drawer('logbook'):type(), 'block_tag')
+h:add_note({ '-  {@ date, 2026-10-07 Wed 10:00; active: false @}  Note taken: new', '   more' })
+l = lines(buf)
+check('note indented into the block', { l[4], l[5] }, { '   -  {@ date, 2026-10-07 Wed 10:00; active: false @}  Note taken: new', '      more' })
+check('old note kept', l[6]:find('old', 1, true) ~= nil, true)
+check('block parses', parses(buf), true)
+check('no second drawer', #vim.tbl_filter(function(x) return x:find('logbook', 1, true) and not x:find('Note') end, l), 1)
+
+-- a clock in a block logbook
+local Logbook = require('fey.files.elements.logbook')
+buf, file = open({ '  I. Head', '', '[ logbook ]#', '   {# clock, 2026-10-06 Tue 10:00 #}', '', 'text', '' })
+h = file:get_closest_heading({ 1, 0 })
+local lb = Logbook.from_heading(h)
+check('block logbook read', { lb ~= nil, lb and #lb.items, lb and lb.indent, lb and lb.range.start_line, lb and lb.range.end_line }, { true, 1, '   ', 3, 4 })
+check('the clock runs', lb:is_active(), true)
+Logbook.clock_out(h)
+l = lines(buf)
+check('clock out keeps the indent', l[4]:match('^   {# clock, 2026%-10%-06 Tue 10:00; end:') ~= nil, true)
+Logbook.add_clock_in(h)
+l = lines(buf)
+check('clock in goes inside the block', { l[3], l[4]:match('^   {# clock') ~= nil }, { '[ logbook ]#', true })
+check('logbook block still parses', parses(buf), true)
+
+-- a new drawer in the block form
+config:extend({ fey_drawer_form = 'block' })
+buf, file = open({ '  I. Head', '', 'text', '' })
+h = file:get_closest_heading({ 1, 0 })
+h:add_note({ '-  {@ date, 2026-10-07 Wed 10:00; active: false @}  Note taken: fresh' })
+l = lines(buf)
+check('new drawer is a block', { l[2], l[3] }, { '[ logbook ]#', '   -  {@ date, 2026-10-07 Wed 10:00; active: false @}  Note taken: fresh' })
+check('new block parses', parses(buf), true)
+Logbook.add_clock_in(h)
+check('clock joins the new block', Logbook.from_heading(h):is_active(), true)
+buf, file = open({ '  I. Head', '', 'text', '' })
+Logbook.add_clock_in(file:get_closest_heading({ 1, 0 }))
+l = lines(buf)
+check('a new logbook in the block form', { l[2], l[3]:match('^   {# clock') ~= nil }, { '[ logbook ]#', true })
+check('and it parses', parses(buf), true)
+config:extend({ fey_drawer_form = 'pair' })
+
+-- the document drawer in a block form
+buf, file = open({ '[ logbook ]#', '   -  x', '', '  I. Head', '' })
+check('document drawer as a block', file:get_drawer('logbook') ~= nil and file:get_drawer('logbook'):type(), 'block_tag')
+
 print(('notes: %d checks, %d failures'):format(total, failures))
 vim.cmd(failures == 0 and 'qa!' or 'cq!')

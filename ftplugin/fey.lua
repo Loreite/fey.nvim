@@ -25,7 +25,7 @@ else
 end
 vim.opt_local.formatexpr = 'v:lua.require("fey.fey.format")()'
 vim.opt_local.omnifunc = 'v:lua.fey.omnifunc'
-vim.opt_local.commentstring = '# %s'
+vim.opt_local.commentstring = ('#[ %s ] %%s #'):format(config.fey_comment_tag_name)
 vim.bo.indentkeys = ('%s,%s'):format(vim.bo.indentkeys, '=~end_src,=~end_example,<:>')
 
 _G.fey = _G.fey or {}

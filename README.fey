@@ -698,7 +698,44 @@ the vault indexes its date and a query finds it.
      newest first in the drawer
   -  with `fey_log_into_logbook = true` the notes go into the logbook, else they are added at the end of the heading
   -  closing a todo and a repeating one write `Closing note:` and `State "NEW" from "OLD"` the same way
-  -  the drawer is created when it is missing, under the metadata of the heading
+  -  the drawer is created when it is missing, under the metadata of the heading, in the form of
+     `fey_drawer_form` (`'pair'` or `'block'`)
+  -  a drawer may be a block tag too: `[ logbook ]#` and the lines indented under it. Both forms are found,
+     and the clock and the notes work in either
+
+    ###  src fey
+      I. {# status, DONE #} Write the report
+    [ logbook ]#
+       {# clock, 2026-10-06 Tue 10:00; end: 2026-10-06 Tue 11:30; dur: 1:30 #}
+       -  {@ date, 2026-10-06 Tue 16:00; active: false @}  Note taken: waiting
+    ###
+
+
+  II.M.ii. Comments
+
+The tag `comment` (`fey_comment_tag_name`) comments its body in every form. The body is shown in the
+comment colour (`FeyComment`, linked to `Comment`) and nothing in it is indexed: no tags, labels, links, dates or
+checkbox items. The comment tag itself is still indexed.
+
+    ###  src fey
+    #[ comment ] a line #
+
+    [ comment ]#
+       a block, indented
+    [ comment #]
+    a pair
+    [# comment ]
+    ###
+
+A scope tag comments its parent, the same node the `hl` tag colours:
+
+  -  in a paragraph, title or table cell: that paragraph, title or cell
+  -  alone on a list item with other contents (a paragraph, a table, a nested list): the item with all it holds
+  -  the only content of a list item: the whole list it is in, the only way to comment a list with a scope tag
+  -  at the top of a file, above the first heading: the whole file, so there is nothing to export
+  -  in a section, not above a heading: the text of that section, not its subsections
+
+`commentstring` is the line form, so `gc` writes `#[ comment ] text #`.
 
 
   II.N. Queries and databases

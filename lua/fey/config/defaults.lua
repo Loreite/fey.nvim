@@ -41,6 +41,7 @@ local DefaultConfig = {
   fey_link_tag_name = 'link',
   fey_section_tag_name = 'section',
   fey_comment_tag_name = 'comment',
+  fey_drawer_form = 'pair',
   fey_date_tag_name = 'date',
   fey_scheduled_tag_name = 'scheduled',
   fey_deadline_tag_name = 'deadline',

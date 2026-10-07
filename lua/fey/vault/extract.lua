@@ -20,6 +20,7 @@ local M = {}
 ---@class FeyVaultExtractOpts
 ---@field label_tags? string[]  tag names whose values are labels. Default { 'label', 'labels' }
 ---@field link_tags? string[]   tag names that reference another file/section. Default { 'link', 'section' }
+---@field comment_tag? string    name of the comment tag: nothing inside what it comments is indexed. Default 'comment'
 ---@field clock_tag? string tag name of a clock (`{# clock, start; end: ..; dur: .. #}`). Default: `clock`
 ---@field date_tags? table<string, string> tag name -> kind (`date`, `scheduled`, `deadline`, `closed`) of the tags that hold a date. Default: those four names
 ---@field status_tag? string     name of the tag with the todo keyword and the priority. Default 'status'
@@ -633,8 +634,13 @@ function M.extract(src, opts)
     return set[node:id()] or 'text'
   end
 
+  -- what a comment tag comments is not indexed: no tags, links, labels, dates or tasks
+  local comment = require('fey.files.elements.tags.handlers.comment')
+  local comments = comment.bodies(root, src, get_tag_query(), opts.comment_tag or 'comment')
+  local function commented(node) return #comments > 0 and comment.is_commented(node, comments) end
+
   for _, node in get_tag_query():iter_captures(root, src) do
-    local tag = parse_tag(ctx, node)
+    local tag = not commented(node) and parse_tag(ctx, node)
     if tag then
       local heading_ord, section
       local p = node:parent()
@@ -695,7 +701,7 @@ function M.extract(src, opts)
   local todo_lookup = opts.todo_lookup and opts.todo_lookup(type(data) == 'table' and data.todo or nil)
     or { TODO = { type = 'TODO' }, DONE = { type = 'DONE' } }
   for _, node in get_tag_query():iter_captures(root, src) do
-    local tag = parse_tag(ctx, node)
+    local tag = not commented(node) and parse_tag(ctx, node)
     if tag and not node:has_error() then
       local kind = date_kinds[tag.name]
       local heading_ord
@@ -819,7 +825,7 @@ function M.extract(src, opts)
       if name == 'item' then item_node = nodes[#nodes] end
       if name == 'box' then box_node = nodes[#nodes] end
     end
-    if item_node and box_node and not item_node:has_error() then
+    if item_node and box_node and not item_node:has_error() and not commented(item_node) then
       local box = trim(text(ctx, box_node))
       local mark = box:sub(2, 2)
       local heading_ord

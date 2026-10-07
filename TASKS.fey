@@ -1912,6 +1912,11 @@ Done (2026-10-07): drawers and notes.
    `fey_log_into_logbook` is set, else at the end of the heading. The closing note and
    the repeat note (`State "NEW" from "OLD"`) use the same form, the org `\\` line
    endings are gone. `fey_add_note` and `fey_agenda_add_note` (`<prefix>na`) are enabled.
+-  Block drawers (added after the first cut): a drawer is a pair tag or a block tag.
+   `Heading.drawer_lines` makes the new one in the form `fey_drawer_form` says (default
+   `'pair'`), `get_drawer_append_line` returns the indent of the lines too, and the
+   logbook (`Logbook.from_heading`, clock in, clock out, cancel) reads and writes
+   either form and keeps the indent of a block body.
 -  Not done:  `fey_note_finalize` and `fey_note_kill` keep the keys of the capture window
    they had; there was nothing to change.
 -  Tests:  `tests/notes.lua` (13 checks): notes outside and inside the logbook, the
@@ -1931,6 +1936,21 @@ Done (2026-10-07): drawers and notes.
 -  Triggers:  `gc` and friends through `commentstring`.
 -  Vault:  yes, minor: do not index tags inside a comment.
 -  After:  nothing.
+
+Done (2026-10-07): comments.
+
+-  Chose:  the `comment` tag works in all four forms, `handlers/comment.lua`. `body_node` is the one
+   place that says what a comment comments: the body of a line, block or pair tag; the parent of a
+   scope tag, with two exceptions. A scope tag that is the only content of a list item comments the
+   whole list (no other way to comment a list), and one at the top of the file, above the first
+   heading, comments the whole file. With other contents on the item, it comments the item.
+   The body is dimmed with the group `FeyComment` (link `Comment`) by an extmark, like `hl`.
+   The extractor skips everything inside a comment: tags, labels, links, dates, tasks and checkbox
+   items. The comment tag itself stays indexed. `commentstring` is `#[ comment ] %s #`.
+-  Not done:  the exporter skipping a commented file or body (there is no exporter yet; it uses
+   `comment.body_node`), and a comment in a heading title commenting the section.
+-  Tests:  `tests/comments.lua` (26 checks): every form, the list and file rules, a section, the index
+   with a pair and a line comment, a commented list next to another, the dimming.
 
   III.G. Dynamic blocks and result tags
 
@@ -2257,10 +2277,10 @@ working for a release. To decide.
 | status                 | scope        | keyword, priority; priority   | cycle state, priority  | II.E   |
 | labels (exists)        | scope        | labels                        | none                   | II.G   |
 | prop                   | scope        | key values only               | none                   | II.H   |
-| logbook                | pair         | body of clock tags and notes  | fold                   | III.A  |
+| logbook                | pair, block  | body of clock tags and notes  | fold                   | III.A  |
 | clock                  | scope        | start; end; dur               | none                   | III.A  |
 | fn                     | scope, pair  | label                         | jump                   | III.C  |
-| comment (name exists)  | line, block  | text                          | none                   | III.F  |
+| comment                | all four     | body, see III.F               | none, dims the body    | III.F  |
 | clocktable             | block, pair  | span; scope; by               | run, writes result     | III.G  |
 | math                   | line         | latex text                    | none, injection        | III.H  |
 | nvim                   | scope, line, block, pair | keys: options of the editor; body: a table | apply (hot loaded) | III.D (settings) |
