@@ -1,130 +1,65 @@
+-- The files the editor works on: a cache of the `FeyFile` of the buffers that are open, loaded when something asks for
+-- one and forgotten when its buffer is wiped. Nothing is loaded ahead of time: what spans many files (the agenda,
+-- queries, refile targets, links, tangling) reads the index of the hollows (`fey.vault`), not these.
 local Promise = require('fey.utils.promise')
 local FeyFile = require('fey.files.file')
 local utils = require('fey.utils')
-local config = require('fey.config')
 local ts_utils = require('fey.utils.treesitter')
 local Listitem = require('fey.files.elements.listitem')
 
----@class FeyFilesOpts
----@field paths string | string[]
----@field cache? boolean Store the instances to cache and retrieve it later if paths are the same
-
 ---@class FeyLoadFileOpts
----@field persist boolean Persist the file in the list of loaded files if it belongs to path
+---@field persist? boolean unused, kept for the callers that still pass it
 
 ---@class FeyFiles
----@field cache? boolean
----@field cached_instances table<string, { files: FeyFiles, paths: string | string[] }>
----@field paths string[]
----@field files table<string, FeyFile> table with files that are part of paths
----@field all_files table<string, FeyFile> all loaded files, no matter if they are part of paths
----@field load_state 'loading' | 'loaded' | nil
-local FeyFiles = {
-  cached_instances = {},
-}
+---@field all_files table<string, FeyFile> the files loaded so far, by absolute path
+local FeyFiles = {}
 FeyFiles.__index = FeyFiles
 
----@param opts FeyFilesOpts
+---@param _? table unused: there is nothing to preload, the old `paths` are gone
 ---@return FeyFiles
-function FeyFiles:new(opts)
-  local data = {
-    files = {},
-    all_files = {},
-    load_state = nil,
-    cache = opts.cache or false,
-  }
-  setmetatable(data, self)
-  data.paths = self:_setup_paths(opts.paths)
-  return data:cache_and_return()
+function FeyFiles:new(_)
+  local data = setmetatable({ all_files = {} }, self)
+  local group = vim.api.nvim_create_augroup('FeyFilesCache', { clear = true })
+  vim.api.nvim_create_autocmd('BufWipeout', {
+    group = group,
+    callback = function(args)
+      local name = vim.api.nvim_buf_get_name(args.buf)
+      if name ~= '' then data:forget(name) end
+    end,
+  })
+  return data
 end
 
-function FeyFiles:cache_and_return()
-  if not self.cache then
-    return self
-  end
-  local key = table.concat(self.paths)
-  local cached = FeyFiles.cached_instances[key]
-  if cached then
-    return cached
-  end
-  FeyFiles.cached_instances[key] = self
+---@param filename string
+---@return string
+local function resolved(filename) return vim.fn.resolve(vim.fn.fnamemodify(filename, ':p')) end
+
+---Drop the file of a path from the cache
+---@param filename string
+function FeyFiles:forget(filename) self.all_files[resolved(filename)] = nil end
+
+---Forget every file
+---@return FeyFiles
+function FeyFiles:unload()
+  self.all_files = {}
   return self
 end
 
----@param force? boolean Force reload all files
----@return FeyPromise<FeyFiles>
-function FeyFiles:load(force)
-  if not force and self.load_state then
-    if self.load_state == 'loading' then
-      self:ensure_loaded()
-    end
-    return Promise.resolve(self)
-  end
-
-  self.load_state = 'loading'
-  return Promise.map(function(filename, index)
-    return self:load_file(filename):next(function(feyfile)
-      if feyfile then
-        feyfile.index = index
-        self.files[feyfile.filename] = feyfile
-      end
-      return feyfile
-    end)
-  end, self:_files(true), 50):next(function()
-    self.load_state = 'loaded'
-    return self
-  end)
-end
-
----@deprecated Use `load_file` with `persist` option instead
----@param filename string
----@return FeyPromise<FeyFile | false>
-function FeyFiles:add_to_paths(filename)
-  return self:load_file(filename, { persist = true })
-end
-
----@deprecated Use `load_file_sync` with `persist` option instead
----@param filename string
----@param timeout? number
----@return FeyFile | false
-function FeyFiles:add_to_paths_sync(filename, timeout)
-  return self:add_to_paths(filename):wait(timeout)
+---The files loaded so far
+---@return FeyFile[]
+function FeyFiles:all()
+  local names = vim.tbl_keys(self.all_files)
+  table.sort(names)
+  return vim.tbl_map(function(name) return self.all_files[name] end, names)
 end
 
 ---@return string[]
-function FeyFiles:get_tags()
-  local tags = {}
-  for _, feyfile in ipairs(self:all()) do
-    if not feyfile:is_archive_file() then
-      local file_tags = feyfile:get_filetags()
-      if file_tags and #file_tags > 0 then
-        for _, tag in ipairs(file_tags) do
-          tags[tag] = 1
-        end
-      end
-      for _, heading in ipairs(feyfile:get_headings()) do
-        local htags = heading:get_tags()
-        if htags and #htags > 0 then
-          for _, tag in ipairs(htags) do
-            tags[tag] = 1
-          end
-        end
-      end
-    end
-  end
-  local taglist = vim.tbl_keys(tags)
-  table.sort(taglist)
-  return taglist
+function FeyFiles:filenames()
+  return vim.tbl_map(function(file) return file.filename end, self:all())
 end
 
-function FeyFiles:unload()
-  self.files = {}
-  self.all_files = {}
-  self.paths = {}
-  self.load_state = nil
-  return self
-end
-
+---The file of the current buffer
+---@return FeyFile
 function FeyFiles:get_current_file()
   local filename = utils.current_file_path()
   local feyfile = self:load_file_sync(filename)
@@ -132,66 +67,25 @@ function FeyFiles:get_current_file()
   return feyfile
 end
 
----@return FeyFile[]
-function FeyFiles:all()
-  self:ensure_loaded()
-  local valid_files = {}
-  local filenames = self:_files()
-  for i, file in ipairs(filenames) do
-    if self.files[file] then
-      self.files[file].index = i
-      table.insert(valid_files, self.files[file])
-    end
-  end
-  return valid_files
-end
-
----@return string[]
-function FeyFiles:filenames()
-  return vim.tbl_map(function(file)
-    return file.filename
-  end, self:all())
-end
-
+---Load a file, or read it again when it is loaded already
 ---@param filename string
----@param opts? FeyLoadFileOpts
+---@param _? FeyLoadFileOpts
 ---@return FeyPromise<FeyFile | false>
-function FeyFiles:load_file(filename, opts)
-  opts = opts or {}
-  filename = vim.fn.resolve(vim.fn.fnamemodify(filename, ':p'))
-
-  local persist_if_required = function(file)
-    ---@cast file FeyFile
-    if self.files[filename] or not opts.persist then
-      return
-    end
-    local all_paths = self:_files()
-    if vim.tbl_contains(all_paths, filename) then
-      self.files[filename] = file
-    end
-  end
-
+function FeyFiles:load_file(filename, _)
+  filename = resolved(filename)
   local file = self.all_files[filename]
-  if file then
-    persist_if_required(file)
-    return file:reload()
-  end
-
+  if file then return file:reload() end
   return FeyFile.load(filename):next(function(feyfile)
-    if feyfile then
-      persist_if_required(feyfile)
-      self.all_files[filename] = feyfile
-    end
+    if feyfile then self.all_files[filename] = feyfile end
     return feyfile
   end)
 end
 
 ---@param filename string
 ---@param opts? FeyLoadFileOpts
+---@param timeout? number
 ---@return FeyFile | false
-function FeyFiles:load_file_sync(filename, opts, timeout)
-  return self:load_file(filename, opts):wait(timeout)
-end
+function FeyFiles:load_file_sync(filename, opts, timeout) return self:load_file(filename, opts):wait(timeout) end
 
 ---@param filename string
 ---@return FeyFile
@@ -201,9 +95,7 @@ function FeyFiles:get(filename)
   return file
 end
 
-function FeyFiles:reload(filename)
-  return self:load_file(filename)
-end
+function FeyFiles:reload(filename) return self:load_file(filename) end
 
 ---@param cursor? table (1, 0) indexed base position tuple
 ---@return FeyHeading
@@ -218,16 +110,12 @@ end
 function FeyFiles:get_closest_listitem()
   local get_listitem_node = function()
     local node_at_cursor = ts_utils.get_node_at_cursor()
-    if node_at_cursor and node_at_cursor:type() == 'list' then
-      return node_at_cursor:named_child(0)
-    end
+    if node_at_cursor and node_at_cursor:type() == 'list' then return node_at_cursor:named_child(0) end
     return ts_utils.closest_node(node_at_cursor, 'listitem')
   end
 
   local node = get_listitem_node()
-  if node then
-    return Listitem:new(node, self:get_current_file())
-  end
+  if node then return Listitem:new(node, self:get_current_file()) end
   return nil
 end
 
@@ -238,138 +126,12 @@ function FeyFiles:get_closest_heading_or_nil(cursor)
   return file and file:get_closest_heading_or_nil(cursor) or nil
 end
 
----@param force? boolean
----@param timeout? number
----@return FeyFiles
-function FeyFiles:load_sync(force, timeout)
-  return self:load(force):wait(timeout)
-end
-
----@param title string
----@param exact? boolean
----@return FeyHeading[]
-function FeyFiles:find_headings_by_title(title, exact)
-  local headings = {}
-  for _, feyfile in ipairs(self:all()) do
-    for _, heading in ipairs(feyfile:find_headings_by_title(title, exact)) do
-      table.insert(headings, heading)
-    end
-  end
-  return headings
-end
-
----@param property_name string
----@param term string
----@return FeyHeading[]
-function FeyFiles:find_headings_with_property_matching(property_name, term)
-  local headings = {}
-  for _, feyfile in ipairs(self:all()) do
-    for _, heading in ipairs(feyfile:find_headings_with_property_matching(property_name, term)) do
-      table.insert(headings, heading)
-    end
-  end
-  return headings
-end
-
----@param property_name string
----@param term string
----@return FeyHeading[]
-function FeyFiles:find_headings_with_property(property_name, term)
-  local headings = {}
-  for _, feyfile in ipairs(self:all()) do
-    for _, heading in ipairs(feyfile:find_headings_with_property(property_name, term)) do
-      table.insert(headings, heading)
-    end
-  end
-  return headings
-end
-
----@param property_name string
----@param term string
----@return FeyFile[]
-function FeyFiles:find_files_with_property(property_name, term)
-  local files = {}
-  for _, feyfile in ipairs(self:all()) do
-    local property = feyfile:get_property(property_name)
-    if property and property:lower() == term:lower() then
-      table.insert(files, feyfile)
-    end
-  end
-  return files
-end
-
----@param term string
----@param no_escape boolean
----@param search_extra_files boolean
----@return FeyHeading[]
-function FeyFiles:find_headings_matching_search_term(term, no_escape, search_extra_files)
-  local headings = {}
-  local ignore_archive_flag = search_extra_files
-    and vim.tbl_contains(config.fey_agenda_text_search_extra_files, 'agenda-archives')
-  for _, feyfile in ipairs(self:all()) do
-    for _, heading in ipairs(feyfile:find_headings_matching_search_term(term, no_escape, ignore_archive_flag)) do
-      table.insert(headings, heading)
-    end
-  end
-  return headings
-end
-
 ---@param filename string
 ---@param action fun(...:FeyFile):any
 function FeyFiles:update_file(filename, action)
   local file = self:load_file_sync(filename)
-  if not file then
-    return Promise.resolve()
-  end
+  if not file then return Promise.resolve() end
   return file:update(action)
-end
-
-function FeyFiles:ensure_loaded()
-  if self.load_state == 'loaded' then
-    return true
-  end
-  vim.wait(5000, function()
-    return self.load_state == 'loaded'
-  end, 5)
-end
-
----@private
----@param paths string | string[] | nil
----@return string[]
-function FeyFiles:_setup_paths(paths)
-  if not paths or paths == '' or (type(paths) == 'table' and vim.tbl_isempty(paths)) then
-    return {}
-  end
-
-  if type(paths) ~= 'table' then
-    return { paths }
-  end
-
-  return paths
-end
-
----@private
----@param skip_resolve? boolean
-function FeyFiles:_files(skip_resolve)
-  local all_files = vim.tbl_map(function(file)
-    return vim.tbl_map(function(path)
-      if skip_resolve then
-        return path
-      end
-      return vim.fn.resolve(path)
-    end, vim.fn.glob(vim.fn.fnamemodify(file, ':p'), false, true))
-  end, self.paths)
-
-  all_files = utils.flatten(all_files)
-
-  return vim.tbl_filter(function(file)
-    if not utils.is_fey_file(file) then
-      return false
-    end
-
-    local stat = vim.uv.fs_stat(file)
-    return stat and stat.type == 'file' or false
-  end, all_files)
 end
 
 return FeyFiles

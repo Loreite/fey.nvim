@@ -364,7 +364,8 @@ local get_new_signature
 ---   a list item           becomes a heading under the heading above it; its checkbox becomes a status tag
 ---   any other line        becomes a heading under the heading above it
 ---
----The signature is the next one at that level; the headings below are renumbered.
+---The signature is the next one at that level; the headings below are renumbered. A count is the level of the new heading
+---(`3` makes a third level heading) and is ignored when a heading is turned into text.
 function FeyMappings:toggle_heading()
   local bufnr = vim.api.nvim_get_current_buf()
   local row = vim.api.nvim_win_get_cursor(0)[1]
@@ -407,12 +408,14 @@ function FeyMappings:toggle_heading()
     end
   end
 
+  -- a count is the level of the new heading, without one it is a child of the heading above
   local level = heading and heading:get_level() or 0
   local signature = heading and heading:get_child_node('signature') or nil
-  local new_signature = get_new_signature({ level + 1, signature, level })
+  local new_level = vim.v.count > 0 and vim.v.count or level + 1
+  local new_signature = get_new_signature({ new_level, signature, level })
   local tag = status and ('{# status, %s #} '):format(status) or ''
   vim.api.nvim_buf_set_lines(bufnr, row - 1, row, false, { ('  %s %s%s'):format(new_signature, tag, text) })
-  return finish(heading and 'line_to_child_heading' or 'line_to_heading')
+  return finish(new_level > level and level > 0 and 'line_to_child_heading' or 'line_to_heading')
 end
 
 ---The first line of a note: a list item with an inactive date, then what kind of note it is

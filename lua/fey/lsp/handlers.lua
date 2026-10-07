@@ -30,20 +30,31 @@ FeyLspHandlers[methods.textDocument_documentSymbol] = function(params)
   return vim.tbl_map(get_heading_symbol, feyfile:get_top_level_headings())
 end
 
+---The headings of the hollow whose title has the text of the query, from the index
 FeyLspHandlers[methods.workspace_symbol] = function(params)
   local results = {}
-  local headings = require('fey').files:find_headings_matching_search_term(params.query or '', false, false)
-  for _, heading in pairs(headings) do
+  local fey_vault = require('fey.vault')
+  local name = vim.api.nvim_buf_get_name(0)
+  local vault = (name ~= '' and fey_vault.for_path(name)) or fey_vault.current()
+  if not vault or not vault.db then return results end
+  local term = (params.query or ''):lower()
+  for _, row in ipairs(
+    vault:query(
+      [[SELECT f.path, h.title, h.line, h.end_line FROM headings h JOIN files f ON f.id = h.file_id
+        WHERE instr(lower(h.title), :term) > 0 ORDER BY f.path, h.line LIMIT 200]],
+      { term = term }
+    )
+  ) do
+    local line = row.line - 1
     table.insert(results, {
-      name = heading:get_title(),
+      name = row.title,
       kind = HEADLINE_KIND,
       location = {
-        uri = vim.uri_from_fname(heading.file.filename),
-        range = heading:get_range():to_lsp(),
+        uri = vim.uri_from_fname(vault:abs(row.path)),
+        range = { start = { line = line, character = 0 }, ['end'] = { line = (row.end_line or row.line) - 1, character = 0 } },
       },
     })
   end
-
   return results
 end
 

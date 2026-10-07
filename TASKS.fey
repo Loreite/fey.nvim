@@ -2215,6 +2215,8 @@ Done (2026-10-07): heading commands audit.
    `move_subtree_down` did nothing when the heading was in a closed fold (`:move` widens its range to the fold, so the heading moved into
    itself), now buffer lines are moved directly, the cursor follows and the signatures are renumbered; `insert_todo_heading*` wrote the keyword as
    text, now as `{# status, TODO #}`.
+-  Count (same day): `toggle_heading` takes `vim.v.count` as the level of the new heading (0: a child of the heading above); it
+   is ignored when a heading becomes text. Six more checks.
 -  Not done:  none known; `meta_return` keeps the position of org (the new heading goes under the heading line, before its content).
 -  Tests:  `tests/headings.lua` (34 checks) and three screen checks: startup folding, the ellipsis, showing everything.
 
@@ -2231,6 +2233,18 @@ Done (2026-10-07): heading commands audit.
 -  Triggers:  autocmds in `Fey:setup_autocmds` stay.
 -  Vault:  yes, replaces the preload.
 -  After:  II.J.
+
+Done (2026-10-07): FeyFiles retired as a preloaded set.
+
+-  Chose:  `fey.files` is now a cache of the `FeyFile` objects of the files the editor touched: loaded when something asks for the current
+   file, a heading, a path (`get`, `get_current_file`, `get_closest_heading`, `load_file`), read again by `reload`, forgotten when
+   the buffer is wiped (`BufWipeout`) or by `forget`. `Fey:init` loads nothing: the glob of the old `fey_agenda_files` is not read
+   any more (30 files named by it, none loaded; the option still limits the agenda by path, deprecated). Gone: `paths`, `load`, `load_sync`,
+   `add_to_paths*`, the instance cache, `get_tags`, `find_headings_*`, `find_files_with_property`, `find_headings_matching_search_term`: nothing outside
+   the editor side used them, everything that spans files reads the index. The LSP workspace symbols are a query on the headings of the index.
+-  Not done:  the dead `find_*` methods of `FeyFile` itself (one is used by the footnotes) and `fey.buffers`, which stay until they have no user.
+-  Tests:  `tests/files.lua` (15 checks): nothing loaded at startup with a glob set, loaded on demand and cached, headings of a loaded file,
+   a missing file, reload, forgetting with the buffer, forget, workspace symbols without loading a file.
 
   III.O. Export
 

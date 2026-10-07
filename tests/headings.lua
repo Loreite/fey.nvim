@@ -97,6 +97,28 @@ fresh(5, BOXES)
 M:toggle_heading()
 check('another state is only text', text()[5], '  I.A. half thing')
 
+-- a count is the level of the new heading
+vim.keymap.set('n', '<F5>', function() M:toggle_heading() end)
+local function with_count(count) vim.cmd(('execute "normal %d\\<F5>"'):format(count)) end
+fresh(3)
+with_count(1)
+check('count 1 makes a top level heading', text()[3], '  II. text one')
+fresh(3)
+with_count(3)
+check('count 3 makes a third level heading', text()[3], '  I.A.i. text one')
+fresh(13)
+with_count(2)
+check('a list item with a count', text()[13], '  II.A. item')
+fresh(7, SAMPLE)
+with_count(2)
+check('a count of the level the line is already in: a sibling', text()[7], '  I.B. body')
+fresh(5)
+with_count(4)
+check('a count is ignored when a heading becomes text', text()[5], 'Child one')
+fresh(3)
+vim.cmd('execute "normal \\<F5>"')
+check('no count: a child of the heading above', text()[3], '  I.A. text one')
+
 -- move -------------------------------------------------------------------------------------------------------
 fresh(9)
 M:move_subtree_up()

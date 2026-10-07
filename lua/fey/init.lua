@@ -59,11 +59,7 @@ function Fey:init()
   require('fey.events').init()
   self.highlighter = require('fey.colors.highlighter'):new()
   require('fey.colors.highlights').define_highlights()
-  self.files = require('fey.files')
-    :new({
-      paths = require('fey.config').fey_agenda_files,
-    })
-    :load_sync(true, 20000)
+  self.files = require('fey.files'):new()
   self.agenda = require('fey.agenda'):new({
     files = self.files,
     source = require('fey.agenda.source').new(),

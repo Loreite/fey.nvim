@@ -871,7 +871,8 @@ answers): the name after the opener, a value after a `,`, a key after a `;` and 
 
   -  `toggle heading` turns the heading under the cursor into plain text (its title), a list item or a plain line into a
      heading under the heading above it (a checked box becomes a done status tag, an open one a todo), at the next
-     signature of that level; the headings below are renumbered
+     signature of that level; the headings below are renumbered. A count is the level of the new heading (`3` makes a
+     third level heading) and is ignored when a heading becomes text
   -  `move subtree up` and `down` swap a heading, with all that is under it, with its neighbour of the same level, also from
      inside a closed fold; list items move inside their list
   -  new headings: after the content, as a sibling or as a subheading, with a todo status tag when asked
