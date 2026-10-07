@@ -176,6 +176,15 @@ function M.dates(spec, current_root, opts)
   return rows
 end
 
+---Source blocks of the hollows of a scope, see `FeyVault:blocks`
+---@param spec? FeyScopeSpec
+---@param current_root? string
+---@param opts? table
+---@return table[]
+function M.blocks(spec, current_root, opts)
+  return M.collect(spec, current_root, function(vault) return vault:blocks(opts) end)
+end
+
 ---Tasks of the hollows of a scope, see `FeyVault:tasks`
 ---@param spec? FeyScopeSpec
 ---@param current_root? string

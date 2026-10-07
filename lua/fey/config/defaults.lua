@@ -59,6 +59,7 @@ local DefaultConfig = {
   fey_property_tag_name = 'prop',
   fey_conceal_task_tags = true,
   fey_show_checkbox_state_as_icons = true, -- show `[x]` `[/]` `[!]` ... as an icon (the line of the cursor shows the box)
+  fey_query_conceal_default = false, -- conceal every query, feydb and clocktable tag (and its result) unless it says `conceal: false`
   fey_conceal_icons = {}, -- icons of concealed query, feydb and clocktable tags by tag name, over the defaults
   fey_checkbox_icons = 'auto', -- 'nerd', 'unicode', or 'auto': Nerd Font glyphs when nvim-web-devicons is installed
   fey_checkbox_icon_overrides = {}, -- a mark to an icon, for example { ['!'] = '' }
@@ -161,6 +162,7 @@ local DefaultConfig = {
   fey_id_prefix = nil,
   fey_id_link_to_fey_use_id = false,
   fey_use_property_inheritance = false,
+  fey_babel_extensions = {}, -- the extension of a language for `:tangle yes`, over the built in ones: { rust = 'rs' }
   fey_babel_default_header_args = {
     [':tangle'] = 'no',
     [':noweb'] = 'no',
@@ -176,9 +178,7 @@ local DefaultConfig = {
     deadline_reminder = true,
     scheduled_reminder = true,
   },
-  hyperlinks = {
-    sources = {},
-  },
+  fey_link_schemes = {}, -- a link `{@ link, jira:ABC-1 @}` calls fey_link_schemes.jira('ABC-1', tag)
   tag_handlers = {},
   mappings = {
     disable_all = false,
@@ -215,7 +215,7 @@ local DefaultConfig = {
       fey_agenda_goto_date = 'J',
       fey_agenda_redo = 'r',
       fey_agenda_todo = 't',
-      --   fey_agenda_open_at_point = '<prefix>o',
+      fey_agenda_open_at_point = '<prefix>o',
       fey_agenda_clock_goto = '<prefix>xj',
       fey_agenda_set_effort = '<prefix>xe',
       fey_agenda_clock_in = 'I',
@@ -367,21 +367,24 @@ local DefaultConfig = {
       fey_time_stamp_inactive = '<prefix>i!',
       fey_toggle_timestamp_type = '<prefix>d!',
       fey_toggle_conceal_task_tags = '<prefix>Tc',
-      -- fey_insert_link = '<prefix>li',
-      -- fey_store_link = '<prefix>ls',
+      fey_insert_link = '<prefix>li',
+      fey_store_link = '<prefix>ls',
+      fey_check_links = '<prefix>lc',
       fey_clock_in = '<prefix>xi',
       fey_clock_out = '<prefix>xo',
       fey_clock_cancel = '<prefix>xq',
       fey_clock_goto = '<prefix>xj',
       fey_set_effort = '<prefix>xe',
       -- fey_show_help = 'g?',
-      -- fey_babel_tangle = '<prefix>bt',
+      fey_babel_tangle = '<prefix>yt',
+      fey_babel_tangle_vault = '<prefix>yv',
+      fey_babel_check = '<prefix>yc',
     },
     edit_src = {
-      --   fey_edit_src_abort = '<prefix>k',
-      --   fey_edit_src_save = '<prefix>w',
-      --   fey_edit_src_save_exit = [[<prefix>']],
-      --   fey_edit_src_show_help = 'g?',
+      fey_edit_src_abort = '<prefix>k',
+      fey_edit_src_save = '<prefix>w',
+      fey_edit_src_save_exit = [[<prefix>']],
+      fey_edit_src_show_help = 'g?',
     },
     text_objects = {
       inner_heading = 'ih',

@@ -290,7 +290,7 @@ local function plan(bufnr, node, vault, this, silent)
 
   -- a concealed query has a concealed result: its head and its closer, the body stays
   local tag_for_keys = require('fey.files.elements.tags').parse_tag_node(bufnr, node)
-  local conceal = (tag_for_keys.key_values.conceal or ''):lower() == 'true'
+  local conceal = require('fey.files.elements.tags.handlers.conceal').is_concealed(tag_for_keys.key_values)
   local block = { indent .. (conceal and ('[ %s; conceal: true #]') or '[ %s #]'):format(result_name) }
   for _, l in ipairs(body) do
     block[#block + 1] = l == '' and l or (indent .. l)

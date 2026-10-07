@@ -10,6 +10,8 @@ M.LIST = {
   'fey_show_checkbox_state_as_icons',
   'fey_checkbox_icons',
   'fey_checkbox_icon_overrides',
+  'fey_query_conceal_default',
+  'fey_conceal_icons',
   'fey_footnote_superscript',
   'fey_footnote_definition_form',
   'fey_hide_emphasis_markers',

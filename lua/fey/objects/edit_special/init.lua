@@ -159,11 +159,11 @@ function EditSpecial:_get_nearest_block_node()
 
   -- Block might not have contents yet, which is fine
   local children_nodes = self.file:get_ts_matches(
-    '(block name: (expr) @name parameter: (expr) @parameters contents: (contents)? @contents)',
+    '(block name: (expr) @name parameter: (expr)? @parameters contents: (contents)? @contents)',
     -- '(block parameter: (expr) @parameters contents: (contents)? @contents)',
     block_node
   )[1]
-  if not children_nodes or not children_nodes.name or not children_nodes.parameters then return end
+  if not children_nodes or not children_nodes.name then return end
 
   return {
     node = block_node,

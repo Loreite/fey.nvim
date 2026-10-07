@@ -172,10 +172,10 @@ return {
         help_desc = 'Open prompt that allows filtering by category, tags and title(vim regex)',
       },
     }),
-    --   fey_agenda_open_at_point = m.action(
-    --     'agenda.open_at_point',
-    --     { opts = { desc = 'fey open', help_desc = 'Open hyperlink under cursor' } }
-    --   ),
+    fey_agenda_open_at_point = m.action(
+      'agenda.open_at_point',
+      { opts = { desc = 'fey open', help_desc = 'Follow the first link in the item under the cursor' } }
+    ),
     fey_agenda_refile = m.action('agenda.refile', {
       opts = {
         desc = 'fey refile',
@@ -741,17 +741,20 @@ return {
       args = { true },
       opts = { desc = 'fey timestamp (inactive)', help_desc = 'Insert/Update inactive date under cursor' },
     }),
-    --   fey_insert_link = m.action('fey_mappings.insert_link', {
-    --     modes = { 'n', 'x' },
-    --     opts = {
-    --       desc = 'fey insert link',
-    --       help_desc = 'Insert or Update a hyperlink under cursor. Visual selection used as description',
-    --     },
-    --   }),
-    --   fey_store_link = m.action(
-    --     'fey_mappings.store_link',
-    --     { opts = { desc = 'fey store link', help_desc = 'Store link to current heading' } }
-    --   ),
+    fey_insert_link = m.action('fey_mappings.insert_link', {
+      modes = { 'n', 'x' },
+      opts = {
+        desc = 'fey insert link',
+        help_desc = 'Insert or Update a hyperlink under cursor. Visual selection used as description',
+      },
+    }),
+    fey_store_link = m.action(
+      'fey_mappings.store_link',
+      { opts = { desc = 'fey store link', help_desc = 'Store link to current heading' } }
+    ),
+    fey_check_links = m.action('fey_mappings.check_links', {
+      opts = { desc = 'fey check links', help_desc = 'List in quickfix the links and sections of this hollow that lead nowhere' },
+    }),
     fey_clock_in = m.action('clock.fey_clock_in', { opts = { desc = 'fey clock in', help_desc = 'Clock in current heading' } }),
     fey_clock_out = m.action(
       'clock.fey_clock_out',
@@ -773,10 +776,15 @@ return {
     --     args = { 'fey' },
     --     opts = { desc = 'fey show help', help_desc = 'Show this help' },
     --   }),
-    --   fey_babel_tangle = m.action(
-    --     'fey_mappings.fey_babel_tangle',
-    --     { opts = { desc = 'fey tangle', help_desc = 'Tangle current file' } }
-    --   ),
+    fey_babel_tangle = m.action('fey_mappings.fey_babel_tangle', {
+      opts = { desc = 'fey tangle', help_desc = 'Write the source blocks of this file that have a :tangle target' },
+    }),
+    fey_babel_tangle_vault = m.action('fey_mappings.fey_babel_tangle_vault', {
+      opts = { desc = 'fey tangle hollow', help_desc = 'Write the source blocks that have a :tangle target of every file of this hollow' },
+    }),
+    fey_babel_check = m.action('fey_mappings.fey_babel_check', {
+      opts = { desc = 'fey tangle check', help_desc = 'List in quickfix the references that name no block and the targets two files write' },
+    }),
     fey_toggle_timestamp_type = m.action(
       'fey_mappings.fey_toggle_timestamp_type',
       { opts = { desc = 'fey toggle timestamp type', help_desc = 'Toggle timestamp active/inactive type' } }
@@ -789,24 +797,24 @@ return {
     }),
   },
   edit_src = {
-    --   fey_edit_src_abort = m.custom(
-    --     [[<Cmd>lua require('fey.objects.edit_special').abort()<CR>]],
-    --     { opts = { desc = 'fey abort', help_desc = 'Abort edit special buffer changes and discard content' } }
-    --   ),
-    --   fey_edit_src_show_help = m.custom(
-    --     [[<Cmd>lua require('fey.objects.help').show('edit_src')<CR>]],
-    --     { opts = { desc = 'fey show help', help_desc = 'Show this help' } }
-    --   ),
-    --   fey_edit_src_save = m.custom(
-    --     [[<Cmd>lua require('fey.objects.edit_special'):new():write()<CR>]],
-    --     { opts = { desc = 'fey save', help_desc = 'Apply changes from the special buffer to the source Fey buffer' } }
-    --   ),
-    --   fey_edit_src_save_exit = m.custom([[<Cmd>lua require('fey.objects.edit_special'):new():write_end_exit()<CR>]], {
-    --     opts = {
-    --       desc = 'fey save and exit',
-    --       help_desc = 'Apply changes from the special buffer to the source Fey buffer and exit',
-    --     },
-    --   }),
+    fey_edit_src_abort = m.custom(
+      [[<Cmd>lua require('fey.objects.edit_special').abort()<CR>]],
+      { opts = { desc = 'fey abort', help_desc = 'Abort edit special buffer changes and discard content' } }
+    ),
+    fey_edit_src_show_help = m.custom(
+      [[<Cmd>lua require('fey.objects.help').show('edit_src')<CR>]],
+      { opts = { desc = 'fey show help', help_desc = 'Show this help' } }
+    ),
+    fey_edit_src_save = m.custom(
+      [[<Cmd>lua require('fey.objects.edit_special'):new():write()<CR>]],
+      { opts = { desc = 'fey save', help_desc = 'Apply changes from the special buffer to the source Fey buffer' } }
+    ),
+    fey_edit_src_save_exit = m.custom([[<Cmd>lua require('fey.objects.edit_special'):new():write_end_exit()<CR>]], {
+      opts = {
+        desc = 'fey save and exit',
+        help_desc = 'Apply changes from the special buffer to the source Fey buffer and exit',
+      },
+    }),
   },
   text_objects = {
     inner_heading = m.text_object('inner_heading', { help_desc = 'Select inner heading' }),

@@ -2,6 +2,7 @@
 --
 --   {# query, LIST FROM #design; conceal: true #}
 --
+-- `fey_query_conceal_default` conceals them all; `conceal: false` on a tag keeps that one in view.
 -- A concealed query and its result are one object. Away from it the page shows the result and one icon where the
 -- query was, so you know the data is imported: the tag and its body are hidden, so are the head and the closer of the
 -- result. With the cursor anywhere from the first line of the query to the last line of the result everything is
@@ -34,6 +35,16 @@ local function names()
     [config.fey_db_result_tag_name] = 'result',
     [config.fey_clocktable_result_tag_name] = 'result',
   }
+end
+
+---Does a query, feydb or clocktable tag conceal: its `conceal` key when it has one (so `conceal: false` beats the default),
+---else `fey_query_conceal_default`
+---@param key_values table<string, string>
+---@return boolean
+function M.is_concealed(key_values)
+  local value = key_values.conceal
+  if value ~= nil then return value:lower() == 'true' end
+  return config.fey_query_conceal_default == true
 end
 
 ---The icon for a tag name
@@ -136,7 +147,7 @@ local function groups_of(bufnr, tags)
   local used = {}
   local kinds = names()
   for _, tag in ipairs(tags) do
-    if kinds[tag.name] == 'source' and (tag.key_values.conceal or ''):lower() == 'true' then
+    if kinds[tag.name] == 'source' and M.is_concealed(tag.key_values) then
       local node = tag.node
       local result = query.result_node(bufnr, node)
       local sr = node:range()
@@ -201,7 +212,17 @@ function M.on_cursor(bufnr)
   end
 end
 
+local parse
+---Draw a buffer again, after an option changed
+---@param bufnr integer
+function M.refresh(bufnr)
+  if not parse or not vim.api.nvim_buf_is_valid(bufnr) then return end
+  local tags = parse(bufnr)
+  if tags then M.apply(bufnr, tags) end
+end
+
 function M.setup_query(parse_tags)
+  parse = parse_tags
   local group = vim.api.nvim_create_augroup('FeyTagConceal', { clear = true })
   local apply_all = function(bufnr)
     if not vim.api.nvim_buf_is_valid(bufnr) then return end

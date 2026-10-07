@@ -72,9 +72,11 @@ function EditSpecialSrc:init()
 
   -- Only the "content" of the block should change, however we might not have content yet
   -- so base the range off of the name of the block
-  local ft = self.src_block.children.parameters.text
-  if ft then
+  local ft = self.src_block.children.parameters and self.src_block.children.parameters.text
+  if ft and ft:sub(1, 1) ~= ':' then
     ft = config:detect_filetype(ft, true)
+  else
+    ft = nil
   end
 
   local bufnr = es_utils.make_temp_buf()
@@ -106,7 +108,7 @@ function EditSpecialSrc:init()
   content = self:_update_content('remove', block_start_line, content)
 
   vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = bufnr })
-  vim.api.nvim_set_option_value('filetype', ft, { buf = bufnr })
+  vim.api.nvim_set_option_value('filetype', ft or '', { buf = bufnr })
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, content)
   vim.api.nvim_set_option_value('modified', false, { buf = ctx.bufnr })
 

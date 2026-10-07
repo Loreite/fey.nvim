@@ -1,6 +1,5 @@
 ---@class FeyCompletion
 ---@field files FeyFiles
----@field links FeyLinks
 ---@field private sources FeyCompletionSource[]
 ---@field private sources_by_name table<string, FeyCompletionSource>
 ---@field private fuzzy_match? boolean does completeopt has fuzzy option
@@ -10,11 +9,10 @@ local FeyCompletion = {
 }
 FeyCompletion.__index = FeyCompletion
 
----@param opts { files: FeyFiles, links: FeyLinks }
+---@param opts { files: FeyFiles }
 function FeyCompletion:new(opts)
   local this = setmetatable({
     files = opts.files,
-    links = opts.links,
     sources = {},
     sources_by_name = {},
     fuzzy_match = vim.tbl_contains(vim.opt_local.completeopt:get(), 'fuzzy'),
@@ -128,18 +126,6 @@ end
 
 function FeyCompletion:register_frameworks()
   require('fey.fey.autocompletion.cmp')
-end
-
----@param arg_lead string
----@return string[]
-function FeyCompletion:complete_links_from_input(arg_lead)
-  local context = {
-    base = arg_lead,
-    fuzzy = self.fuzzy_match,
-  }
-  context.matcher = self:_build_matcher(context)
-
-  return self.links:autocomplete(context)
 end
 
 return FeyCompletion

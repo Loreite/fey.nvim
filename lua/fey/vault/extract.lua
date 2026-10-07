@@ -89,6 +89,18 @@ local M = {}
 ---@field priority? string
 ---@field title string
 
+---@class FeyVaultBlock
+---@field heading_ord? integer
+---@field line integer 1-based line of the opening fence
+---@field end_line integer 1-based line of the closing fence (the last line when it is not closed)
+---@field kind string what the block is, lower case: `src`
+---@field language? string the first parameter, when it is not a header argument
+---@field name? string the header argument `:name` (or `:noweb-ref`), what `<<name>>` refers to
+---@field tangle? string the header argument `:tangle`, from the file, the headings and the block
+---@field noweb? string the header argument `:noweb`
+---@field args table<string, string> the header arguments, from the file, the headings and the block
+---@field content string the lines between the fences, as written
+
 ---@class FeyVaultFileMeta
 ---@field title string
 ---@field data any document data value (nil is null)
@@ -98,6 +110,7 @@ local M = {}
 ---@field labels FeyVaultLabel[]
 ---@field dates FeyVaultDate[]
 ---@field tasks FeyVaultTask[]
+---@field blocks FeyVaultBlock[]
 ---@field properties table<string, any> top level keys when the document data is a table
 ---@field errors string[]
 
@@ -112,6 +125,12 @@ local item_query
 local function get_item_query()
   item_query = item_query or vim.treesitter.query.parse('fey', '(listitem checkbox: (checkbox) @box) @item')
   return item_query
+end
+
+local block_query
+local function get_block_query()
+  block_query = block_query or vim.treesitter.query.parse('fey', '(block) @block')
+  return block_query
 end
 
 local function get_tag_query()
@@ -606,6 +625,7 @@ function M.extract(src, opts)
     labels = {},
     dates = {},
     tasks = {},
+    blocks = {},
     properties = {},
     errors = ctx.errors,
   }
@@ -848,6 +868,75 @@ function M.extract(src, opts)
         done = require('fey.files.elements.checkbox').class(box) == 'done',
         priority = nil,
         title = title,
+      })
+    end
+  end
+
+  -- source blocks: fenced blocks with their header arguments, the file's and headings' (outermost first) under their own
+  local function header_args(str)
+    local out, current = {}, nil
+    for param in vim.gsplit(str or '', '%s+') do
+      if param:sub(1, 1) == ':' then
+        current = param:lower()
+        out[current] = {}
+      elseif current and param ~= '' then
+        table.insert(out[current], param)
+      end
+    end
+    for k, v in pairs(out) do
+      out[k] = table.concat(v, ' ')
+    end
+    return out
+  end
+  local file_args = header_args(type(data) == 'table' and not vim.islist(data) and type(data.header_args) == 'string' and data.header_args or '')
+  local src_lines = vim.split(src, '\n', { plain = true })
+  for _, node in get_block_query():iter_captures(root, src) do
+    if not node:has_error() and not commented(node) then
+      local name_node = node:field('name')[1]
+      local params = {}
+      for _, p in ipairs(node:field('parameter')) do
+        params[#params + 1] = text(ctx, p)
+      end
+      local language
+      if params[1] and params[1]:sub(1, 1) ~= ':' then language = table.remove(params, 1) end
+      local heading_ord
+      local p = node:parent()
+      while p do
+        if p:type() == 'section' then
+          heading_ord = ord_by_node[p:id()]
+          break
+        end
+        p = p:parent()
+      end
+      local chain = {}
+      local h = heading_ord and headings[heading_ord]
+      while h do
+        table.insert(chain, 1, h)
+        h = h.parent_ord and headings[h.parent_ord] or nil
+      end
+      local args = vim.deepcopy(file_args)
+      for _, heading in ipairs(chain) do
+        local own = heading.props.header_args or heading.props['header-args']
+        if own then args = vim.tbl_extend('force', args, header_args(own)) end
+      end
+      args = vim.tbl_extend('force', args, header_args(table.concat(params, ' ')))
+      local contents = node:field('contents')[1]
+      local content = ''
+      if contents then
+        local cs, _, ce, cec = contents:range()
+        content = table.concat(vim.list_slice(src_lines, cs + 1, cec == 0 and ce or ce + 1), '\n')
+      end
+      table.insert(meta.blocks, {
+        heading_ord = heading_ord,
+        line = node:start() + 1,
+        end_line = last_line(node),
+        kind = name_node and text(ctx, name_node):lower() or '',
+        language = language,
+        name = args[':name'] or args[':noweb-ref'],
+        tangle = args[':tangle'],
+        noweb = args[':noweb'],
+        args = args,
+        content = content,
       })
     end
   end

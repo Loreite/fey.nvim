@@ -72,9 +72,6 @@
 ---@field fey_agenda? FeyMappingValue Mappings used to open agenda prompt. Default: '<prefix>a'
 ---@field fey_capture? FeyMappingValue Mappings used to open capture prompt. Default: '<prefix>c'
 
----@class FeyHyperlinksConfig
----@field sources FeyLinkType[]
-
 ---@class FeyMappingsAgenda
 ---@field fey_agenda_later? FeyMappingValue Default: 'f'
 ---@field fey_agenda_earlier? FeyMappingValue Default: 'b'
@@ -165,13 +162,16 @@
 ---@field fey_toggle_timestamp_type? FeyMappingValue Default: '<prefix>d!'
 ---@field fey_insert_link? FeyMappingValue Default: '<prefix>li'
 ---@field fey_store_link? FeyMappingValue Default: '<prefix>ls'
+---@field fey_check_links? FeyMappingValue Default: '<prefix>lc'
 ---@field fey_clock_in? FeyMappingValue Default: '<prefix>xi'
 ---@field fey_clock_out? FeyMappingValue Default: '<prefix>xo'
 ---@field fey_clock_cancel? FeyMappingValue Default: '<prefix>xq'
 ---@field fey_clock_goto? FeyMappingValue Default: '<prefix>xj'
 ---@field fey_set_effort? FeyMappingValue Default: '<prefix>xe'
 ---@field fey_show_help? FeyMappingValue Default: 'g?'
----@field fey_babel_tangle? FeyMappingValue Default: '<prefix>bt'
+---@field fey_babel_tangle? FeyMappingValue Default: '<prefix>yt'
+---@field fey_babel_tangle_vault? FeyMappingValue Default: '<prefix>yv'
+---@field fey_babel_check? FeyMappingValue Default: '<prefix>yc'
 
 ---@class FeyMappingsTextObjects
 ---@field inner_heading? FeyMappingValue Default: 'ih'
@@ -303,7 +303,9 @@
 ---@field fey_log_done? 'time' | 'note' How to log done tasks. `time` indicates adding CLOSED date. `note` prompts for closing note. Default: 'time'
 ---@field fey_log_repeat? 'time' | 'note' | false How to log repeated tasks. `time` just logs the time of repeat. `note` prompts for closing note alongside the time. `false` disables. Default: 'time'
 ---@field fey_log_into_logbook? boolean Write notes into the logbook of the heading as well. Default: false
+---@field fey_query_conceal_default? boolean Conceal every query, feydb and clocktable tag and its result, unless the tag has `conceal: false`. Can be set from a note with the plugin tag. Default: false
 ---@field fey_conceal_icons? table<string, string> The icon shown for a concealed query, feydb or clocktable tag, by the name of the tag, over the defaults (a Nerd Font glyph, or a one cell Unicode symbol without a Nerd Font, see `fey_checkbox_icons`). Default: {}
+---@field fey_babel_extensions? table<string, string> The file extension of a language for `:tangle yes`, over the built in ones. Default: {}
 ---@field fey_math_tag_name? string Tag name of math: a line, block or pair tag whose text is LaTeX, highlighted with the `latex` tree-sitter parser when it is installed. Default: 'math'
 ---@field fey_custom_exports? table<string, FeyCustomExport> List of custom exports. Default: {}
 ---@field fey_adapt_indentation? boolean Add spaces as indents to the content. Default: true
@@ -329,4 +331,4 @@
 ---@field emacs_config? FeyEmacsConfig Emacs cnfiguration
 ---@field ui? FeyUiConfig UI configuration
 ---@field vault? FeyVaultConfig Vault (per directory metadata index) configuration
----@field hyperlinks? FeyHyperlinksConfig  Custom sources for hyperlinks
+---@field fey_link_schemes? table<string, fun(target: string, tag: FeyTag|nil): boolean|nil> What following a link does for a scheme of its own: `{@ link, jira:ABC-1 @}` calls `fey_link_schemes.jira('ABC-1', tag)`. Default: {}

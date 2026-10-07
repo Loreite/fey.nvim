@@ -150,6 +150,25 @@ check('a query without the key has a plain result', count('^%[ query_result #%]$
 check('the key is not part of the query text', count('error'), 0)
 check('the body of a result is written', count('^-  ') >= 2, true)
 
+-- the default, and `conceal: false` beating it
+local conceal = require('fey.files.elements.tags.handlers.conceal')
+check('no key, no default', conceal.is_concealed({}), false)
+check('the key', conceal.is_concealed({ conceal = 'true' }), true)
+config:extend({ fey_query_conceal_default = true })
+check('the default conceals', conceal.is_concealed({}), true)
+check('conceal: false beats the default', conceal.is_concealed({ conceal = 'false' }), false)
+vim.fn.writefile({ '  I. Default', '', '{# query, LIST WITHOUT ID file.name #}', '', '{# query, LIST WITHOUT ID file.name; conceal: false #}', '' }, root .. '/default.fey')
+vim.cmd('edit ' .. vim.fn.fnameescape(root .. '/default.fey'))
+buf = vim.api.nvim_get_current_buf()
+vim.bo[buf].filetype = 'fey'
+vim.treesitter.start(buf, 'fey')
+require('fey.query').run_all(buf, { silent = true })
+hidden = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+check('the default is written to the result', { count('^%[ query_result; conceal: true #%]$'), count('^%[ query_result #%]$') }, { 1, 1 })
+config:extend({ fey_query_conceal_default = false })
+local settings_options = require('fey.settings.fey_options')
+check('it can be set with the plugin tag', settings_options.allowed('fey_query_conceal_default'), true)
+
 vault:close()
 vim.fn.delete(root, 'rf')
 print(('clocktable: %d checks, %d failures'):format(total, failures))

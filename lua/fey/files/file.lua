@@ -5,7 +5,6 @@ local Heading = require('fey.files.heading')
 local ts = vim.treesitter
 local config = require('fey.config')
 local Block = require('fey.files.elements.block')
-local Hyperlink = require('fey.fey.links.hyperlink')
 local Range = require('fey.files.elements.range')
 local Memoize = require('fey.utils.memoize')
 local Buffers = require('fey.state.buffers')
@@ -899,24 +898,6 @@ end
 function FeyFile:get_archive_file_location()
   local archive_location = self:_get_directive('archive')
   return config:parse_archive_location(self.filename, archive_location)
-end
-
-memoize('get_links')
----@return FeyHyperlink[]
-function FeyFile:get_links()
-  self:parse(true)
-  local links = {}
-  local matches = self:get_ts_captures([[
-    (link) @link
-    (link_desc) @link
-  ]])
-
-  local source = self:get_source()
-  for _, node in ipairs(matches) do
-    table.insert(links, Hyperlink.from_node(node, source))
-  end
-
-  return links
 end
 
 memoize('get_directive')

@@ -21,7 +21,7 @@ local extract = require('fey.vault.extract')
 local fs = require('fey.utils.fs')
 local uv = vim.uv
 
-local SCHEMA_VERSION = 6
+local SCHEMA_VERSION = 7
 
 local SCHEMA = [[
 CREATE TABLE files (
@@ -124,9 +124,25 @@ CREATE TABLE tasks (
 );
 CREATE INDEX tasks_file ON tasks(file_id);
 CREATE INDEX tasks_state ON tasks(state);
+CREATE TABLE blocks (
+  id INTEGER PRIMARY KEY,
+  file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+  heading_ord INTEGER,
+  line INTEGER,
+  end_line INTEGER,
+  kind TEXT NOT NULL,        -- what the block is: src
+  language TEXT,
+  name TEXT,                 -- the header argument :name, what <<name>> refers to
+  tangle TEXT,               -- the header argument :tangle, merged from the file, the headings and the block
+  noweb TEXT,
+  args TEXT,                 -- all the header arguments (JSON map)
+  content TEXT
+);
+CREATE INDEX blocks_file ON blocks(file_id);
+CREATE INDEX blocks_tangle ON blocks(tangle);
 ]]
 
-local TABLES = { 'tasks', 'dates', 'properties', 'labels', 'links', 'tags', 'headings', 'files' }
+local TABLES = { 'blocks', 'tasks', 'dates', 'properties', 'labels', 'links', 'tags', 'headings', 'files' }
 
 ---@class FeyVaultOpts
 ---@field dirname string name of the vault directory. Default '.fey'
@@ -330,7 +346,8 @@ function Vault:_store(rel, entry, meta, errors)
       if l.kind == 'section' then
         target_sig = require('fey.links.signature').key(l.values[1])
       else
-        target_sig = l.attrs.section or l.attrs.heading
+        target_sig = require('fey.links.signature').key(l.attrs.section or l.attrs.heading or '')
+        if target_sig == '' then target_sig = nil end
       end
     elseif l.kind == 'section' then
       -- {@ section, signature, file, N @}: only the tokens of the signature identify a heading
@@ -340,7 +357,8 @@ function Vault:_store(rel, entry, meta, errors)
       target_sig = require('fey.links.signature').key(l.values[1])
     else
       target_file = self:_resolve_file(rel, l.target)
-      target_sig = l.attrs.section or l.attrs.heading
+      target_sig = require('fey.links.signature').key(l.attrs.section or l.attrs.heading or '')
+      if target_sig == '' then target_sig = nil end
     end
     db:run(
       [[INSERT INTO links(file_id, heading_ord, kind, target, target_ref, target_file, target_sig, description, line, meta)
@@ -402,6 +420,26 @@ function Vault:_store(rel, entry, meta, errors)
         done = t.done and 1 or 0,
         priority = t.priority,
         title = t.title,
+      }
+    )
+  end
+
+  for _, b in ipairs(meta.blocks or {}) do
+    db:run(
+      [[INSERT INTO blocks(file_id, heading_ord, line, end_line, kind, language, name, tangle, noweb, args, content)
+        VALUES(:file_id, :heading_ord, :line, :end_line, :kind, :language, :name, :tangle, :noweb, :args, :content)]],
+      {
+        file_id = file_id,
+        heading_ord = b.heading_ord,
+        line = b.line,
+        end_line = b.end_line,
+        kind = b.kind,
+        language = b.language,
+        name = b.name,
+        tangle = b.tangle,
+        noweb = b.noweb,
+        args = encode_map(b.args or {}),
+        content = b.content,
       }
     )
   end
@@ -967,6 +1005,99 @@ function Vault:tasks(opts)
     row.done = row.done == 1
   end
   return rows
+end
+
+---Source blocks of the vault, in the order of the files and of their lines
+---@param opts? { path?: string, kind?: string, language?: string, tangle?: boolean, name?: string } `tangle`: only the blocks with a target (true), or without (false)
+---@return table[] rows path, line, end_line, heading_ord, kind, language, name, tangle, noweb, args (map), content (text)
+function Vault:blocks(opts)
+  opts = opts or {}
+  local where, params = {}, {}
+  for _, col in ipairs({ 'kind', 'language', 'name' }) do
+    if opts[col] then
+      where[#where + 1] = ('b.%s = :%s'):format(col, col)
+      params[col] = opts[col]
+    end
+  end
+  if opts.path then
+    where[#where + 1] = 'f.path = :path'
+    params.path = opts.path
+  end
+  if opts.tangle == true then where[#where + 1] = "b.tangle IS NOT NULL AND b.tangle <> 'no'" end
+  if opts.tangle == false then where[#where + 1] = "(b.tangle IS NULL OR b.tangle = 'no')" end
+  local rows = self:query(
+    [[SELECT f.path, b.line, b.end_line, b.heading_ord, b.kind, b.language, b.name, b.tangle, b.noweb, b.args, b.content
+      FROM blocks b JOIN files f ON f.id = b.file_id
+      ]] .. (#where > 0 and ('WHERE ' .. table.concat(where, ' AND ')) or '') .. [[
+
+      ORDER BY f.path, b.line]],
+    params
+  )
+  for _, row in ipairs(rows) do
+    row.args = row.args and vim.json.decode(row.args) or {}
+  end
+  return rows
+end
+
+---The place an id names: a heading with the prop `id`, or a file with the data key `id`
+---@param id string
+---@return { path: string, line?: integer, signature?: string, title?: string }|nil
+function Vault:find_id(id)
+  local heading = self:query(
+    [[SELECT f.path, h.line, h.signature, h.title FROM headings h JOIN files f ON f.id = h.file_id
+      WHERE json_extract(h.props, '$.id') = :id ORDER BY f.path, h.line LIMIT 1]],
+    { id = id }
+  )[1]
+  if heading then return heading end
+  local file = self:files_with_property('id', id)[1]
+  if file then return { path = file.path, title = file.title } end
+end
+
+---The links and section tags of the vault that lead nowhere: a file that does not exist, a heading the file does not have,
+---an id nothing has. Addresses outside the vault (urls, another hollow's files that exist) are left alone
+---@return { path: string, line: integer, kind: string, target: string, reason: 'file'|'section'|'id' }[]
+function Vault:broken_links()
+  local signature = require('fey.links.signature')
+  local rows = self:query(
+    [[SELECT f.path, l.line, l.kind, l.target, l.target_ref, l.target_file, l.target_sig
+      FROM links l JOIN files f ON f.id = l.file_id ORDER BY f.path, l.line]]
+  )
+  local keys = {}
+  local function section_keys(path)
+    if not keys[path] then
+      keys[path] = {}
+      for _, h in ipairs(self:headings(path)) do
+        keys[path][signature.key(h.signature or '')] = true
+      end
+    end
+    return keys[path]
+  end
+  local out = {}
+  local tree = require('fey.hollow.tree')
+  for _, row in ipairs(rows) do
+    local target = row.target or ''
+    local reason
+    if target:match('^%a[%w+.-]*://') or target:match('^mailto:') then
+      -- an address outside the vault
+    elseif target:match('^id:') then
+      if not self:find_id(target:sub(4)) then reason = 'id' end
+    elseif row.target_ref then
+      -- a file of another hollow: it has to be there
+      local ref = tree.parse_ref(row.target_ref .. (row.target_file and ('/' .. row.target_file) or ''))
+      local root = ref and tree.resolve_ref(ref, self.root)
+      if not root or (row.target_file and not vim.uv.fs_stat(vim.fs.joinpath(root, row.target_file))) then reason = 'file' end
+    elseif not row.target_file then
+      if row.kind == 'link' and target ~= '' then reason = 'file' end
+    elseif not self:get_file(row.target_file) then
+      reason = 'file'
+    elseif row.target_sig and row.target_sig ~= '' and not section_keys(row.target_file)[signature.key(row.target_sig)] then
+      reason = 'section'
+    end
+    if reason then
+      out[#out + 1] = { path = row.path, line = row.line, kind = row.kind, target = target, reason = reason }
+    end
+  end
+  return out
 end
 
 ---Footnotes of the notes: one row per label of a file, with the number of references, the line of the first one

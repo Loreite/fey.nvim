@@ -763,6 +763,8 @@ replacing the last result. It reads the clocks of the index, so it needs no logb
   -  `scope`: as for a query tag, `current`, `tree`, `court` or hollows
   -  a finished clock counts when it starts or ends in the span; a running clock does not
   -  `fey_clocktable_tag_name` and `fey_clocktable_result_tag_name` rename the tags
+  -  `fey_query_conceal_default = true` (it can be set from a note with the plugin tag) conceals all of them; `conceal: false` on a
+     tag keeps that one in view
   -  `conceal: true`, on a `clocktable`, `query` or `feydb` tag, makes the tag and its result one object. Away from it you
      see the result and an icon where the tag was (a database or a clock, a one cell symbol without a Nerd Font;
      `fey_conceal_icons` changes it by tag name). The tag, its body and the head and closer of the result are hidden.
@@ -784,6 +786,47 @@ a display equation, and so is a fenced block named `latex`:
     ###
 
 The scope tag form is not injected: the head of a tag treats a backslash as an escape.
+
+
+  II.M.v. Source blocks, edit special and tangling
+
+A fenced block `###  src lua :tangle out.lua` has a language (the first parameter) and header arguments
+(`:tangle`, `:noweb`, `:name`, `:mkdirp`, ...). The header arguments of a block are those of the document
+(the data key `header_args`) under those of the headings (the prop `header_args`, outermost first) under its own.
+
+  -  `<prefix>'` edits the block under the cursor in a window of its own, with the file type of the language,
+     also in a list item (the indent of the fence stays) and in a tag; `<prefix>w` writes it back, `<prefix>'` writes
+     and closes, `<prefix>k` throws the changes away, `g?` lists the keys
+  -  `:tangle yes` writes the block to the file with the extension of its language (`fey_babel_extensions` adds
+     some), `:tangle path` to that path, relative to the file; blocks with one target are written in order, blank
+     line between
+  -  `:noweb yes` (or `tangle`) replaces a line that is only `<<name>>` by the blocks of the same file with
+     `:name name` (or `:noweb-ref`), with the indent of the line
+  -  `<prefix>yt` tangles the file, `<prefix>yv` every file of the hollow, `<prefix>yc` finds what would go wrong and
+     lists it in quickfix: a reference that names no block, blocks that refer to each other, a target that two files
+     write (it is not written)
+  -  the index has every block (language, name, target, arguments, content): `FeyVault:blocks`, and `fey.hollow.scope.blocks`
+
+
+  II.M.vi. Links
+
+Links are tags: `{@ link, target; desc: Title; section: I.A. @}` and `{@ section, I.A., file, 2 @}`. A link goes
+to a file, a heading of a file, a url, a heading or file by its id, a file of another hollow
+(`court:notes/a.fey`), or a scheme of your own.
+
+  -  `<prefix>o` follows the link under the cursor, or the first link after it on the line; a bare url in text is
+     opened too
+  -  `<prefix>ls` stores the heading under the cursor (also in the agenda); `<prefix>li` picks a stored heading, or a file
+     of the hollow and then one of its headings, and writes the link at the cursor, over the link the cursor is on, or over
+     the visual selection, which becomes the description. The files and headings come from the index
+  -  `fey_id_link_to_fey_use_id = true`: a stored heading gets the prop `id` and the link is `{@ link, id:..; desc: Title @}`,
+     which still works when the heading moves or is renamed; a file has the data key `id`
+  -  `<prefix>lc` puts the links that lead nowhere in quickfix: a file that does not exist, a heading it does not have, an
+     id nothing has (`FeyVault:broken_links`, a query on the index)
+  -  `fey_link_schemes = { jira = function(target, tag) ... end }` makes `{@ link, jira:ABC-1 @}` call your function
+  -  in the agenda `<prefix>o`... follows the first link of the item; references of a heading in an editor (LSP) are its
+     backlinks from the index
+  -  the old org style links (`[[file:..][..]]`, `Fey.links`, `hyperlinks.sources`) are gone
 
 
   II.N. Queries and databases
@@ -837,11 +880,15 @@ In Fey files:
 | <prefix>?a     | Apply the settings of the note: the nvim and plugin tags of the court, the hollow and the note  | fey_apply_all_settings                             |
 | <prefix>?t     | Apply the nvim or plugin tag under the cursor                                                   | fey_apply_settings_at_tag                          |
 | <prefix>$      | Archive subtree to archive file                                                                 | fey_archive_subtree                                |
+| <prefix>yc     | List in quickfix the references that name no block and the targets two files write              | fey_babel_check                                    |
+| <prefix>yt     | Write the source blocks of this file that have a :tangle target                                 | fey_babel_tangle                                   |
+| <prefix>yv     | Write the source blocks that have a :tangle target of every file of this hollow                 | fey_babel_tangle_vault                             |
 | [[             | Go to previous heading at the same level                                                        | fey_backward_heading_same_level                    |
 | <prefix>hde    | update all delimiters to prompted value from end                                                | fey_change_all_delimiters_from_end                 |
 | <prefix>hds    | update all delimiters to prompted value from start                                              | fey_change_all_delimiters_from_start               |
 | cid            | Change date under cursor via calendar popup                                                     | fey_change_date                                    |
 | <prefix>ld     | update all delimiters of current list (not sublists) to prompted value                          | fey_change_list_delimiters                         |
+| <prefix>lc     | List in quickfix the links and sections of this hollow that lead nowhere                        | fey_check_links                                    |
 | <prefix>xq     | Cancel active clock on current heading                                                          | fey_clock_cancel                                   |
 | <prefix>xj     | Jump to currently clocked in heading                                                            | fey_clock_goto                                     |
 | <prefix>xi     | Clock in current heading                                                                        | fey_clock_in                                       |
@@ -864,6 +911,7 @@ In Fey files:
 | <prefix><c-h>  | move the cursor to the previous cell                                                            | fey_goto_to_cell_prev                              |
 | <prefix>nf     | Write a footnote reference at the cursor and its definition, ready to type                      | fey_insert_footnote                                |
 | <prefix>ih     | Add new heading after current subtree                                                           | fey_insert_heading_respect_content                 |
+| <prefix>li     | Insert or Update a hyperlink under cursor. Visual selection used as description                 | fey_insert_link                                    |
 | <prefix>iH     | Add new subheading after current subtree                                                        | fey_insert_subheading_respect_content              |
 | <Leader><CR>   | Add heading at {count} level, list item or checkbox (context aware)                             | fey_meta_return                                    |
 | <Leader><S-CR> | Add subheading at curr+{1 or count} level, list item or checkbox (context aware)                | fey_meta_sub_return                                |
@@ -887,6 +935,7 @@ In Fey files:
 | <prefix>sc     | Pick the state of the checkbox of the list item (in progress, important, note ...)              | fey_set_checkbox_state                             |
 | <prefix>xe     | Set effort estimate on current heading                                                          | fey_set_effort                                     |
 | <prefix>sl     | Change tags of current heading                                                                  | fey_set_tags_command                               |
+| <prefix>ls     | Store link to current heading                                                                   | fey_store_link                                     |
 | <prefix>tc     | insert table after current line using count or obtained input. default 2x2                      | fey_table_create_after                             |
 | <prefix>tC     | insert table before curent line using count or obtained input. default 2x2                      | fey_table_create_before                            |
 | <prefix>tdc    | delete the current col under cursor                                                             | fey_table_delete_col                               |
@@ -958,6 +1007,7 @@ In the agenda:
 | .          | Go to today's span                                                       | fey_agenda_goto_today         |
 | f          | Go forward one span                                                      | fey_agenda_later              |
 | vm         | Show month view                                                          | fey_agenda_month_view         |
+| <prefix>o  | Follow the first link in the item under the cursor                       | fey_agenda_open_at_point      |
 | K          | Preview agenda item in floating window                                   | fey_agenda_preview            |
 | <prefix>,  | Set priority for current item                                            | fey_agenda_priority           |
 | -          | Decrease priority for current item                                       | fey_agenda_priority_down      |

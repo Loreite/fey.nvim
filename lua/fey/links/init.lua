@@ -201,14 +201,36 @@ function M.open_section(tag)
   return M.goto_section(ref, from_path_of(tag))
 end
 
----Open a `link` tag: a URL, or a file optionally at a heading (`section:` attribute)
----@param tag FeyTag
-function M.open_link(tag)
-  local target = tag.values[1] and unescape(tag.values[1]) or nil
-  local sig = tag.key_values.section or tag.key_values.heading
-  local n = tonumber(tag.key_values.n)
-  local from = from_path_of(tag)
+---Jump to what an id names: a heading with the prop `id`, or a file with the data key `id`, in this hollow or any open one
+---@param id string
+---@param from_path string file that holds the link
+---@return boolean
+function M.goto_id(id, from_path)
+  local fey_vault = require('fey.vault')
+  local first = fey_vault.for_path(from_path) or fey_vault.current()
+  local vaults = first and { first } or {}
+  for _, v in pairs(fey_vault.all()) do
+    if v ~= first then vaults[#vaults + 1] = v end
+  end
+  for _, vault in ipairs(vaults) do
+    local hit = vault.db and vault:find_id(id)
+    if hit then
+      open_at(vault:abs(hit.path), hit.line)
+      return true
+    end
+  end
+  vim.notify(('fey: no heading or file has the id %s'):format(id), vim.log.levels.WARN)
+  return false
+end
 
+---Open a link: a URL, an `id:` target, a target of a scheme of `fey_link_schemes`, a hollow, or a file optionally at a heading
+---@param target string|nil
+---@param sig string|nil signature of a heading
+---@param n integer|nil which of the headings with that signature
+---@param from string file that holds the link
+---@param tag? FeyTag handed to the handler of a scheme
+---@return boolean|nil
+function M.open_target(target, sig, n, from, tag)
   if target and M.is_url(target) then
     local ok, err = vim.ui.open(target)
     if not ok then vim.notify('fey: cannot open ' .. target .. (err and (': ' .. tostring(err)) or ''), vim.log.levels.WARN) end
@@ -219,6 +241,12 @@ function M.open_link(tag)
     if sig then return M.goto_section({ signature = unescape(sig), n = n }, from) end
     return vim.notify('fey: the link tag has no target', vim.log.levels.WARN)
   end
+
+  -- `id:` names a heading or a file by its id, `jira:` and the like are the schemes of the setup
+  local scheme = target:match('^(%a[%w+.-]*):')
+  if scheme == 'id' then return M.goto_id(target:sub(4), from) end
+  local handler = scheme and (config.fey_link_schemes or {})[scheme]
+  if handler then return handler(target:sub(#scheme + 2), tag) ~= false end
 
   -- a hollow and no file: go to the hollow
   local tree = require('fey.hollow.tree')
@@ -236,6 +264,61 @@ function M.open_link(tag)
   return true
 end
 
+---Open a `link` tag
+---@param tag FeyTag
+function M.open_link(tag)
+  local target = tag.values[1] and unescape(tag.values[1]) or nil
+  return M.open_target(target, tag.key_values.section or tag.key_values.heading, tonumber(tag.key_values.n), from_path_of(tag), tag)
+end
+
+---The first link or section tag of a text (the heading of an agenda item), as the target, signature and number it leads to
+---@param text string
+---@return { target?: string, sig?: string, n?: integer }|nil
+function M.first_link_in(text)
+  local ok, parser = pcall(vim.treesitter.get_string_parser, text, 'fey')
+  if not ok then return nil end
+  tag_query = tag_query or vim.treesitter.query.parse('fey', '[(scope_tag) (pair_tag) (line_tag) (block_tag)] @tag')
+  local root = parser:parse()[1]:root()
+  for _, node in tag_query:iter_captures(root, text) do
+    local kind = link_kind(vim.trim((function()
+      local head = node:type() == 'pair_tag' and node:field('open')[1] or node
+      local name = head and head:field('name')[1]
+      return name and vim.treesitter.get_node_text(name, text) or ''
+    end)()))
+    if kind then
+      local head = node:type() == 'pair_tag' and node:field('open')[1] or node
+      local values, keys = {}, {}
+      for _, v in ipairs(head:field('value')) do
+        values[#values + 1] = vim.trim(vim.treesitter.get_node_text(v, text))
+      end
+      for _, kv in ipairs(head:field('key_value')) do
+        local k, v = kv:field('key')[1], kv:field('value')[1]
+        if k and v then keys[vim.trim(vim.treesitter.get_node_text(k, text))] = vim.trim(vim.treesitter.get_node_text(v, text)) end
+      end
+      if kind == 'section' then return { sig = values[1] and unescape(values[1]), target = values[2] and unescape(values[2]) } end
+      return {
+        target = values[1] and unescape(values[1]),
+        sig = keys.section or keys.heading,
+        n = tonumber(keys.n),
+      }
+    end
+  end
+end
+
+---A bare URL under the cursor (text that is not in a tag)
+---@return string|nil
+function M.url_at_cursor()
+  local line = vim.api.nvim_get_current_line()
+  local col = vim.api.nvim_win_get_cursor(0)[2] + 1
+  local from = 1
+  while true do
+    local s, e = line:find('%a[%w+.-]*://[^%s<>%[%]{}"\']+', from)
+    if not s then return nil end
+    if col >= s and col <= e then return (line:sub(s, e):gsub('[.,;:!?]+$', '')) end
+    from = e + 1
+  end
+end
+
 ---Follow the link or section tag under the cursor
 ---@param bufnr? integer
 function M.open_at_cursor(bufnr)
@@ -247,6 +330,11 @@ function M.open_at_cursor(bufnr)
     local Tag = require('fey.files.elements.tags')
     if tag and Tag.at_point[tag.name] and Tag.handlers[tag.name] and Tag.handlers[tag.name][tag.type] then
       return tag:apply()
+    end
+    local url = M.url_at_cursor()
+    if url then
+      local ok = vim.ui.open(url)
+      return ok ~= nil
     end
     return vim.notify('fey: no link under the cursor', vim.log.levels.INFO)
   end

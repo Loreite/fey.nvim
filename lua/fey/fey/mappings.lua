@@ -2,7 +2,6 @@ local Calendar = require('fey.objects.calendar')
 local Date = require('fey.objects.date')
 local EditSpecial = require('fey.objects.edit_special')
 local Help = require('fey.objects.help')
-local FeyHyperlink = require('fey.fey.links.hyperlink')
 local PriorityState = require('fey.objects.priority_state')
 local TodoState = require('fey.objects.todo_state')
 local config = require('fey.config')
@@ -39,7 +38,6 @@ end
 ---@field capture FeyCapture
 ---@field agenda FeyAgenda
 ---@field files FeyFiles
----@field links FeyLinks
 ---@field completion FeyCompletion
 local FeyMappings = {}
 
@@ -50,7 +48,6 @@ function FeyMappings:new(data)
   opts.capture = data.capture
   opts.agenda = data.agenda
   opts.files = data.files
-  opts.links = data.links
   opts.completion = data.completion
   setmetatable(opts, self)
   self.__index = self
@@ -170,6 +167,10 @@ function FeyMappings:global_cycle()
 end
 
 function FeyMappings:fey_babel_tangle() return Babel.tangle(self.files:get_current_file()) end
+
+function FeyMappings:fey_babel_tangle_vault() return Babel.tangle_scope('current') end
+
+function FeyMappings:fey_babel_check() return Babel.check('current') end
 
 function FeyMappings:toggle_checkbox()
   local win_view = vim.fn.winsaveview() or {}
@@ -1082,31 +1083,17 @@ function FeyMappings:_insert_heading_from_plain_line(suffix, subheading)
   end
 end
 
--- Inserts a new link after the cursor position or modifies the link the cursor is
--- currently on
-function FeyMappings:insert_link()
-  local link = FeyHyperlink.at_cursor()
-  return Input.open(
-    'Links: ',
-    link and link.url:to_string() or '',
-    function(arg_lead) return self.completion:complete_links_from_input(arg_lead) end
-  ):next(function(link_location)
-    if not link_location then return false end
-
-    if vim.trim(link_location) == '' then
-      utils.echo_warning('No Link selected')
-      return false
-    end
-
-    return self.links:insert_link(link_location, link and link.desc)
-  end)
-end
+-- Picks a file or a heading and writes a link tag at the cursor, over the link tag the cursor is on, or over the
+-- visual selection
+function FeyMappings:insert_link() return require('fey.links.insert').insert() end
 
 function FeyMappings:store_link()
   local heading = self.files:get_closest_heading()
-  self.links:store_link_to_heading(heading)
+  require('fey.links.insert').store(heading)
   return utils.echo_info('Stored: ' .. heading:get_title())
 end
+
+function FeyMappings:check_links() return require('fey.links.check').run('current') end
 
 ---@param direction 'up'|'down'
 ---@return boolean handled true if the cursor is on a list item (moved or not)

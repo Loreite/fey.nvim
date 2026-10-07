@@ -1999,6 +1999,9 @@ Added to III.G (2026-10-07): the `conceal` key.
    `fey_checkbox_icons`), the rest is hidden; the cursor anywhere from the first line of the tag to the last
    of the result shows everything as written (CursorMoved redraws only the objects entered or left). A result
    with the key and no concealed tag is an object of its own, the icon in place of its head.
+-  Option (same day): `fey_query_conceal_default` conceals every `query`, `feydb` and `clocktable` tag and its result;
+   a tag's own `conceal` key beats it, so `conceal: false` keeps one in view. It is in the list of options a
+   `plugin` tag may set, applying it redraws the buffer, and the default is written to the result like the key.
 -  Tests:  screen checks (the body of a result stays, the icon, a concealed body, head and closer are hidden, a
    tag inside a line, a result without the key, the cursor entering and leaving) and five in `tests/clocktable.lua`.
 
@@ -2049,6 +2052,29 @@ Done (2026-10-07): LaTeX.
    same file, and a noweb check that every reference resolves.
 -  After:  III.D.
 
+Done (2026-10-07): source blocks, edit special and babel.
+
+-  Chose:  blocks are `block` nodes: the first parameter is the language, the rest header arguments. The
+   arguments are the document's (`header_args` data key) under the headings' (`header_args` prop, ancestors first)
+   under the block's own. The name of a block is its `:name` argument (there is no `#+name:` line), also
+   `:noweb-ref`. Tangling is a plan and a writer (`babel/tangle.lua`): `Tangle.plan` takes block infos,
+   expands `<<name>>` (indent kept, same names joined, any order, cycles found), groups by target and finds the problems;
+   `Tangle.write` writes. It runs on the blocks of a file or on the rows of the index. Relative targets are now
+   relative to the file, `:tangle yes` uses an extension map (`python` is `.py`). Edit special: a block with no
+   language works, the file type is the language and never an argument, blocks in list items and in pair tags
+   keep their fence indent (checked). The stale `indentkeys` are gone.
+-  Vault:  schema 7, table `blocks` (language, name, tangle, noweb, args, content), `FeyVault:blocks`,
+   `scope.blocks`; blocks in a comment are not indexed. Tangle the whole hollow (`<prefix>yv`) and a check
+   (`<prefix>yc`, quickfix): unresolved references, cycles, a target two files write.
+-  Mappings:  `fey_babel_tangle` is `<prefix>yt` (was `<prefix>bt`, taken by the database), plus
+   `fey_babel_tangle_vault` `<prefix>yv` and `fey_babel_check` `<prefix>yc`. The four mappings of the edit
+   window are on: `<prefix>w` `<prefix>'` `<prefix>k` `g?`.
+-  Not done:  results of running a block (`:results`) and `:var`: there is no execution, only tangling (planned as VI.C);
+   noweb across files; blocks other than `src`.
+-  Tests:  `tests/babel.lua` (52 checks): targets, the plan (expansion, indent, cycle, conflict, names per file),
+   header arguments in a file, tangling a file and a hollow from the index, the check into quickfix, edit special
+   (language, no language, list item, pair tag), the mappings.
+
   III.J. Links consolidation
 
 -  Now:  two stacks exist side by side. The new one (`fey.links`, the `link`
@@ -2068,6 +2094,29 @@ Done (2026-10-07): LaTeX.
    validated against `files` and `headings`, and a broken link report is a
    query on `links` where `target_file` is NULL.
 -  After:  II.H.
+
+Done (2026-10-07): links consolidation.
+
+-  Chose:  one stack, `fey.links`. Removed `fey/fey/links` (the file, id, headline, custom id, line number and http
+   types), `fey/fey/hyperlinks`, `Fey.links`, `FeyFile:get_links`, the option `hyperlinks.sources` and the org link
+   completion. What stays or is new:
+   `open_target` follows a link (url, `id:`, a scheme of `fey_link_schemes`, a hollow, a file at a heading), `goto_id` finds
+   a heading by the prop `id` or a file by the data key `id` in this or any open hollow (`FeyVault:find_id`), a bare url
+   in text is opened when the cursor is on no tag, `first_link_in(text)` serves the agenda (the item's first link).
+   `links/insert.lua`: store a heading (with an id when `fey_id_link_to_fey_use_id`), pick from stored links, files and
+   headings (the index), write the tag over a link tag, a selection or at the cursor. `links/check.lua` and
+   `FeyVault:broken_links`: the report is a query on the index with the checks of a file, a section and an id, in
+   quickfix. The completion source `hyperlinks` completes the file in a link tag. The LSP references of a heading
+   are its backlinks from the index.
+-  Fixed:  the `section:` attribute of a link was stored raw while the backlink query looks for the normalised signature,
+   so a link `section: II.` was not a backlink of heading `II.`; both are the normalised signature now.
+-  Mappings:  `fey_insert_link` `<prefix>li`, `fey_store_link` `<prefix>ls` (back on), new `fey_check_links` `<prefix>lc`.
+-  Not done:  inserting a link while the target heading is picked from a hollow other than the current one (the
+   picker lists the current hollow), and updating `id:` links to other hollows in the broken report (only the hollows
+   that are open are searched).
+-  Tests:  `tests/links.lua` (23 checks): ids of headings and files, following an id, the broken links (file, section,
+   id, not urls or what exists) and the quickfix, the first link of a text, a bare url, schemes, link text with a
+   section, an id and a description, storing, the references of a heading, the completion.
 
   III.K. Completion
 
@@ -2409,3 +2458,12 @@ Things that are wanted but not part of converting the org code. They start when 
 -  Possible later, if wanted: formulas that look at other rows (running totals, rank), summary formulas
    per group, and sharing a formula between databases. Table formulas (VI.A) would use the same
    engine, so those two should be designed together.
+
+  VI.C. Running source blocks: results and variables
+
+-  Orgmode did not have it either: the plugin tangled and edited blocks but never ran them or read a
+   result back, so this was not part of the rewrite (III.I).
+-  Wanted later: run a block (`:results`, the output written under the block into a `*_result` pair tag with the
+   lifecycle of a query, like III.G), `:var` (values from other blocks, tables and queries), `:session`, and
+   noweb across files. Design it with the tags of III.G, and with the executing of code in mind (the
+   same care as the `plugin` tag: nothing runs without the user's say).

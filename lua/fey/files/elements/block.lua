@@ -52,15 +52,7 @@ function Block:get_tangle_info()
     name = self:get_name(),
   }
 
-  if tangle == 'yes' then
-    local filename = vim.fn.fnamemodify(self.file.filename, ':p:r')
-    result.filename = filename .. (language and '.' .. language or '')
-  elseif result.tangle then
-    local tangle_path = fs.substitute_path(tangle)
-    if not tangle_path then tangle_path = fs.substitute_path('./' .. tangle) end
-    assert(tangle_path)
-    result.filename = tangle_path
-  end
+  if result.tangle then result.filename = require('fey.babel.tangle').target(tangle, language, self.file.filename) end
 
   return result
 end
@@ -80,10 +72,15 @@ function Block:get_header_args()
     local heading_prop = heading:get_property('header-args', true)
     if heading_prop then heading_args = config:parse_header_args(heading_prop) end
   end
-  local own_args_str =
-    table.concat(vim.tbl_map(function(param) return self.file:get_node_text(param) end, self.node:field('parameter')), ' ')
-  local own_args = config:parse_header_args(own_args_str)
+  local own_args = config:parse_header_args(self:_own_args_text())
   return vim.tbl_extend('force', file_header_args, heading_args, own_args)
+end
+
+---The parameters of the block, the language and the header arguments, as written
+---@private
+---@return string
+function Block:_own_args_text()
+  return table.concat(vim.tbl_map(function(param) return self.file:get_node_text(param) end, self.node:field('parameter')), ' ')
 end
 
 ---@private
@@ -93,23 +90,11 @@ function Block:_get_heading()
   return self.file:get_closest_heading_or_nil({ start_line + 1, 0 })
 end
 
----Get name from the block directive
+---The name of the block: its own header argument `:name` (or `:noweb-ref`), what `<<name>>` refers to. Not inherited
 ---@return string | nil
 function Block:get_name()
-  local directives = self.node:field('directive')
-  if not directives or #directives == 0 then return nil end
-
-  for _, directive in ipairs(directives) do
-    local name = directive:field('name')[1]
-    local value = directive:field('value')[1]
-
-    if name and value then
-      local name_text = self.file:get_node_text(name)
-      if name_text:lower() == 'name' then return self.file:get_node_text(value) end
-    end
-  end
-
-  return nil
+  local own = config:parse_header_args(self:_own_args_text())
+  return own[':name'] or own[':noweb-ref']
 end
 
 ---Get block type (src, example, etc)

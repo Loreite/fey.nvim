@@ -82,60 +82,26 @@ FeyLspHandlers[methods.textDocument_completion] = function(params)
   }
 end
 
+---The links and section tags that lead to the heading at the position (or to the file, above the first heading),
+---found in the index of the hollow
 FeyLspHandlers[methods.textDocument_references] = function(params)
-  local fey = require('fey')
-  local heading =
-    fey.files:get(vim.uri_to_fname(params.textDocument.uri)):get_closest_heading({ params.position.line + 1, 0 })
-  local custom_id = heading:get_property('CUSTOM_ID', false)
-  local title = heading:get_title()
-
-  if not heading then
-    return {}
+  local path = vim.uri_to_fname(params.textDocument.uri)
+  local vault = require('fey.vault').for_path(path)
+  if not vault then return {} end
+  local rel = vault:rel_of(path)
+  if not rel then return {} end
+  local signature
+  for _, h in ipairs(vault:headings(rel)) do
+    if h.line <= params.position.line + 1 and (h.end_line or h.line) >= params.position.line + 1 then signature = h.signature end
   end
-
-  local function is_valid_target(target)
-    if target == '*' .. title or target == title then
-      return true
-    end
-
-    if custom_id and target == '#' .. custom_id then
-      return true
-    end
-
-    return false
-  end
-
-  ---@type lsp.Location[]
   local locations = {}
-
-  for _, feyfile in ipairs(fey.files:all()) do
-    for _, link in ipairs(feyfile:get_links()) do
-      local file_path = link.url:get_file_path()
-      local target_or_path = link.url:get_target() or link.url:get_path()
-      local target = link.url:get_target()
-
-      local location = {
-        uri = vim.uri_from_fname(feyfile.filename),
-        range = link.range:to_lsp(),
-      }
-
-      -- is a file heading link
-      if file_path and vim.fs.normalize(file_path) == vim.fs.normalize(heading.file.filename) then
-        if not target or is_valid_target(target) then
-          table.insert(locations, location)
-        end
-        goto continue
-      end
-
-      -- is local link
-      if feyfile.filename == heading.file.filename and is_valid_target(target_or_path) then
-        table.insert(locations, location)
-      end
-
-      ::continue::
-    end
+  for _, row in ipairs(vault:backlinks(rel, signature)) do
+    local line = row.line - 1
+    table.insert(locations, {
+      uri = vim.uri_from_fname(vault:abs(row.path)),
+      range = { start = { line = line, character = 0 }, ['end'] = { line = line, character = 0 } },
+    })
   end
-
   return locations
 end
 

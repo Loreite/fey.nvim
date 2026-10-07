@@ -79,7 +79,7 @@ local build = function(fey)
         require('fey.utils').echo_error('No heading found')
         return
       end
-      heading.file:update(function() fey.links:store_link_to_heading(heading) end):wait()
+      require('fey.links.insert').store(heading)
       return require('fey.utils').echo_info('Stored: ' .. heading:get_title())
     end,
     indent_mode = function() require('fey.ui.virtual_indent').toggle_buffer_indent_mode() end,

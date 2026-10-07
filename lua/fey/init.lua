@@ -16,7 +16,6 @@ local auto_instance_keys = {
   fey_mappings = true,
   notifications = true,
   completion = true,
-  links = true,
 }
 
 ---@class Fey
@@ -31,7 +30,6 @@ local auto_instance_keys = {
 ---@field completion FeyCompletion
 ---@field fey_mappings FeyMappings
 ---@field notifications FeyNotifications
----@field links FeyLinks
 local Fey = {}
 setmetatable(Fey, {
   __index = function(tbl, key)
@@ -66,22 +64,19 @@ function Fey:init()
       paths = require('fey.config').fey_agenda_files,
     })
     :load_sync(true, 20000)
-  self.links = require('fey.fey.links'):new({ files = self.files })
   self.agenda = require('fey.agenda'):new({
     files = self.files,
     source = require('fey.agenda.source').new(),
     highlighter = self.highlighter,
-    links = self.links,
   })
   self.capture = require('fey.capture'):new({
     files = self.files,
   })
-  self.completion = require('fey.fey.autocompletion'):new({ files = self.files, links = self.links })
+  self.completion = require('fey.fey.autocompletion'):new({ files = self.files })
   self.fey_mappings = require('fey.fey.mappings'):new({
     capture = self.capture,
     agenda = self.agenda,
     files = self.files,
-    links = self.links,
     completion = self.completion,
   })
   self.clock = require('fey.clock'):new({

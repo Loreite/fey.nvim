@@ -8,7 +8,6 @@ local Menu = require('fey.ui.menu')
 local Promise = require('fey.utils.promise')
 local AgendaTypes = require('fey.agenda.types')
 local Input = require('fey.ui.input')
-local FeyHyperlink = require('fey.fey.links.hyperlink')
 local Edit = require('fey.agenda.edit')
 
 ---@class FeyAgenda
@@ -18,10 +17,9 @@ local Edit = require('fey.agenda.edit')
 ---@field files FeyFiles
 ---@field source FeyAgendaSource
 ---@field highlighter FeyHighlighter
----@field links FeyLinks
 local Agenda = {}
 
----@param opts? { highlighter: FeyHighlighter, files: FeyFiles, links: FeyLinks, source?: FeyAgendaSource }
+---@param opts? { highlighter: FeyHighlighter, files: FeyFiles, source?: FeyAgendaSource }
 ---@return FeyAgenda
 function Agenda:new(opts)
   opts = opts or {}
@@ -33,7 +31,6 @@ function Agenda:new(opts)
     files = opts.files,
     source = opts.source or require('fey.agenda.source').new(),
     highlighter = opts.highlighter,
-    links = opts.links,
   }
   setmetatable(data, self)
   self.__index = self
@@ -620,14 +617,14 @@ function Agenda:get_heading_at_cursor()
   end
 end
 
+---Follow the first link of the item under the cursor (the link tags in its heading)
 function Agenda:open_at_point()
-  local link = FeyHyperlink.from_extmarks_at_cursor()
-
-  if link then
-    return self.links:follow(link.url:to_string())
+  local entry = self:get_heading_at_cursor()
+  if entry and entry.get_lines then
+    local link = require('fey.links').first_link_in(entry:get_lines()[1] or '')
+    if link then return require('fey.links').open_target(link.target, link.sig, link.n, entry.abs or '') end
   end
-
-  utils.echo_error('No link found under cursor')
+  utils.echo_error('No link found in this item')
 end
 
 function Agenda:quit()
