@@ -48,6 +48,16 @@
 ---@field min_small_step? number Step size for changing the minutes while cursor is on the second digit. Default: value of `fey_time_stamp_rounding_minutes` = 5
 ---@field min_big_step? number Step size for changing the minutes while cursor is on the first digit. Default: 15
 
+---@class FeySettingsConfig
+---@field apply_on? ('load'|'enter'|'change'|'save')[] When settings are applied. Default: { 'load', 'enter', 'change' }
+---@field debounce_ms? integer Wait after typing before applying. Default: 300
+---@field config_filename? string File in `.fey` of the court and the hollows. Default: 'config.fey'
+---@field cascade? boolean Read the config files of the hollows above. Default: true
+---@field allow? string[] Unsafe options a note may set (expressions, functions, programs). Default: {}
+---@field hot_options? string[] More options of this plugin a note may change. Default: {}
+---@field plugins? table<string, function|{ apply: function, restore?: function }> Plugins a note may configure. Default: {}
+---@field hooks? { buf_enter?: string, buf_leave?: string } Names of the keys that run Ex commands on entering and leaving a note. Unset by default: it runs commands from the note
+
 ---@class FeyNotificationsConfig
 ---@field enabled? boolean Enable notifications. Default: false
 ---@field scope? FeyScopeSpec Hollows the reminders are read from. Default: `fey_agenda_scope`
@@ -231,6 +241,8 @@
 ---@field fey_deadline_tag_name? string Tag name of the deadline of a heading. Default: 'deadline'
 ---@field fey_closed_tag_name? string Tag name of the date a heading was closed. Default: 'closed'
 ---@field fey_clock_tag_name? string Tag name of one clock. Default: 'clock'
+---@field fey_plugin_tag_name? string Tag name of the options of a plugin. Default: 'plugin'
+---@field settings? FeySettingsConfig Settings written in the notes
 ---@field fey_footnote_tag_name? string Tag name of footnote references and definitions. Default: 'fn'
 ---@field fey_footnote_definition_form? 'pair'|'line'|'block' Tag form of a new footnote definition. Default: 'pair'
 ---@field fey_footnote_superscript? 'auto'|boolean Show footnote labels as superscript: `auto` converts digits and signs, `true` letters as well, `false` never. Default: 'auto'

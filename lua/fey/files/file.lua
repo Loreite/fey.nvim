@@ -278,9 +278,7 @@ function FeyFile:reindex_headings()
 
   -- section tags follow the headings they point at
   local name = vim.api.nvim_buf_get_name(buf)
-  if name ~= '' then
-    require('fey.links.section').on_reindex(vim.fn.fnamemodify(name, ':p'), root_data.entries)
-  end
+  if name ~= '' then require('fey.links.section').on_reindex(vim.fn.fnamemodify(name, ':p'), root_data.entries) end
 end
 
 ---Reload the file if it has been modified
@@ -743,65 +741,48 @@ function FeyFile:get_blocks()
   return vim.tbl_map(function(node) return Block:new(node, self) end, matches)
 end
 
+---The header arguments of the file: the data key `header_args` (`:tangle yes :results output`) over the defaults
+---@return table<string, string>
 function FeyFile:get_header_args()
-  local header_args_prop = self:get_directive_property('header-args')
-  if not header_args_prop then return vim.tbl_extend('force', {}, config.fey_babel_default_header_args) end
-  local header_args = config:parse_header_args(header_args_prop)
-  return vim.tbl_extend('force', config.fey_babel_default_header_args, header_args)
+  local header_args = self:_get_directive('header_args')
+  if not header_args then return vim.tbl_extend('force', {}, config.fey_babel_default_header_args) end
+  return vim.tbl_extend('force', config.fey_babel_default_header_args, config:parse_header_args(header_args))
 end
 
 memoize('get_directive_property')
+---A key of the document data as text (what an org `#+PROPERTY:` line was); the name is read case insensitively,
+---and `-` and `_` are the same: `header-args` is `header_args`
 --- @param name string
 --- @return string | nil
-function FeyFile:get_directive_property(name)
-  local properties = self:get_directive_properties()
-  return properties[name:lower()]
-end
+function FeyFile:get_directive_property(name) return self:get_directive_properties()[(name:lower():gsub('[^%w_]', '_'))] end
 
 memoize('get_directive_properties')
+---The scalar keys of the document data, by lower case name, as text
 ---@return table<string, string>
 function FeyFile:get_directive_properties()
-  self:parse(true)
   local properties = {}
-  local directives_body = self.root:field('body')[1]
-  if not directives_body then return properties end
-  local directives = directives_body:field('directive')
-  if not directives or #directives == 0 then return properties end
-
-  for _, directive in ipairs(directives) do
-    local name = directive:field('name')[1]
-    local value = directive:field('value')[1]
-
-    if name and value then
-      local name_text = self:get_node_text(name)
-      if name_text:lower() == 'property' then
-        local value_items = vim.split(self:get_node_text(value), '%s+')
-        if #value_items > 1 then properties[value_items[1]:lower()] = table.concat({ unpack(value_items, 2) }, ' ') end
-      end
-    end
+  local data = self:get_data()
+  if type(data) ~= 'table' or vim.islist(data) then return properties end
+  for key, value in pairs(data) do
+    if type(value) ~= 'table' and value ~= vim.NIL then properties[tostring(key):lower()] = tostring(value) end
   end
-
   return properties
 end
 
 memoize('get_drawer')
----@return table<string, string> | nil
+---A drawer of the document: a pair tag with that name above the first heading
+---@param name string matched case insensitively
+---@return TSNode | nil pair_tag
 function FeyFile:get_drawer(name)
   self:parse(true)
   local document_body = self.root:field('body')[1]
   if not document_body then return nil end
-
-  local drawer = utils.find(ts_utils.get_named_children(document_body), function(node)
-    if node:type() == 'drawer' then
-      local drawer_name = node:field('name')[1]
-      if drawer_name and self:get_node_text(drawer_name):lower() == name:lower() then return true end
-    end
-    return false
+  return utils.find(ts_utils.get_named_children(document_body), function(node)
+    if node:type() ~= 'pair_tag' then return false end
+    local open = node:field('open')[1]
+    local tag_name = open and open:field('name')[1]
+    return tag_name ~= nil and self:get_node_text(tag_name):lower() == name:lower()
   end)
-
-  if not drawer then return nil end
-
-  return drawer
 end
 
 memoize('get_properties')
@@ -937,7 +918,6 @@ function FeyFile:get_links()
   return links
 end
 
-
 memoize('get_directive')
 ---@param directive_name string
 ---@return string[] | string | nil
@@ -949,7 +929,7 @@ function FeyFile:id_get_or_create()
   local id = self:get_property('id')
   if id then return id end
   local fey_id = require('fey.fey.id').new()
-  self:set_property('ID', fey_id)
+  self:set_property('id', fey_id)
   return fey_id
 end
 
@@ -963,7 +943,7 @@ function FeyFile:_get_directive(directive_name, all_matches)
   local data = self:get_data()
   if type(data) ~= 'table' or vim.islist(data) then return nil end
   local value = data[directive_name]
-  if value == nil then return nil end
+  if value == nil or value == vim.NIL then return nil end
 
   if all_matches then
     if type(value) == 'string' then return { value } end

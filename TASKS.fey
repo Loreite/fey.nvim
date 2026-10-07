@@ -111,6 +111,11 @@ small.
       vault and the generated `doc/fey_api.txt`.
    3. The complete rewrite of the old org docs and the help files is III.S, at
       the very end.
+-  Tags:  a task that adds a tag adds its row to the table IV.A in the same change
+   (name, forms, head and keys, handler, task). The reference of every tag
+   (III.S.ii) is written from that table when the docs are done, so the table has to
+   be right all along. The same for options a `plugin` tag may set: the white
+   list in `settings/fey_options.lua` is the source for III.S.i.
 
 
   II. Phase 1: timestamps, agenda, refile
@@ -1788,6 +1793,50 @@ Changed (2026-10-07): every definition form, superscript labels, and a fix for t
    ways for each, the forms of new definitions, the index, superscript and its
    rendering); `tests/screen.sh` 11 screen checks.
 
+Changed (2026-10-07): the `nvim` tag becomes hot loaded settings, with a `plugin` tag and a cascade.
+
+-  Security:  the old handler set any buffer option and ran the Ex commands of `buf_enter`
+   and `buf_leave`, and put a colour scheme name straight into a command (a name
+   with a bar in it could chain another). Now: `settings/options.lua` is a white
+   list: only options Neovim reports as local to the buffer or the window, plus
+   `colorscheme` and `background`, never an option in the denied list (expressions,
+   functions, programs, the modeline switches, directories) unless it is named in
+   `settings.allow`; names must be plain; a colour scheme name must match
+   `[%w_.-]+`. Hooks run only when `settings.hooks` names their keys (unset by
+   default); that and the risk of notes from unknown sources are in the README.
+-  `plugin` tag:  `{# plugin, fey; key: value #}`; a pair or block tag takes a body read like
+   a `table` tag (keys ending in an underscore, sublists, arrays), merged over the
+   keys. No separate `fey` tag: it would be `plugin, fey`. For `fey` the options are
+   a list (`settings/fey_options.lua`: appearance, agenda, refile, footnotes,
+   checkboxes, reminders; not paths, the court, mappings; `settings.hot_options`
+   adds). Other plugins only through handlers the user registers
+   (`settings.plugins` or `fey.settings.register`), never by a name from a note:
+   the note supplies data, the handler is code of the user.
+-  Cascade:  the court's `.fey/config.fey`, the config files of the hollows above the
+   note (widest first), the hollow's, then the note's tags: read into layers,
+   merged key by key into one table, and only the difference from what is
+   applied is touched (`settings/init.lua`). Each setting remembers where it came
+   from. Baselines are kept, so removing a tag brings the next layer's value
+   back; local options are per buffer and window, `colorscheme`, `background` and
+   plugin options belong to the editor and are applied while the note is current
+   (the background is set before the colour scheme, which would otherwise load
+   twice). A config file open in a buffer counts with unsaved edits. A note that does
+   not parse leaves everything as it is.
+-  When:  `settings.apply_on` (`load`, `enter`, `change`, `save`), `settings.debounce_ms`,
+   and the mappings that were waiting since phase one: `fey_apply_all_settings`
+   `<prefix>?a`, `fey_apply_settings_at_tag` `<prefix>?t`,
+   `fey_toggle_apply_all_settings_at_buffer_enter` `<prefix>?e`,
+   `fey_run_all_buffer_commands` `<prefix>!a`, `fey_run_buffer_commands_at_tag`
+   `<prefix>!t`, `fey_toggle_run_all_buffer_commands_at_buffer_enter` `<prefix>!e`.
+   `:FeySettings` reports layers, sources and what was ignored with the reason.
+-  Changed behaviour:  `buf_enter` and `buf_leave` no longer run unless named in
+   `settings.hooks`, and the old buffer variables (`b:fey_nvim_config`) are gone.
+-  Tests:  `tests/settings.lua` (82 checks: the policy, reading tags and bodies, the cascade and
+   merge, applying once, the note beating the hollow and the court, removal, everything
+   a note may not do, colour scheme names, hooks, registered plugins, unsaved config
+   files, parse errors, triggers, the mappings, a single tag) and two screen checks
+   (the court sets line numbers, the note beats the court).
+
   III.D. Document directives become data
 
 -  Now:  `FeyFile:get_filetags`, `get_title`, `get_category`,
@@ -1812,6 +1861,31 @@ data now, so `title`, `category`, `todo` and `archive` work (see II.H). The
 file labels come from the index extraction. Not done: `filetags` as a data key
 (labels do that job), the header arguments (III.I) and the table formulas.
 
+Done (2026-10-07): document directives are document data.
+
+-  Chose:  what remained of the org directive code is gone or reads the data. Earlier
+   (II.H) `title`, `category`, `todo` and `archive` already came from the keys of the
+   document data (`FeyFile:_get_directive`, `get_todo_keywords` with sequences
+   as a list in a table body, `get_filetags` from the index extraction of the
+   labels). Now `FeyFile:get_directive_properties` and `get_directive_property`
+   read the scalar keys of the data (they looked for grammar nodes `directive`
+   that Fey does not have), `get_header_args` reads the key `header_args` over
+   `fey_babel_default_header_args`, `id_get_or_create` writes the key `id` (it wrote
+   `ID`), and null values, a heading with no content is a null key, no longer
+   come out as the text `vim.NIL`. The completion source `directives` offers the
+   keys the plugin reads (`title category todo archive header_args labels id
+   aliases author email`) inside a `table` tag instead of `#+title` and friends.
+-  Not done, as planned:  table formulas (`tblfm`; there was no formula engine in org
+   either), the header arguments of headings and blocks (III.I) and the `name` of a
+   block (there is no `#+name:` line; III.I decides).
+-  Vault:  nothing new: `files.data`, `properties` and the file labels were already
+   there, and a test reads them back.
+-  Tests:  `tests/directives.lua` (34 checks): the defaults of a file without data, every
+   key (title, category, todo with one and with several sequences and what that does to
+   `is_todo` and `is_done`, archive, header arguments, id, labels, scalar properties),
+   writing an id into a file with and without a table tag, the completion
+   (where it starts and where it does not), and the index.
+
   III.E. Drawers and notes
 
 -  Now:  `Heading:get_drawer`, `get_drawer_append_line`, `add_to_drawer`,
@@ -1826,6 +1900,23 @@ file labels come from the index extraction. Not done: `filetags` as a data key
    `fey_note_kill` `<prefix>k`.
 -  Vault:  small. Notes are found by `tags` rows named `logbook`.
 -  After:  III.A.
+
+Done (2026-10-07): drawers and notes.
+
+-  Chose:  a drawer is a pair tag named for the drawer, in the body of a heading or of the
+   document (`Heading:get_drawer`, `FeyFile:get_drawer`, `ts_utils.is_date_in_drawer`).
+   `Heading:add_to_drawer(name, lines)` writes at the top of the drawer, newest first,
+   and creates the drawer under the metadata when it is missing. A note is a list item
+   with an inactive `date` tag: `-  {@ date, <now>; active: false @}  Note taken: text`,
+   the other lines indented by three. `Heading:add_note` writes into the logbook when
+   `fey_log_into_logbook` is set, else at the end of the heading. The closing note and
+   the repeat note (`State "NEW" from "OLD"`) use the same form, the org `\\` line
+   endings are gone. `fey_add_note` and `fey_agenda_add_note` (`<prefix>na`) are enabled.
+-  Not done:  `fey_note_finalize` and `fey_note_kill` keep the keys of the capture window
+   they had; there was nothing to change.
+-  Tests:  `tests/notes.lua` (13 checks): notes outside and inside the logbook, the
+   drawer created once, newest first, the other heading untouched, the mapping with a
+   stubbed capture window, parsing after every write.
 
   III.F. Comments
 
@@ -2109,6 +2200,50 @@ working for a release. To decide.
    `query` over the config documentation instead of a hand written table.
 -  After:  III.R and everything before it.
 
+  III.S.i. Reference: which options a `plugin` tag can set
+
+-  Now:  the README says that a `plugin` tag for `fey` can set the options in
+   `fey.settings.fey_options` and that others need a registered handler, but
+   it gives no list, and nowhere says for an option whether a note can change
+   it, whether the change takes effect at once, or only after a restart.
+-  Fey:  one table in the reference for every option of `config/defaults.lua`
+   with the columns: type, default, "set by a `plugin` tag" (yes, no, and why
+   not), and "hot": effective as soon as it is applied, or read once at startup
+   (for example the mappings, the court location, the vault options) so a note or a
+   config file cannot change it. The `nvim` tag gets the same kind of table: the
+   options a note may set, the denied ones and the ones `settings.allow` opens.
+   Generated, so it cannot drift: the white list lives in code
+   (`settings/fey_options.lua`), the hot or not column needs a marker per
+   option. Plan: a field in `config/_meta.lua` (`@hot`), checked by a test that
+   every option of the white list is marked and every marked option is in the
+   list. Document the registration of other plugins with an example, and
+   what `restore` is for.
+-  Vault:  the generated table is a `query` over the configuration notes.
+-  After:  III.S, and any option added in the meantime.
+
+  III.S.ii. Reference: every tag Fey supports
+
+-  Now:  the tags are described where each was built (README sections, the
+   Done entries of this file, the table IV.A) and nowhere as one reference.
+-  Fey:  a reference page that lists every tag, whether a built in one or one a
+   user adds: name and the option that renames it (`fey_*_tag_name`), the forms it
+   takes (scope, line, block, pair) and what each form means, the head (values
+   and keys), the body, where it may stand (title, under a heading, anywhere),
+   what the vault indexes from it, what open at point does, which mappings and
+   options belong to it, and an example. Today's tags: `date`, `scheduled`,
+   `deadline`, `closed`, `status`, `labels`, `prop`, `clock`, `logbook`, `fn`
+   (reference, pair, line and block definitions), `link`, `section`, `query`,
+   `query_result`, `feydb`, `feydb_result`, `hl`, `nvim`, `plugin`, `comment`,
+   and the data tags `table`, `array`, `value`. A standing rule until the
+   end: the task that adds a tag adds its row to IV.A and its entry here, in the
+   same change, and `tests/docs.lua` is extended to fail when a `*_tag_name`
+   option of `config/defaults.lua` is missing from the reference (done when
+   this page exists).
+-  Vault:  yes: each tag of the reference is a heading, so `section` tags can
+   point at it from the other docs, and a query can list the tags by form.
+-  After:  III.S, and every task that adds a tag (III.F, III.G, III.H and those
+   after them).
+
   IV. Summary tables
 
   IV.A. New tags
@@ -2128,6 +2263,15 @@ working for a release. To decide.
 | comment (name exists)  | line, block  | text                          | none                   | III.F  |
 | clocktable             | block, pair  | span; scope; by               | run, writes result     | III.G  |
 | math                   | line         | latex text                    | none, injection        | III.H  |
+| nvim                   | scope, line, block, pair | keys: options of the editor; body: a table | apply (hot loaded) | III.D (settings) |
+| plugin                 | scope, line, block, pair | plugin name; keys: options; body: a table | apply (hot loaded) | III.D (settings) |
+| fn (reference)         | scope        | label                         | jump to the definition | III.C  |
+| fn (definition)        | pair, line, block | label; the text is the body | jump to the reference | III.C  |
+| link, section          | scope, line  | target; desc, section, n      | open                   | earlier |
+| query, query_result    | scope, line, block, pair | the query text    | run, writes the result | earlier |
+| feydb, feydb_result    | scope, pair  | rows; db, view                | run, writes the result | earlier |
+| hl                     | scope        | highlight group; values       | apply                  | earlier |
+| table, array, value    | scope, block, pair | keys, values; body      | none (document data)   | earlier |
 
   IV.B. Grammar and scanner changes
 
@@ -2161,3 +2305,41 @@ working for a release. To decide.
    helper exists?
 -  Which default keys for new mappings that collide (babel tangle versus
    database tab, both `<prefix>bt`)?
+
+
+  VI. Post-rewrite planned features
+
+Things that are wanted but not part of converting the org code. They start when the conversion
+(III.S) is done, and each is written as a task of the same shape as the ones above when its turn comes.
+
+  VI.A. Table formulas
+
+-  Now:  Fey tables (`files/elements/table`) align, merge and move cells, and have no formulas.
+   Org had `#+tblfm` lines and no engine for them in the orgmode plugin either, so nothing
+   was lost in the conversion.
+-  Fey:  a tag `tblfm` directly after a table (the tag name an option, `fey_tblfm_tag_name`), whose keys
+   are formulas: a target (a cell, a column, a row or a range) and an expression. The
+   expression language is the one of the query language (`fey.query`: arithmetic, functions, dates,
+   lists), with references to other cells (by column name or number and row, and relative ones),
+   to the rows above, and to the properties of the note, so there is one language for formulas in
+   tables, in database views and in queries. A table that holds numbers can then sum, average and derive
+   a column.
+-  Triggers:  a keybind that recalculates the table under the cursor, an option to recalculate all of
+   them when the note is saved, and the result written into the cells like the result of a `query` tag
+   is written below it (the formula stays, the value is the result).
+-  Vault:  the values are in the text, so the index sees them as it sees any cell; the formulas can be
+   indexed (`tags`) so a query can list the tables that have one.
+-  Open:  how to mark a cell as computed so a manual edit is not overwritten silently, and whether a formula
+   may refer to a table in another note.
+
+  VI.B. Database view formulas
+
+-  Already supported, nothing to plan. A database has named formulas (`formula.name`) over the
+   properties of a note, usable as columns, filters, sorts and groups, added and edited from the view
+   (the equals key, `View:add_formula`, `View:edit_formula`), written into the database file under
+   `formulas`, and computed by the expression language of the query language. They are part of the
+   documentation of the databases in the tutorial of the test vault (section on filters, sorts, groups
+   and formulas).
+-  Possible later, if wanted: formulas that look at other rows (running totals, rank), summary formulas
+   per group, and sharing a formula between databases. Table formulas (VI.A) would use the same
+   engine, so those two should be designed together.

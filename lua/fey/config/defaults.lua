@@ -18,7 +18,21 @@ local DefaultConfig = {
   fey_treesitter_local_install = '',
   --
   -- fey_reindex_fey_src_blocks = true,
-  fey_nvim_config_tag_name = 'nvim',
+  fey_nvim_config_tag_name = 'nvim', -- editor options of a note, see `settings`
+  fey_plugin_tag_name = 'plugin', -- `{# plugin, fey; key: value #}`: options of a plugin
+  -- Settings written in the notes (`nvim` and `plugin` tags), applied while you edit, merged from the court's and
+  -- the hollow's `.fey/config.fey` and the note's own tags. A note can come from anywhere, so see the README
+  -- before changing `allow` and `hooks`.
+  settings = {
+    apply_on = { 'load', 'enter', 'change' }, -- load, enter (the note becomes current), change (typing), save; the mappings apply on request
+    debounce_ms = 300, -- wait this long after typing before applying
+    config_filename = 'config.fey', -- in `.fey` of the court and of each hollow
+    cascade = true, -- false: only the court's file and the note's tags
+    allow = {}, -- names of unsafe options a note may set, like { 'foldexpr' } (see fey.settings.options)
+    hot_options = {}, -- more options of this plugin that a note may change
+    plugins = {}, -- plugins a note may configure: { name = function(opts) ... end } or { apply = fn, restore = fn }
+    hooks = {}, -- RUNS COMMANDS FROM THE NOTE. Unset: off. { buf_enter = 'buf_enter', buf_leave = 'buf_leave' } names the keys
+  },
   fey_hl_tag_name = 'hl',
   fey_query_tag_name = 'query',
   fey_query_result_tag_name = 'query_result',
@@ -213,7 +227,7 @@ local DefaultConfig = {
       fey_agenda_schedule = '<prefix>is',
       fey_agenda_filter = '/',
       fey_agenda_refile = '<prefix>r',
-      --   fey_agenda_add_note = '<prefix>na',
+      fey_agenda_add_note = '<prefix>na',
       fey_agenda_preview = 'K',
       fey_agenda_show_help = 'g?',
     },
@@ -253,7 +267,7 @@ local DefaultConfig = {
       -- fey_toggle_heading = '<prefix>*',
       fey_open_at_point = '<prefix>o',
       fey_edit_special = [[<prefix>']],
-      -- fey_add_note = '<prefix>na',
+      fey_add_note = '<prefix>na',
       fey_cycle = '<TAB>',
       fey_global_cycle = '<S-TAB>',
       fey_archive_subtree = '<prefix>$',

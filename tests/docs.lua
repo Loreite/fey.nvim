@@ -50,14 +50,7 @@ for _, group in ipairs({ 'global', 'fey', 'agenda', 'capture', 'note', 'text_obj
   table.sort(undescribed)
   check('every ' .. group .. ' mapping has a description', undescribed, {})
 end
-check('defaults without an entry are the ones waiting for phase two', docs.orphans(), {
-  'fey.fey_apply_all_settings',
-  'fey.fey_apply_settings_at_tag',
-  'fey.fey_run_all_buffer_commands',
-  'fey.fey_run_buffer_commands_at_tag',
-  'fey.fey_toggle_apply_all_settings_at_buffer_enter',
-  'fey.fey_toggle_run_all_buffer_commands_at_buffer_enter',
-})
+check('every default mapping has an entry', docs.orphans(), {})
 
 -- the API reference -----------------------------------------------------------------------------------------
 local reference = table.concat(vim.fn.readfile(root .. '/doc/fey_api.txt'), '\n')

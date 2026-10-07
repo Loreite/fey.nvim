@@ -2,10 +2,20 @@ local m = require('fey.config.mappings.map_entry')
 
 return {
   global = {
-    fey_agenda = m.action('agenda.prompt', { opts = { buffer = false, desc = 'fey agenda', help_desc = 'Open the agenda prompt' } }),
-    fey_capture = m.action('capture.prompt', { opts = { buffer = false, desc = 'fey capture', help_desc = 'Capture a new note or task' } }),
+    fey_agenda = m.action(
+      'agenda.prompt',
+      { opts = { buffer = false, desc = 'fey agenda', help_desc = 'Open the agenda prompt' } }
+    ),
+    fey_capture = m.action(
+      'capture.prompt',
+      { opts = { buffer = false, desc = 'fey capture', help_desc = 'Capture a new note or task' } }
+    ),
     fey_hollow_init = m.custom([[<Cmd>lua require('fey.vault').init()<CR>]], {
-      opts = { buffer = false, desc = 'init hollow', help_desc = 'Make the cwd a hollow (create its .fey folder) and index its Fey files' },
+      opts = {
+        buffer = false,
+        desc = 'init hollow',
+        help_desc = 'Make the cwd a hollow (create its .fey folder) and index its Fey files',
+      },
     }),
     fey_vault_reindex = m.custom([[<Cmd>lua require('fey.vault').reindex()<CR>]], {
       opts = { buffer = false, desc = 'reindex vault', help_desc = 'Update the vault index' },
@@ -14,7 +24,11 @@ return {
       opts = { buffer = false, desc = 'jump to hollow', help_desc = 'Browse the hollows from the court down and jump to one' },
     }),
     fey_hollow_jump_tab = m.custom([[<Cmd>lua require('fey.ui.navigator').hollows({ tab = true })<CR>]], {
-      opts = { buffer = false, desc = 'jump to hollow (tab)', help_desc = 'Browse the hollows and open the one you pick in a new tab' },
+      opts = {
+        buffer = false,
+        desc = 'jump to hollow (tab)',
+        help_desc = 'Browse the hollows and open the one you pick in a new tab',
+      },
     }),
     fey_db_new = m.custom([[<Cmd>lua require('fey.db').new()<CR>]], {
       opts = { buffer = false, desc = 'new database', help_desc = 'Open a new database view of all files in the vault' },
@@ -26,13 +40,21 @@ return {
       opts = { buffer = false, desc = 'new database (vsplit)', help_desc = 'Open a new database view in a vertical split' },
     }),
     fey_db_new_current = m.custom([[<Cmd>lua require('fey.db').new('current')<CR>]], {
-      opts = { buffer = false, desc = 'new database (this window)', help_desc = 'Open a new database view in the current window, full screen' },
+      opts = {
+        buffer = false,
+        desc = 'new database (this window)',
+        help_desc = 'Open a new database view in the current window, full screen',
+      },
     }),
     fey_db_new_tab = m.custom([[<Cmd>lua require('fey.db').new('tab')<CR>]], {
       opts = { buffer = false, desc = 'new database (tab)', help_desc = 'Open a new database view in a new tab' },
     }),
     fey_db_pick_current = m.custom([[<Cmd>lua require('fey.db').pick('current')<CR>]], {
-      opts = { buffer = false, desc = 'pick database (this window)', help_desc = 'Pick an existing database and open it in the current window' },
+      opts = {
+        buffer = false,
+        desc = 'pick database (this window)',
+        help_desc = 'Pick an existing database and open it in the current window',
+      },
     }),
     fey_db_pick = m.custom([[<Cmd>lua require('fey.db').pick()<CR>]], {
       opts = { buffer = false, desc = 'pick database', help_desc = 'Pick an existing database to open' },
@@ -79,7 +101,10 @@ return {
     ),
     fey_agenda_redo = m.action(
       'agenda.redo',
-      { args = { 'mapping' }, opts = { desc = 'fey redo', help_desc = 'Rebuild the agenda from the index (asks again in a match or search view)' } }
+      {
+        args = { 'mapping' },
+        opts = { desc = 'fey redo', help_desc = 'Rebuild the agenda from the index (asks again in a match or search view)' },
+      }
     ),
     fey_agenda_todo = m.action(
       'agenda.change_todo_state',
@@ -163,10 +188,10 @@ return {
         help_desc = 'Preview agenda item in floating window',
       },
     }),
-    --   fey_agenda_add_note = m.action(
-    --     'agenda.add_note',
-    --     { opts = { desc = 'fey add note', help_desc = 'Add a note to the current heading' } }
-    --   ),
+    fey_agenda_add_note = m.action(
+      'agenda.add_note',
+      { opts = { desc = 'fey add note', help_desc = 'Add a note to the current heading' } }
+    ),
     fey_agenda_show_help = m.action(
       'fey_mappings.show_help',
       { args = { 'agenda' }, opts = { desc = 'fey show help', help_desc = 'Show this help' } }
@@ -181,7 +206,10 @@ return {
       'capture.refile_to_destination',
       { opts = { desc = 'fey refile', help_desc = 'Write to a destination you pick' } }
     ),
-    fey_capture_kill = m.action('capture.kill', { args = { true }, opts = { desc = 'fey kill', help_desc = 'Close without saving' } }),
+    fey_capture_kill = m.action(
+      'capture.kill',
+      { args = { true }, opts = { desc = 'fey kill', help_desc = 'Close without saving' } }
+    ),
     fey_capture_show_help = m.action(
       'fey_mappings.show_help',
       { args = { 'capture' }, opts = { desc = 'fey show help', help_desc = 'Show this help' } }
@@ -247,14 +275,63 @@ return {
     ),
     fey_toggle_checkbox = m.action(
       'fey_mappings.toggle_checkbox',
-      { opts = { desc = 'fey toggle checkbox', help_desc = 'Toggle the checkbox of the list item (adds one when there is none), and update progress cookies' } }
+      {
+        opts = {
+          desc = 'fey toggle checkbox',
+          help_desc = 'Toggle the checkbox of the list item (adds one when there is none), and update progress cookies',
+        },
+      }
     ),
     fey_insert_footnote = m.custom([[<Cmd>lua require('fey.footnotes').insert()<CR>]], {
-      opts = { desc = 'insert footnote', help_desc = 'Write a footnote reference at the cursor and its definition, ready to type' },
+      opts = {
+        desc = 'insert footnote',
+        help_desc = 'Write a footnote reference at the cursor and its definition, ready to type',
+      },
     }),
+    fey_apply_all_settings = m.custom([[<Cmd>lua require('fey.settings').apply_current()<CR>]], {
+      opts = {
+        desc = 'apply settings',
+        help_desc = 'Apply the settings of the note: the nvim and plugin tags of the court, the hollow and the note',
+      },
+    }),
+    fey_apply_settings_at_tag = m.custom([[<Cmd>lua require('fey.settings').apply_tag_at_cursor()<CR>]], {
+      opts = { desc = 'apply tag settings', help_desc = 'Apply the nvim or plugin tag under the cursor' },
+    }),
+    fey_toggle_apply_all_settings_at_buffer_enter = m.custom(
+      [[<Cmd>lua require('fey.settings').toggle_apply_at_enter()<CR>]],
+      {
+        opts = { desc = 'toggle settings on enter', help_desc = 'Apply settings when a note is entered, or stop doing it' },
+      }
+    ),
+    fey_run_all_buffer_commands = m.custom([[<Cmd>lua require('fey.settings').run_hooks_now()<CR>]], {
+      opts = {
+        desc = 'run buffer commands',
+        help_desc = 'Run the buffer commands of the note (only when settings.hooks names their keys)',
+      },
+    }),
+    fey_run_buffer_commands_at_tag = m.custom([[<Cmd>lua require('fey.settings').run_hooks_at_tag()<CR>]], {
+      opts = {
+        desc = 'run tag commands',
+        help_desc = 'Run the buffer commands of the tag under the cursor (only when settings.hooks names their keys)',
+      },
+    }),
+    fey_toggle_run_all_buffer_commands_at_buffer_enter = m.custom(
+      [[<Cmd>lua require('fey.settings').toggle_hooks_at_enter()<CR>]],
+      {
+        opts = {
+          desc = 'toggle buffer commands on enter',
+          help_desc = 'Run the buffer commands when a note is entered and left, or stop doing it',
+        },
+      }
+    ),
     fey_set_checkbox_state = m.action(
       'fey_mappings.set_checkbox_state',
-      { opts = { desc = 'fey set checkbox state', help_desc = 'Pick the state of the checkbox of the list item (in progress, important, note ...)' } }
+      {
+        opts = {
+          desc = 'fey set checkbox state',
+          help_desc = 'Pick the state of the checkbox of the list item (in progress, important, note ...)',
+        },
+      }
     ),
     --   fey_toggle_heading = m.action(
     --     'fey_mappings.toggle_heading',
@@ -268,10 +345,10 @@ return {
       'fey_mappings.edit_special',
       { opts = { desc = 'fey edit special', help_desc = 'Edit the source block under the cursor in another buffer' } }
     ),
-    --   fey_add_note = m.action(
-    --     'fey_mappings.add_note',
-    --     { opts = { desc = 'fey add note', help_desc = 'Add a note to the current heading' } }
-    --   ),
+    fey_add_note = m.action(
+      'fey_mappings.add_note',
+      { opts = { desc = 'fey add note', help_desc = 'Add a note to the current heading' } }
+    ),
     fey_cycle = m.action('fey_mappings.cycle', { opts = { desc = 'fey toggle fold', help_desc = 'Toggle folding' } }),
     fey_global_cycle = m.action(
       'fey_mappings.global_cycle',
@@ -578,19 +655,34 @@ return {
     --
     fey_table_merge_cell_content_from_left = m.action(
       'fey_mappings.table_merge_cell_content',
-      { args = { 'horizontal', true }, opts = { desc = 'merge cell content from left', help_desc = 'Merge the content of the cell to the left into this cell' } }
+      {
+        args = { 'horizontal', true },
+        opts = { desc = 'merge cell content from left', help_desc = 'Merge the content of the cell to the left into this cell' },
+      }
     ),
     fey_table_merge_cell_content_from_right = m.action(
       'fey_mappings.table_merge_cell_content',
-      { args = { 'horizontal', false }, opts = { desc = 'merge cell content from right', help_desc = 'Merge the content of the cell to the right into this cell' } }
+      {
+        args = { 'horizontal', false },
+        opts = {
+          desc = 'merge cell content from right',
+          help_desc = 'Merge the content of the cell to the right into this cell',
+        },
+      }
     ),
     fey_table_merge_cell_content_from_above = m.action(
       'fey_mappings.table_merge_cell_content',
-      { args = { 'vertical', true }, opts = { desc = 'merge cell content from above', help_desc = 'Merge the content of the cell above into this cell' } }
+      {
+        args = { 'vertical', true },
+        opts = { desc = 'merge cell content from above', help_desc = 'Merge the content of the cell above into this cell' },
+      }
     ),
     fey_table_merge_cell_content_from_below = m.action(
       'fey_mappings.table_merge_cell_content',
-      { args = { 'vertical', false }, opts = { desc = 'merge cell content from below', help_desc = 'Merge the content of the cell below into this cell' } }
+      {
+        args = { 'vertical', false },
+        opts = { desc = 'merge cell content from below', help_desc = 'Merge the content of the cell below into this cell' },
+      }
     ),
     -- END:
 
@@ -604,7 +696,10 @@ return {
     --   fey_export = m.action('fey_mappings.export', { opts = { desc = 'fey export', help_desc = 'Open export options' } }),
     fey_return = m.action('fey_mappings.fey_return', {
       modes = { 'i' },
-      opts = { desc = 'fey return', help_desc = 'Insert mode: move through a table, keep the indentation of a paragraph or list item' },
+      opts = {
+        desc = 'fey return',
+        help_desc = 'Insert mode: move through a table, keep the indentation of a paragraph or list item',
+      },
     }),
     fey_next_visible_heading = m.action('fey_mappings.next_visible_heading', {
       modes = { 'n', 'x' },

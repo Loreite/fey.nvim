@@ -392,21 +392,25 @@ function FeyMappings:toggle_heading()
   return set_line_and_dispatch_event(line, 'line_to_child_heading')
 end
 
----Prompt for a note
+---The first line of a note: a list item with an inactive date, then what kind of note it is
+---@param what string for example `Note taken:`
+---@return string
+local function note_head(what) return ('-  %s  %s'):format(Date.now():to_tag_text({ active = false }), what) end
+
+---Prompt for a note and make it a list item: the head, with the first line of the text after it, and the other
+---lines indented under it
 ---@private
----@param template string
----@param indent string
----@param title string
+---@param head string see `note_head`
+---@param title string title of the prompt
 ---@return FeyPromise<string[]>
-function FeyMappings:_get_note(template, indent, title)
-  return self.capture:build_note_capture(title):open():next(function(closing_note)
-    if closing_note == nil then return end
-
-    for i, line in ipairs(closing_note) do
-      closing_note[i] = indent .. '  ' .. line
+function FeyMappings:_get_note(head, title)
+  return self.capture:build_note_capture(title):open():next(function(text)
+    if text == nil then return end
+    local lines = { vim.trim(head .. ' ' .. (text[1] or '')) }
+    for i = 2, #text do
+      lines[#lines + 1] = text[i] ~= '' and ('   ' .. text[i]) or ''
     end
-
-    return vim.list_extend({ template }, closing_note)
+    return lines
   end)
 end
 
@@ -435,9 +439,7 @@ function FeyMappings:_todo_change_state(direction)
 
   local prompt_done_note = config.fey_log_done == 'note'
   local log_closed_time = config.fey_log_done == 'time'
-  local indent = heading:get_indent()
-
-  local closing_note_text = ('%s- CLOSING NOTE %s \\\\'):format(indent, Date.now():to_wrapped_string(false))
+  local closing_head = note_head('Closing note:')
   local closed_title = 'Insert note for closed todo item'
 
   local repeater_dates = item:get_repeater_dates()
@@ -456,9 +458,7 @@ function FeyMappings:_todo_change_state(direction)
 
     if is_undone or not prompt_done_note then return item end
 
-    return self
-      :_get_note(closing_note_text, indent, closed_title)
-      :next(function(closing_note) return item:add_note(closing_note) end)
+    return self:_get_note(closing_head, closed_title):next(function(closing_note) return item:add_note(closing_note) end)
   end
 
   for _, date in ipairs(repeater_dates) do
@@ -476,12 +476,7 @@ function FeyMappings:_todo_change_state(direction)
 
   local prompt_repeat_note = config.fey_log_repeat == 'note'
   local log_repeat_enabled = config.fey_log_repeat ~= false
-  local repeat_note_template = ('%s- State %-12s from %-12s [%s]'):format(
-    indent,
-    [["]] .. new_todo .. [["]],
-    [["]] .. (old_state or '') .. [["]],
-    Date.now():to_string()
-  )
+  local repeat_note_template = note_head(('State "%s" from "%s"'):format(new_todo, old_state or ''))
   local repeat_note_title = ('Insert note for state change from "%s" to "%s"'):format(old_state or '', new_todo)
 
   if log_repeat_enabled then item:set_property('LAST_REPEAT', Date.now():to_wrapped_string(false)) end
@@ -494,13 +489,11 @@ function FeyMappings:_todo_change_state(direction)
 
   -- Done note has precedence over repeat note
   if prompt_done_note then
-    return self
-      :_get_note(closing_note_text, indent, closed_title)
-      :next(function(closing_note) return item:add_note(closing_note) end)
+    return self:_get_note(closing_head, closed_title):next(function(closing_note) return item:add_note(closing_note) end)
   end
 
   return self
-    :_get_note(repeat_note_template .. ' \\\\', indent, repeat_note_title)
+    :_get_note(repeat_note_template, repeat_note_title)
     :next(function(closing_note) return item:add_note(closing_note) end)
 end
 
@@ -1180,18 +1173,18 @@ end
 
 function FeyMappings:_edit_special_callback() EditSpecial:new():done() end
 
+---Prompt for a note and write it into the heading under the cursor (`fey_add_note`)
 function FeyMappings:add_note()
   local heading = self.files:get_closest_heading()
-  local indent = heading:get_indent()
-  local text = ('%s- Note taken on %s \\\\'):format(indent, Date.now():to_wrapped_string(false))
-  return self:_get_note(text, indent, string.format('Insert note for %s.', heading:get_title() or 'entry')):next(function(note)
-    if not note then return false end
-    return heading:add_note(note)
-  end)
+  return self
+    :_get_note(note_head('Note taken:'), string.format('Insert note for %s.', heading:get_title() or 'entry'))
+    :next(function(note)
+      if not note then return false end
+      return heading:add_note(note)
+    end)
 end
 
 function FeyMappings:open_at_point() return require('fey.links').open_at_cursor() end
-
 
 function FeyMappings:export() return require('fey.export').prompt() end
 
@@ -1510,9 +1503,7 @@ function FeyMappings:_get_date_under_cursor()
   local edit = require('fey.files.elements.tags.edit')
   local col = vim.fn.col('.')
   local tag = edit.at_cursor()
-  if not tag or not vim.tbl_contains(require('fey.files.elements.tags.handlers.date').names(), tag.name) then
-    return nil
-  end
+  if not tag or not vim.tbl_contains(require('fey.files.elements.tags.handlers.date').names(), tag.name) then return nil end
   local dates = Date.from_tag(tag)
   if dates[2] and col >= dates[2].range.start_col then return dates[2] end
   return dates[1]

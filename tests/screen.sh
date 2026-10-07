@@ -75,6 +75,28 @@ export FEY_OPTS="{ fey_footnote_superscript = false }"
 out=$(screen_of "$TMP/notes.fey" ':normal zR' ':normal G')
 check 'superscript off: the tags are as written' "$out" '{@ fn, 12 @}' yes
 
+# settings from the court and the note, applied while the note is open
+mkdir -p "$TMP/court/.fey" "$TMP/plain"
+cat >"$TMP/court/.fey/config.fey" <<'EOF'
+{# nvim; number: true #}
+EOF
+cat >"$TMP/plain/note.fey" <<'EOF'
+  I. A note
+
+Some text.
+EOF
+cat >"$TMP/plain/own.fey" <<'EOF'
+{# nvim; number: false #}
+  I. A note with its own setting
+
+Some text.
+EOF
+export FEY_OPTS="{ fey_court_dir = '$TMP/court' }"
+out=$(screen_of "$TMP/plain/note.fey" ':sleep 700m' ':normal zR')
+check 'the court sets line numbers for a note without a setting' "$out" '  1   I. A note' yes
+out=$(screen_of "$TMP/plain/own.fey" ':sleep 700m' ':normal zR')
+check 'the note beats the court' "$out" '  1 ' no
+
 rm -rf "$TMP"
 if [ "$failed" -gt 0 ]; then echo "screen: $failed of $total checks failed"; exit 1; fi
 echo "ok: $total screen checks"

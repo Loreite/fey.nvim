@@ -132,6 +132,7 @@ function Tag.setup(handlers)
   vim.validate('fey_hl_tag_name', config.fey_hl_tag_name, 'string')
   vim.validate('fey_query_tag_name', config.fey_query_tag_name, 'string')
   Tag.handlers[config.fey_nvim_config_tag_name] = nvim_config.handlers
+  Tag.handlers[config.fey_plugin_tag_name] = nvim_config.handlers
   Tag.handlers[config.fey_hl_tag_name] = hl.handlers
   Tag.handlers[config.fey_query_tag_name] = query_handler.handlers
   Tag.handlers[config.fey_db_tag_name] = feydb_handler.handlers

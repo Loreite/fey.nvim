@@ -550,18 +550,18 @@ function Heading:set_property(name, value)
   return self:refresh()
 end
 
+---Write a note (the lines of a list item) into the heading: at the top of its logbook when
+---`fey_log_into_logbook` is on (the logbook is made when there is none), else in its text below the metadata
 ---@param note string[] | nil
 ---@return FeyHeading
 function Heading:add_note(note)
   if not note then return self end
-  local drawer = config.fey_log_into_drawer
-  local append_line
-  if drawer ~= nil then
-    append_line = self:get_drawer_append_line(drawer)
+  if config.fey_log_into_logbook then
+    self:add_to_drawer(config.fey_logbook_tag_name, note)
   else
-    append_line = self:get_append_line()
+    local append_line = self:get_append_line()
+    vim.api.nvim_buf_set_lines(self.file:get_valid_bufnr(), append_line, append_line, false, self:_apply_indent(note))
   end
-  vim.api.nvim_buf_set_lines(self.file:get_valid_bufnr(), append_line, append_line, false, note)
   EventManager.dispatch(events.NoteAdded:new(self, note))
   return self:refresh()
 end
@@ -912,37 +912,43 @@ end
 
 function Heading:child_checkboxes(list_node) return require('fey.files.elements.listitem').boxes_of_list(list_node, self.file) end
 
----@return TSNode | nil
+---A drawer of the heading: the pair tag with that name in its own text (not in a subsection). The logbook of
+---the clock and of notes is one, and any pair tag can be: `[ name #]` ... `[# name ]`.
+---@param name string matched case insensitively
+---@return TSNode | nil pair_tag
 function Heading:get_drawer(name)
   local section = self:node():parent()
   if not section then return nil end
   local body = section:field('body')[1]
   if not body then return nil end
-
   for _, node in ipairs(ts_utils.get_named_children(body)) do
-    if node:type() == 'drawer' then
-      local drawer_name = node:field('name')
-      if #drawer_name and string.lower(self.file:get_node_text(drawer_name[1])) == string.lower(name) then return node end
+    if node:type() == 'pair_tag' then
+      local open = node:field('open')[1]
+      local tag_name = open and open:field('name')[1]
+      if tag_name and self.file:get_node_text(tag_name):lower() == name:lower() then return node end
     end
   end
 end
 
----Return the line number where content can be appended within
----the drawer with the given name, matched case-insensitively
+---The line (0-based, to insert before it) at the top of the drawer with the given name, right under its
+---opener: new entries go first. The drawer is made, under the metadata of the heading, when there is none.
 ---@param name string
 ---@return number
 function Heading:get_drawer_append_line(name)
   local drawer = self:get_drawer(name)
-
   if not drawer then
     local bufnr = self.file:get_valid_bufnr()
-    local append_line = self:get_append_line()
-    local new_drawer = self:_apply_indent({ ':' .. name .. ':', ':END:' }) --[[ @as string[] ]]
-    vim.api.nvim_buf_set_lines(bufnr, append_line, append_line, false, new_drawer)
-    drawer = self:get_drawer(name)
+    local at = self:get_append_line()
+    local block = { ('[ %s #]'):format(name), ('[# %s ]'):format(name) }
+    local following = vim.api.nvim_buf_get_lines(bufnr, at, at + 1, false)[1]
+    if following and following:match('%S') then block[#block + 1] = '' end
+    vim.api.nvim_buf_set_lines(bufnr, at, at, false, block)
+    -- the tree is old: the drawer is the block just written
+    return at + 1
   end
-  local name_row = drawer and drawer:field('name')[1]:end_() or 0
-  return name_row + 1
+  local open = drawer:field('open')[1]
+  local _, _, open_end_row = open:range()
+  return open_end_row + 1
 end
 
 memoize('get_range')
@@ -1107,17 +1113,14 @@ function Heading:_handle_promote_demote(recursive, modifier, dryRun)
   return self:refresh()
 end
 
+---Add lines at the top of a drawer of the heading
 ---@param drawer_name string
----@param content string
+---@param content string|string[]
 ---@return FeyHeading
 function Heading:add_to_drawer(drawer_name, content)
   local append_line = self:get_drawer_append_line(drawer_name)
-  local bufnr = self.file:get_valid_bufnr()
-
-  -- Add the content indented appropriately
-  local indented_content = self:_apply_indent(content) --[[ @as string ]]
-  vim.api.nvim_buf_set_lines(bufnr, append_line, append_line, false, { indented_content })
-
+  local lines = type(content) == 'table' and content or { content }
+  vim.api.nvim_buf_set_lines(self.file:get_valid_bufnr(), append_line, append_line, false, lines)
   return self:refresh()
 end
 
