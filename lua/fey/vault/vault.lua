@@ -11,7 +11,7 @@
 --   labels      file_id, heading_ord, label, container, line
 --   properties  file_id, name, value (JSON): top level keys of the document data
 --   dates       file_id, heading_ord, line, col, kind (date, scheduled, deadline, closed, clock), active, start_ts, start_time, end_ts, end_time, repeater, warn
---   tasks       file_id, heading_ord, line, kind, state, done, priority, title
+--   tasks       file_id, heading_ord, line, kind (heading, item), state, done, priority, title
 --
 -- `heading_ord` is NULL for document level entries. `links.target_file` and
 -- `links.target_sig` hold the resolved destination, so the backlinks of a file or
@@ -21,7 +21,7 @@ local extract = require('fey.vault.extract')
 local fs = require('fey.utils.fs')
 local uv = vim.uv
 
-local SCHEMA_VERSION = 5
+local SCHEMA_VERSION = 6
 
 local SCHEMA = [[
 CREATE TABLE files (
@@ -116,8 +116,8 @@ CREATE TABLE tasks (
   file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
   heading_ord INTEGER,
   line INTEGER,
-  kind TEXT NOT NULL,        -- heading
-  state TEXT,                -- the todo keyword
+  kind TEXT NOT NULL,        -- heading (a status tag) or item (a checkbox of a list item)
+  state TEXT,                -- the todo keyword, or the mark of a checkbox: space, x or -
   done INTEGER NOT NULL,
   priority TEXT,
   title TEXT
@@ -908,11 +908,15 @@ function Vault:dates(opts)
 end
 
 ---Tasks of the vault (headings with a todo keyword or a priority) with their labels
----@param opts? { state?: string|string[], done?: boolean, priority?: string, label?: string, path?: string }
----@return table[] rows path, line, heading_ord, title, signature, state, done, priority, labels (list)
+---@param opts? { state?: string|string[], done?: boolean, priority?: string, label?: string, path?: string, kind?: 'heading'|'item'|'all' } `kind`: the headings with a status (default), the checkbox items, or both
+---@return table[] rows path, line, heading_ord, title, signature, state, done, priority, kind, labels (list)
 function Vault:tasks(opts)
   opts = opts or {}
   local where, params = {}, {}
+  if opts.kind ~= 'all' then
+    where[#where + 1] = 't.kind = :kind'
+    params.kind = opts.kind or 'heading'
+  end
   if opts.state then
     local states = type(opts.state) == 'table' and opts.state or { opts.state }
     local marks = {}
@@ -942,7 +946,7 @@ function Vault:tasks(opts)
   end
 
   local rows = self:query(
-    [[SELECT f.path, t.line, t.heading_ord, t.title, h.signature, t.state, t.done, t.priority, t.file_id
+    [[SELECT f.path, t.line, t.heading_ord, t.title, h.signature, t.state, t.done, t.priority, t.kind, t.file_id
       FROM tasks t JOIN files f ON f.id = t.file_id
       LEFT JOIN headings h ON h.file_id = t.file_id AND h.ord = t.heading_ord
       ]] .. (#where > 0 and ('WHERE ' .. table.concat(where, ' AND ')) or '') .. [[
@@ -958,11 +962,58 @@ function Vault:tasks(opts)
     table.insert(labels[key], l.label)
   end
   for _, row in ipairs(rows) do
-    row.labels = labels[row.file_id .. ':' .. row.heading_ord] or {}
+    row.labels = row.heading_ord and labels[row.file_id .. ':' .. row.heading_ord] or {}
     row.file_id = nil
     row.done = row.done == 1
   end
   return rows
+end
+
+---Footnotes of the notes: one row per label of a file, with the number of references, the line of the first one
+---and whether a definition (the pair tag) exists. A reference without a definition is a missing footnote
+---@param opts? { path?: string, missing?: boolean, unused?: boolean } `missing`: referenced and not defined, `unused`: defined and not referenced
+---@return table[] rows path, label, references, line (first reference), defined, definition_line
+function Vault:footnotes(opts)
+  opts = opts or {}
+  local name = require('fey.config').fey_footnote_tag_name
+  local sql = [[SELECT f.path, t.line, t.kind, t.vals FROM tags t JOIN files f ON f.id = t.file_id
+    WHERE t.name = :name]]
+  local params = { name = name }
+  if opts.path then
+    sql = sql .. ' AND f.path = :path'
+    params.path = opts.path
+  end
+  local by_key, order = {}, {}
+  for _, row in ipairs(self:query(sql .. ' ORDER BY f.path, t.line', params)) do
+    local vals = decode(row.vals)
+    local label = vals and vals[1] and tostring(vals[1]) or nil
+    if label and label ~= '' then
+      local key = row.path .. '\0' .. label
+      local entry = by_key[key]
+      if not entry then
+        entry = { path = row.path, label = label, references = 0, defined = false }
+        by_key[key] = entry
+        order[#order + 1] = entry
+      end
+      if row.kind == 'pair' or row.kind == 'line' or row.kind == 'block' then
+        if not entry.defined then
+          entry.defined = true
+          entry.definition_line = row.line
+        end
+      else
+        entry.references = entry.references + 1
+        entry.line = entry.line or row.line
+      end
+    end
+  end
+  local out = {}
+  for _, entry in ipairs(order) do
+    local keep = true
+    if opts.missing then keep = entry.references > 0 and not entry.defined end
+    if opts.unused then keep = entry.defined and entry.references == 0 end
+    if keep then out[#out + 1] = entry end
+  end
+  return out
 end
 
 ---Links and section tags that point to a file, or to one of its sections when

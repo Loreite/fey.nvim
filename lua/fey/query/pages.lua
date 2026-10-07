@@ -528,7 +528,7 @@ function Store:_tasks()
   if self.task_rows then return self.task_rows, self.task_dates end
   local by_path, dates = {}, {}
   for _, r in ipairs(self.vault:query(
-    [[SELECT f.path, t.line, t.heading_ord, t.title, t.state, t.done, t.priority
+    [[SELECT f.path, t.line, t.heading_ord, t.title, t.state, t.done, t.priority, t.kind
       FROM tasks t JOIN files f ON f.id = t.file_id ORDER BY f.path, t.line]]
   )) do
     by_path[r.path] = by_path[r.path] or {}
@@ -553,11 +553,15 @@ end
 function Store:task_object(page, row)
   local path = rawget(page, '__path')
   local _, dates = self:_tasks()
-  local own_dates = dates[path .. '\0' .. row.heading_ord] or {}
+  -- the dates of a heading are not the dates of the checkbox items in it
+  local is_item = row.kind == 'item'
+  local own_dates = (not is_item and row.heading_ord and dates[path .. '\0' .. row.heading_ord]) or {}
   local heading = (self:_headings()[path] or {})[row.heading_ord]
   return lazy(function(t, k)
     if k == 'text' or k == 'title' then return row.title end
+    if k == 'kind' then return row.kind or 'heading' end
     if k == 'state' then return row.state or NULL end
+    if k == 'checked' then return is_item and row.done == 1 or false end
     if k == 'completed' or k == 'done' then return row.done == 1 end
     if k == 'priority' then return row.priority or NULL end
     if k == 'line' then return row.line end
@@ -566,13 +570,13 @@ function Store:task_object(page, row)
     if k == 'link' then return V.link(path, row.title, heading and heading.signature or nil, self:hollow_id()) end
     if k == 'labels' then
       self:_labels()
-      return V.list(vim.deepcopy(self.section_labels[path .. '\0' .. row.heading_ord] or {}))
+      return V.list(vim.deepcopy((row.heading_ord and self.section_labels[path .. '\0' .. row.heading_ord]) or {}))
     end
     if k == 'scheduled' or k == 'deadline' or k == 'closed' then return own_dates[k] or NULL end
     if k == 'date' then return own_dates.date or NULL end
     return nil
   end, function()
-    return { 'closed', 'completed', 'date', 'deadline', 'file', 'labels', 'line', 'link', 'priority', 'scheduled', 'signature', 'state', 'text' }
+    return { 'checked', 'closed', 'completed', 'date', 'deadline', 'file', 'kind', 'labels', 'line', 'link', 'priority', 'scheduled', 'signature', 'state', 'text' }
   end, { __path = path, __store = self })
 end
 

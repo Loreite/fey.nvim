@@ -1628,6 +1628,80 @@ Example:
     ###
 
 
+Done (2026-10-06): checkboxes and progress cookies.
+
+-  Chose:  a grammar rule, as proposed: `checkbox` is the first thing of the
+   contents of a `listitem` (`[ ]`, `[x]`, `[X]`, `[-]`), a single token. No
+   scanner change was needed: the pair tag opener needs a name and a closing
+   token, a box has neither, and the corpus tests (`checkboxes: open, done,
+   partial`, and a bracket pair in the middle of the text that is not a box)
+   show the two do not compete. Cookies stay plain text. The node includes the
+   blanks before it, so the Lua side trims and computes the exact range.
+-  Code:  the rules are in `files/elements/checkbox.lua` (state, what a box becomes,
+   a parent following its children, cookie arithmetic with a guard for zero),
+   `Listitem:update_checkbox` and `Heading:update_cookie` use it. Toggling an item
+   that has no box gives it one. Fixed on the way: heading cookies were never found,
+   `_parse_title_part` still looked for the org `item` node instead of `title`;
+   and a percent cookie with no boxes divided by zero.
+-  Mapping and colours:  `fey_toggle_checkbox` `<C-Space>`; the highlight query
+   marks boxes, done ones and partly done ones apart.
+-  Vault:  every box is a `tasks` row of kind `item` in the section that holds the
+   list (mark in `state`, `done` for x and X, the first line of the item as the
+   title). Index version 6. `Vault:tasks` gets `kind` (headings by default, so
+   nothing changed for the agenda), and TASK queries list items too, with the
+   fields `kind` and `checked`; items do not inherit the dates of their heading.
+-  Not yet:  the percent done of a heading as a computed query field, and
+   the agenda does not list checkbox items (it is built from headings).
+-  Tests:  `tests/checkbox.lua` (33 checks): the rules, toggling and propagation in
+   a buffer (item, parent, heading, back, an item without a box, percent
+   cookies), the index rows and the `kind` option, TASK queries over items, the
+   highlight captures and the mapping. Two corpus tests in the grammar repo; its
+   two older failing corpus tests (error recovery of unclosed pairs) fail
+   with and without this change.
+
+Changed (2026-10-06): many checkbox states, shown as icons.
+
+-  Grammar:  the checkbox token is any single mark that is not a digit, a
+   bracket or a blank (and the blank itself): `[ ]`, `[x]`, `[/]`, `[!]`, `[n]`.
+   Digits stay out so a cookie or a reference is never a box. The grammar only
+   knows the shape; corpus test added.
+-  States:  `files/elements/checkbox.lua` holds the table of 56 states: the
+   symbols first (`. , : ; ! ? - + * = ~ ^ @ # $ & % / > <` and the quote), the
+   letters of the Primary theme of Obsidian (`n l i S I p c b u d r L t T`) and
+   some more letters (`a B C D e E f F g h k m M P R v w W`). Each has a name, a
+   class and two icons, a Nerd Font glyph (BMP Font Awesome codepoints, present
+   in Nerd Fonts 2 and 3) and a one cell Unicode symbol. The README carries the
+   table, generated from this file (`scripts/gen_mappings.lua`, checked by
+   `tests/docs.lua`).
+-  Classes:  every mark is open, active, done, cancelled or info. The rules look
+   at the class: the progress of a parent or a cookie counts open, active and
+   done, and leaves out cancelled and info ones (a note is not a task); a parent
+   is done when all that count are done, open when none is done or active,
+   `[/]` otherwise. Only the class done is `done` in the index. An unknown mark
+   is an open box. Choices worth knowing: `-` is cancelled, as in the Obsidian
+   themes, so the "partly done" mark of org (`[-]`) is now `[/]`; `.` is
+   someday, `,` waiting, `:` delegated, `;` deferred, `+` new, `=` duplicate, `~`
+   in review, `^` escalated, `$` payment, `%` partly done, `@` mention, `#`
+   topic, `&` related.
+-  Icons:  `colors/highlighter/checkbox_icons.lua`: the box is concealed and an
+   inline virtual text shows the icon with the colour of its class
+   (`@fey.checkbox.open|active|done|cancelled|info`). The line of the cursor
+   shows the box as written. Options: `fey_show_checkbox_state_as_icons`
+   (default on, `b:fey_show_checkbox_state_as_icons` per buffer),
+   `fey_checkbox_icons` (`auto`: Nerd Font glyphs when nvim-web-devicons is
+   installed, else Unicode; or `nerd`, `unicode`), `fey_checkbox_icon_overrides`
+   (mark to icon). The option is named with the `fey_` prefix like the others.
+-  Picker:  `fey_set_checkbox_state` `<prefix>sc` lists the states with their
+   icon, name and class and sets the mark (parents and cookies follow).
+-  Tests:  `tests/checkbox.lua` is at 55 checks: classes, progress with notes and
+   cancelled items, toggle, a given mark, parents, unique marks, one cell
+   icons, every requested mark present, the index with other marks, the icon
+   extmarks (hidden text, icon, class colour, nerd and unicode sets, an
+   override, the cursor line, the switches) and the picker's mapping.
+-  Not yet:  the icon is a virtual text, so a very wide font glyph can shift the
+   text after it a cell; the Nerd Font icons were chosen by name and were not
+   looked at in a font here.
+
   III.C. Footnotes
 
 -  Now:  `objects/footnote.lua`, `FeyFile:find_footnote_definition`,
@@ -1655,6 +1729,64 @@ Example:
     [# fn ]
     ###
 
+
+Done (2026-10-07): footnotes.
+
+-  Chose:  tags, no grammar, as proposed. A reference is the scope tag `{@ fn,
+   label @}`, a definition the pair tag `[ fn, label #]` ... `[# fn ]`; the name is
+   `fey_footnote_tag_name`. The grammar already parses both (checked), so
+   nothing in the tree-sitter repository changed.
+-  Code:  `footnotes/init.lua` reads the footnote tags of a buffer
+   (`scan`, `find`, `at_cursor`), jumps both ways, creates a definition and
+   inserts a footnote. The tag handlers are registered for open at point
+   (`<prefix>o`, via `Tag.at_point`): a reference jumps to the text of its
+   definition and offers to make one, the opening or closing line of a definition
+   jumps to the first reference. New definitions go under a heading titled
+   Footnotes, else at the end of the file, as an opener, an empty line to type in
+   and a closer, with the cursor in insert mode there. The old org code is
+   gone: `objects/footnote.lua`, `FeyFile:find_footnote_*`, the `_jump_to_footnote_*`
+   mappings (they looked for grammar nodes `fnref` and `fndef` that never existed).
+-  Mapping:  `fey_insert_footnote` `<prefix>nf`: a reference at the cursor with the
+   smallest unused number, and its definition.
+-  Vault:  `Vault:footnotes({ path, missing, unused })` gives a row per label of
+   a file: references, the first line, whether it is defined and where.
+   `FeyApiVault:footnotes` and the health check use it (`:checkhealth fey` lists
+   references with no definition in every hollow).
+-  Not yet:  footnotes across files (a label is local to its file), a rename of
+   a label with its references, and showing the text of a note as virtual text
+   or in a float.
+-  Tests:  `tests/footnotes.lua` (28 checks): reading, the cursor, open at point
+   in both directions, creating a missing definition after a confirmation,
+   inserting (labels, the end of the file, under a Footnotes heading, before the
+   next heading), the index, the missing and unused queries, the API and the
+   mapping.
+
+Changed (2026-10-07): every definition form, superscript labels, and a fix for the checkbox icons.
+
+-  Forms:  a definition is the pair tag, the line tag (`#[ fn, 2 ] text #`) or the
+   block tag (`[ fn, 3 ]#` and the indented text); a reference is the scope tag.
+   Open at point works on all of them: a reference goes to the text of the
+   definition (for a line tag, right after its head), a definition goes back. The
+   vault counts all three forms as definitions. `fey_footnote_definition_form`
+   (`pair`, `line`, `block`) is the form `<prefix>nf` writes.
+-  Superscript:  `colors/highlighter/footnote_marks.lua` hides the syntax of a
+   reference and of the head of a definition and shows the label as superscript
+   (the replacement characters of the concealed ones, one for each character of
+   the label; the closer of a pair is hidden, the line of the cursor is raw).
+   `fey_footnote_superscript`: `auto` converts digits and signs, `true` letters as
+   well (`footnotes/superscript.lua`), `false` never; `b:fey_footnote_superscript`
+   per buffer. A label that cannot be written whole stays as written. Neovim
+   cannot ask a font which characters it has, so there is no detection: `auto` only
+   uses what nearly every font draws, and letters are opt in.
+-  Checkbox icons, a bug:  they were an inline virtual text on an ephemeral mark,
+   which is not drawn: the box disappeared and nothing took its place. The
+   bracket is now concealed with the icon as its replacement character
+   (colour of the class kept). Found by reading a real screen: `tests/screen.sh`
+   opens files in a real Neovim inside tmux and checks what is drawn (icons,
+   hidden boxes, superscript, switches), and skips without tmux.
+-  Tests:  `tests/footnotes.lua` is at 63 checks (every form, open at point both
+   ways for each, the forms of new definitions, the index, superscript and its
+   rendering); `tests/screen.sh` 11 screen checks.
 
   III.D. Document directives become data
 

@@ -3,6 +3,8 @@
 ---@field markup FeyMarkupHighlighter
 ---@field private todos FeyTodosHighlighter
 ---@field private task_tags FeyTaskTagsHighlighter
+---@field private checkbox_icons FeyCheckboxIconsHighlighter
+---@field private footnote_marks FeyFootnoteMarksHighlighter
 ---@field private foldtext FeyFoldtextHighlighter
 ---@field private _ephemeral boolean
 ---@field private buffers table<number, { language_tree: vim.treesitter.LanguageTree | nil, tree: TSTree }>
@@ -28,6 +30,8 @@ function FeyHighlighter:_setup()
   self.markup = require('fey.colors.highlighter.markup'):new({ highlighter = self })
   self.todos = require('fey.colors.highlighter.todos'):new()
   self.task_tags = require('fey.colors.highlighter.task_tags'):new({ highlighter = self })
+  self.checkbox_icons = require('fey.colors.highlighter.checkbox_icons'):new({ highlighter = self })
+  self.footnote_marks = require('fey.colors.highlighter.footnote_marks'):new({ highlighter = self })
   self.foldtext = require('fey.colors.highlighter.foldtext'):new({ highlighter = self })
 
   vim.api.nvim_set_decoration_provider(self.namespace, {
@@ -100,6 +104,8 @@ function FeyHighlighter:_on_line_impl(bufnr, line, use_cache, winid)
   if self.buffers[bufnr].tree then
     self.markup:on_line(bufnr, line, self.buffers[bufnr].tree, use_cache)
     self.task_tags:on_line(bufnr, line, self.buffers[bufnr].tree)
+    self.checkbox_icons:on_line(bufnr, line, self.buffers[bufnr].tree)
+    self.footnote_marks:on_line(bufnr, line, self.buffers[bufnr].tree)
     self.foldtext:on_line(bufnr, line, winid)
   end
 end

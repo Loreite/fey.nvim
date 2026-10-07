@@ -30,6 +30,10 @@ local lines = vim.fn.readfile(root .. '/README.fey')
 local replaced, err = docs.replace(lines)
 check('the markers of the generated list are in the README', err, nil)
 check('the list of mappings is current (run scripts/gen_mappings.lua)', replaced, lines)
+local with_boxes, box_err = require('fey.docs.checkboxes').replace(lines)
+check('the markers of the checkbox table are in the README', box_err, nil)
+local current = docs.replace(with_boxes or {})
+check('the table of checkbox states is current (run scripts/gen_mappings.lua)', current, lines)
 
 -- the mappings ----------------------------------------------------------------------------------------------
 local defaults = require('fey.config.defaults').mappings

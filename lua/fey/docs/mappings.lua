@@ -98,6 +98,8 @@ local function table_lines(rows, headers)
   return out
 end
 
+M.table_lines = table_lines
+
 ---The generated lines, markers included
 ---@return string[]
 function M.render()

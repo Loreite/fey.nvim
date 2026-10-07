@@ -297,6 +297,140 @@ tags that live on the lines under a heading.
      of times anywhere in the text
 
 
+  II.F.i. Checkboxes, states and progress
+
+A list item can start with a checkbox: `[ ]` open, `[x]` done, and any other
+single mark that is not a digit or a bracket. A mark is a state: `[/]` in
+progress, `[!]` important, `[n]` a note, `[?]` a question. The table below is
+every state there is, with the class the rules look at.
+
+    ###  src fey
+      I. Shopping [1/2]
+
+    -  [/] Groceries [1/2]
+       -  [X] milk
+       -  [ ] bread
+    -  [!] Tools
+    -  [n] The shop closes at six
+    ###
+
+  -  `<C-Space>` toggles done and open on the item under the cursor, and gives an item without a box one.
+     `<prefix>sc` opens a list of the states to pick from
+  -  every mark is one of five classes: open (still to do), active (under way), done, cancelled (closed
+     without being done) and info (a note about the text, not a task)
+  -  a parent follows its children: when everything that counts is done it is done, when nothing is done
+     or under way it is open, otherwise it is in progress. Cancelled items and info items do not count
+  -  a progress cookie, `[1/3]` or `[33%]`, at the end of an item or a heading counts the same way. A
+     heading counts the items of its lists
+  -  the vault indexes every box as a task of kind item (the mark is its state, only the class done is
+     done), so TASK queries and the Lua API list them: `TASK WHERE kind = "item" AND !completed`
+  -  an unknown mark is an open box
+
+The box is shown as an icon of its state, in the colour of its class, and the
+line the cursor is on shows it as written. `fey_show_checkbox_state_as_icons`
+turns that off (or `b:fey_show_checkbox_state_as_icons` for one buffer),
+`fey_checkbox_icons` is `nerd`, `unicode` or `auto`: Nerd Font glyphs when
+nvim-web-devicons is installed, plain one cell symbols otherwise, and
+`fey_checkbox_icon_overrides` gives single marks another icon.
+
+-- begin generated: checkbox states (scripts/gen_mappings.lua) --
+
+| mark        | name        | counts as | icon | Nerd Font |
++=============+=============+===========+======+===========+
+| `[ ]`       | Open        | open      | ☐    | U+F096    |
+| `[x]` `[X]` | Done        | done      | ☑    | U+F046    |
+| `[/]`       | In progress | active    | ◐    | U+F110    |
+| `[-]`       | Cancelled   | cancelled | ⊘    | U+F05E    |
+| `[>]`       | Rescheduled | cancelled | ➜    | U+F064    |
+| `[<]`       | Scheduled   | open      | ◷    | U+F073    |
+| `[!]`       | Important   | open      | ‼    | U+F06A    |
+| `[?]`       | Question    | open      | ?    | U+F059    |
+| `[*]`       | Star        | info      | ★    | U+F005    |
+| `["]`       | Quote       | info      | ❝    | U+F10D    |
+| `[.]`       | Someday     | open      | ☾    | U+F186    |
+| `[,]`       | Waiting     | active    | ⧗    | U+F254    |
+| `[:]`       | Delegated   | active    | ☺    | U+F007    |
+| `[;]`       | Deferred    | open      | ‖    | U+F04C    |
+| `[+]`       | New         | open      | +    | U+F067    |
+| `[=]`       | Duplicate   | cancelled | ≡    | U+F0C5    |
+| `[~]`       | In review   | active    | ◉    | U+F06E    |
+| `[^]`       | Escalated   | open      | ⇧    | U+F148    |
+| `[@]`       | Mention     | info      | @    | U+F1FA    |
+| `[#]`       | Topic       | info      | #    | U+F292    |
+| `[$]`       | Payment     | open      | $    | U+F09D    |
+| `[&]`       | Related     | info      | &    | U+F0C1    |
+| `[%]`       | Partly done | active    | ◔    | U+F200    |
+| `[n]`       | Note        | info      | ✎    | U+F040    |
+| `[l]`       | Location    | info      | ⌖    | U+F041    |
+| `[i]`       | Information | info      | ⓘ    | U+F05A    |
+| `[S]`       | Amount      | info      | ¤    | U+F155    |
+| `[I]`       | Idea        | info      | ✧    | U+F0EB    |
+| `[p]`       | Pro         | info      | ⊕    | U+F087    |
+| `[c]`       | Con         | info      | ⊖    | U+F088    |
+| `[b]`       | Bookmark    | info      | ⚑    | U+F02E    |
+| `[u]`       | Up          | info      | ↑    | U+F062    |
+| `[d]`       | Down        | info      | ↓    | U+F063    |
+| `[r]`       | Rule        | info      | §    | U+F0E3    |
+| `[L]`       | Language    | info      | ℒ    | U+F1AB    |
+| `[t]`       | Time        | info      | ◴    | U+F017    |
+| `[T]`       | Telephone   | info      | ✆    | U+F095    |
+| `[a]`       | Alert       | info      | ♪    | U+F0F3    |
+| `[B]`       | Bug         | open      | ✱    | U+F188    |
+| `[C]`       | Code        | info      | ⧉    | U+F121    |
+| `[D]`       | Decision    | info      | ⑂    | U+F126    |
+| `[e]`       | Experiment  | open      | ⚗    | U+F0C3    |
+| `[E]`       | Event       | info      | ◈    | U+F274    |
+| `[f]`       | Urgent      | open      | ▲    | U+F06D    |
+| `[F]`       | File        | info      | ▤    | U+F016    |
+| `[g]`       | Goal        | info      | ◎    | U+F140    |
+| `[h]`       | Favourite   | info      | ♥    | U+F004    |
+| `[k]`       | Key         | info      | ⚷    | U+F084    |
+| `[m]`       | Meeting     | info      | ≣    | U+F0C0    |
+| `[M]`       | Mail        | info      | ✉    | U+F0E0    |
+| `[P]`       | Person      | info      | ☻    | U+F2BE    |
+| `[R]`       | Reading     | open      | ▦    | U+F02D    |
+| `[v]`       | Video       | info      | ▶    | U+F03D    |
+| `[w]`       | Warning     | info      | ⚠    | U+F071    |
+| `[W]`       | Web         | info      | ◍    | U+F0AC    |
+
+-- end generated: checkbox states --
+
+  II.F.ii. Footnotes
+
+A footnote is a reference in the text and a definition, tied by a label. The
+reference is a scope tag. The definition is any tag with the label that has a
+body, so it can be written in the form you like: a pair tag, a line tag or a block
+tag.
+
+    ###  src fey
+    The result is odd {@ fn, 1 @}, and so is this {@ fn, 2 @}, and this {@ fn, 3 @}.
+
+    [ fn, 1 #]
+    Measured twice.
+    [# fn ]
+
+    #[ fn, 2 ] Written on one line. #
+
+    [ fn, 3 ]#
+        A longer note, indented under the tag.
+    ###
+
+  -  `<prefix>nf` writes a reference at the cursor, with the next free number, and a new definition at
+     the end of the file (under a heading called Footnotes when there is one), and puts you in its text.
+     `fey_footnote_definition_form` (`pair`, `line` or `block`) is the form of the new definition
+  -  `<prefix>o` on a reference jumps to the definition and offers to create it when it is missing; on a
+     definition (its tag, or the opening line of a pair or block, or the closing line of a pair) it jumps
+     back to the first reference
+  -  the label is shown as superscript, and the syntax of the tags is hidden: `¹` for a reference, and the
+     definition reads `¹ Measured twice.` The line of the cursor shows the tags as written.
+     `fey_footnote_superscript` is `auto` (digits and signs, which every font has), `true` (letters
+     too, which many fonts lack, so it is off by default) or `false`. A label that cannot be written whole
+     stays as written. Neovim cannot ask a font what it can draw, so this is a switch, not a test
+  -  the vault knows them: `FeyApiVault:footnotes()` lists every label with its references and
+     whether it is defined, `{ missing = true }` finds the references with no definition, and
+     `:checkhealth fey` reports them
+  -  `fey_footnote_tag_name` renames the tag
+
   II.G. Hollows, vaults and the court
 
 A hollow is a directory that contains a `.fey` folder. Its vault is the database in
@@ -506,105 +640,108 @@ Anywhere:
 
 In Fey files:
 
-| keys           | does                                                                                   | name                                    |
-+================+========================================================================================+=========================================+
-| <prefix>haf    | make all segments of signature anonymous                                               | fey_anonymize_heading                   |
-| <prefix>hae    | make {count} segments of signature from end anonymous                                  | fey_anonymize_heading_from_end          |
-| <prefix>has    | make {count} segments of signature from start anonymous                                | fey_anonymize_heading_from_start        |
-| <prefix>$      | Archive subtree to archive file                                                        | fey_archive_subtree                     |
-| [[             | Go to previous heading at the same level                                               | fey_backward_heading_same_level         |
-| <prefix>hde    | update all delimiters to prompted value from end                                       | fey_change_all_delimiters_from_end      |
-| <prefix>hds    | update all delimiters to prompted value from start                                     | fey_change_all_delimiters_from_start    |
-| cid            | Change date under cursor via calendar popup                                            | fey_change_date                         |
-| <prefix>ld     | update all delimiters of current list (not sublists) to prompted value                 | fey_change_list_delimiters              |
-| <prefix>xq     | Cancel active clock on current heading                                                 | fey_clock_cancel                        |
-| <prefix>xj     | Jump to currently clocked in heading                                                   | fey_clock_goto                          |
-| <prefix>xi     | Clock in current heading                                                               | fey_clock_in                            |
-| <prefix>xo     | Clock out current heading                                                              | fey_clock_out                           |
-| <TAB>          | Toggle folding                                                                         | fey_cycle                               |
-| <prefix>id     | Insert/Update deadline date                                                            | fey_deadline                            |
-| <prefix>L      | Demote whole subtree                                                                   | fey_demote_subtree                      |
-| ><             | Demote heading                                                                         | fey_do_demote                           |
-| <>             | Promote heading                                                                        | fey_do_promote                          |
-| <prefix>'      | Edit the source block under the cursor in another buffer                               | fey_edit_special                        |
-| <prefix>hef    | make all segments of signature enumerated                                              | fey_enumerate_heading                   |
-| <prefix>hee    | make {count} segments of signature from end indexed                                    | fey_enumerate_heading_from_end          |
-| <prefix>hes    | make {count} segments of signature from start indexed                                  | fey_enumerate_heading_from_start        |
-| <prefix>fi     | Assert indentation for subsection                                                      | fey_fix_indentation                     |
-| ]]             | Go to next heading at the same level                                                   | fey_forward_heading_same_level          |
-| <S-TAB>        | Toggle folding (whole file)                                                            | fey_global_cycle                        |
-| <prefix><c-k>  | move the cursor to the cell above                                                      | fey_goto_to_cell_above                  |
-| <prefix><c-j>  | move the cursor the cell below                                                         | fey_goto_to_cell_below                  |
-| <prefix><c-l>  | move the curosr to the next cell                                                       | fey_goto_to_cell_next                   |
-| <prefix><c-h>  | move the cursor to the previous cell                                                   | fey_goto_to_cell_prev                   |
-| <prefix>ih     | Add new heading after current subtree                                                  | fey_insert_heading_respect_content      |
-| <prefix>iH     | Add new subheading after current subtree                                               | fey_insert_subheading_respect_content   |
-| <Leader><CR>   | Add heading at {count} level, list item or checkbox (context aware)                    | fey_meta_return                         |
-| <Leader><S-CR> | Add subheading at curr+{1 or count} level, list item or checkbox (context aware)       | fey_meta_sub_return                     |
-| <prefix>J      | Move subtree down                                                                      | fey_move_subtree_down                   |
-| <prefix>K      | Move subtree up                                                                        | fey_move_subtree_up                     |
-| }              | Go to next heading (any level)                                                         | fey_next_visible_heading                |
-| <prefix>o      | Follow the link or section tag under the cursor                                        | fey_open_at_point                       |
-| {              | Go to previous heading (any level)                                                     | fey_previous_visible_heading            |
-| <prefix>,      | Change the priority of the current heading                                             | fey_priority                            |
-| cir            | Decrease priority of heading                                                           | fey_priority_down                       |
-| ciR            | Increase priority of heading                                                           | fey_priority_up                         |
-| <prefix>H      | Promote whole subtree                                                                  | fey_promote_subtree                     |
-| <prefix>qa     | Run every query tag in the buffer and write their results                              | fey_query_run_all                       |
-| <prefix>qq     | Run the query tag under the cursor and write its result as a table or list below it    | fey_query_run_at_tag                    |
-| <prefix>r      | Refile heading to specific destination                                                 | fey_refile                              |
-| <prefix>fI     | triggers and automatic reindex of a list or headings                                   | fey_reindex_headings_or_list            |
-| <CR>           | Insert mode: move through a table, keep the indentation of a paragraph or list item    | fey_return                              |
-| <prefix>is     | Insert/Update scheduled date                                                           | fey_schedule                            |
-| <prefix>xe     | Set effort estimate on current heading                                                 | fey_set_effort                          |
-| <prefix>sl     | Change tags of current heading                                                         | fey_set_tags_command                    |
-| <prefix>tc     | insert table after current line using count or obtained input. default 2x2             | fey_table_create_after                  |
-| <prefix>tC     | insert table before curent line using count or obtained input. default 2x2             | fey_table_create_before                 |
-| <prefix>tdc    | delete the current col under cursor                                                    | fey_table_delete_col                    |
-| <prefix>tdr    | delete the current row under curosr                                                    | fey_table_delete_row                    |
-| <prefix>tie    | inserts a logical row bounary end line after the current row                           | fey_table_insert_boundary_end_after     |
-| <prefix>tiE    | inserts a logical row bounary end line before the current row                          | fey_table_insert_boundary_end_before    |
-| <prefix>tii    | inserts a logical row inner boundary line after the current row                        | fey_table_insert_boundary_inner_after   |
-| <prefix>tiI    | inserts a logical row inner boundary line before the current row                       | fey_table_insert_boundary_inner_before  |
-| <prefix>tis    | inserts a logical row bounary start line after the current row                         | fey_table_insert_boundary_start_after   |
-| <prefix>tiS    | inserts a logical row bounary start line before the current row                        | fey_table_insert_boundary_start_before  |
-| <prefix>tic    | insert a blank col after the current col under cursor                                  | fey_table_insert_col_after              |
-| <prefix>tiC    | insert a blank col befre the current col under curosr                                  | fey_table_insert_col_before             |
-| <prefix>tir    | insert a blank row after the current row under cursor                                  | fey_table_insert_row_after              |
-| <prefix>tiR    | insert a blank row before the current row under cursor                                 | fey_table_insert_row_before             |
-| <prefix>tid    | inserts a section divider line after the current row                                   | fey_table_insert_section_divider_after  |
-| <prefix>tiD    | inserts a section divider line before the current row                                  | fey_table_insert_section_divider_before |
-| <prefix>tmS    | Merge the content of the cell above into this cell                                     | fey_table_merge_cell_content_from_above |
-| <prefix>tms    | Merge the content of the cell below into this cell                                     | fey_table_merge_cell_content_from_below |
-| <prefix>tmV    | Merge the content of the cell to the left into this cell                               | fey_table_merge_cell_content_from_left  |
-| <prefix>tmv    | Merge the content of the cell to the right into this cell                              | fey_table_merge_cell_content_from_right |
-| <prefix>tmd    | combine current cell under cursor with cell below                                      | fey_table_merge_cell_down               |
-| <prefix>tmR    | combine current cell under cursor with cell to the left                                | fey_table_merge_cell_left               |
-| <prefix>tmr    | combine current cell under cursor with cell to the right                               | fey_table_merge_cell_right              |
-| <prefix>tmD    | combine current cell under cursor with cell above                                      | fey_table_merge_cell_up                 |
-| <prefix>tj     | swap current cell under cursor with cell below                                         | fey_table_move_cell_down                |
-| <prefix>th     | swap current cell under cursor with cell to the left                                   | fey_table_move_cell_left                |
-| <prefix>tl     | swap current cell under cursor with cell to the right                                  | fey_table_move_cell_right               |
-| <prefix>tk     | swap current cell under curosr with cell above                                         | fey_table_move_cell_up                  |
-| <prefix>tmh    | move the current table col under curosr left                                           | fey_table_move_col_left                 |
-| <prefix>tml    | move the current table col under curosr right                                          | fey_table_move_col_right                |
-| <prefix>tmj    | move the current table row under cursor down                                           | fey_table_move_row_down                 |
-| <prefix>tmk    | move the current table row under cursor up                                             | fey_table_move_row_up                   |
-| <prefix>tf     | reformat table, reflowing text and aligning to a grid                                  | fey_table_reformat                      |
-| <prefix>tu     | break apart combined cells into individual cells                                       | fey_table_unmerge_cells                 |
-| <prefix>i.     | Insert date under cursor                                                               | fey_time_stamp                          |
-| <prefix>i!     | Insert/Update inactive date under cursor                                               | fey_time_stamp_inactive                 |
-| <C-x>          | Decrease date part under cursor (year/month/day/hour/minute/repeater/active\|inactive) | fey_timestamp_down                      |
-| <S-DOWN>       | Decrease timestamp by one day                                                          | fey_timestamp_down_day                  |
-| <C-a>          | Increase date part under cursor (year/month/day/hour/minute/repeater/active\|inactive) | fey_timestamp_up                        |
-| <S-UP>         | Increase timestamp by one day                                                          | fey_timestamp_up_day                    |
-| cit            | Forward change TODO state of current heading                                           | fey_todo                                |
-| ciT            | Backward change TODO state of current heading                                          | fey_todo_prev                           |
-| <prefix>A      | Toggle "ARCHIVE" tag on current heading                                                | fey_toggle_archive_tag                  |
-| <prefix>Tc     | Show or hide the tag syntax around the todo keyword, priority and labels of headings   | fey_toggle_conceal_task_tags            |
-| <prefix>d!     | Toggle timestamp active/inactive type                                                  | fey_toggle_timestamp_type               |
-| g}             | Go to last child heading                                                               | last_child_heading                      |
-| g{             | Go to parent heading                                                                   | outline_up_heading                      |
+| keys           | does                                                                                            | name                                    |
++================+=================================================================================================+=========================================+
+| <prefix>haf    | make all segments of signature anonymous                                                        | fey_anonymize_heading                   |
+| <prefix>hae    | make {count} segments of signature from end anonymous                                           | fey_anonymize_heading_from_end          |
+| <prefix>has    | make {count} segments of signature from start anonymous                                         | fey_anonymize_heading_from_start        |
+| <prefix>$      | Archive subtree to archive file                                                                 | fey_archive_subtree                     |
+| [[             | Go to previous heading at the same level                                                        | fey_backward_heading_same_level         |
+| <prefix>hde    | update all delimiters to prompted value from end                                                | fey_change_all_delimiters_from_end      |
+| <prefix>hds    | update all delimiters to prompted value from start                                              | fey_change_all_delimiters_from_start    |
+| cid            | Change date under cursor via calendar popup                                                     | fey_change_date                         |
+| <prefix>ld     | update all delimiters of current list (not sublists) to prompted value                          | fey_change_list_delimiters              |
+| <prefix>xq     | Cancel active clock on current heading                                                          | fey_clock_cancel                        |
+| <prefix>xj     | Jump to currently clocked in heading                                                            | fey_clock_goto                          |
+| <prefix>xi     | Clock in current heading                                                                        | fey_clock_in                            |
+| <prefix>xo     | Clock out current heading                                                                       | fey_clock_out                           |
+| <TAB>          | Toggle folding                                                                                  | fey_cycle                               |
+| <prefix>id     | Insert/Update deadline date                                                                     | fey_deadline                            |
+| <prefix>L      | Demote whole subtree                                                                            | fey_demote_subtree                      |
+| ><             | Demote heading                                                                                  | fey_do_demote                           |
+| <>             | Promote heading                                                                                 | fey_do_promote                          |
+| <prefix>'      | Edit the source block under the cursor in another buffer                                        | fey_edit_special                        |
+| <prefix>hef    | make all segments of signature enumerated                                                       | fey_enumerate_heading                   |
+| <prefix>hee    | make {count} segments of signature from end indexed                                             | fey_enumerate_heading_from_end          |
+| <prefix>hes    | make {count} segments of signature from start indexed                                           | fey_enumerate_heading_from_start        |
+| <prefix>fi     | Assert indentation for subsection                                                               | fey_fix_indentation                     |
+| ]]             | Go to next heading at the same level                                                            | fey_forward_heading_same_level          |
+| <S-TAB>        | Toggle folding (whole file)                                                                     | fey_global_cycle                        |
+| <prefix><c-k>  | move the cursor to the cell above                                                               | fey_goto_to_cell_above                  |
+| <prefix><c-j>  | move the cursor the cell below                                                                  | fey_goto_to_cell_below                  |
+| <prefix><c-l>  | move the curosr to the next cell                                                                | fey_goto_to_cell_next                   |
+| <prefix><c-h>  | move the cursor to the previous cell                                                            | fey_goto_to_cell_prev                   |
+| <prefix>nf     | Write a footnote reference at the cursor and its definition, ready to type                      | fey_insert_footnote                     |
+| <prefix>ih     | Add new heading after current subtree                                                           | fey_insert_heading_respect_content      |
+| <prefix>iH     | Add new subheading after current subtree                                                        | fey_insert_subheading_respect_content   |
+| <Leader><CR>   | Add heading at {count} level, list item or checkbox (context aware)                             | fey_meta_return                         |
+| <Leader><S-CR> | Add subheading at curr+{1 or count} level, list item or checkbox (context aware)                | fey_meta_sub_return                     |
+| <prefix>J      | Move subtree down                                                                               | fey_move_subtree_down                   |
+| <prefix>K      | Move subtree up                                                                                 | fey_move_subtree_up                     |
+| }              | Go to next heading (any level)                                                                  | fey_next_visible_heading                |
+| <prefix>o      | Follow the link or section tag under the cursor                                                 | fey_open_at_point                       |
+| {              | Go to previous heading (any level)                                                              | fey_previous_visible_heading            |
+| <prefix>,      | Change the priority of the current heading                                                      | fey_priority                            |
+| cir            | Decrease priority of heading                                                                    | fey_priority_down                       |
+| ciR            | Increase priority of heading                                                                    | fey_priority_up                         |
+| <prefix>H      | Promote whole subtree                                                                           | fey_promote_subtree                     |
+| <prefix>qa     | Run every query tag in the buffer and write their results                                       | fey_query_run_all                       |
+| <prefix>qq     | Run the query tag under the cursor and write its result as a table or list below it             | fey_query_run_at_tag                    |
+| <prefix>r      | Refile heading to specific destination                                                          | fey_refile                              |
+| <prefix>fI     | triggers and automatic reindex of a list or headings                                            | fey_reindex_headings_or_list            |
+| <CR>           | Insert mode: move through a table, keep the indentation of a paragraph or list item             | fey_return                              |
+| <prefix>is     | Insert/Update scheduled date                                                                    | fey_schedule                            |
+| <prefix>sc     | Pick the state of the checkbox of the list item (in progress, important, note ...)              | fey_set_checkbox_state                  |
+| <prefix>xe     | Set effort estimate on current heading                                                          | fey_set_effort                          |
+| <prefix>sl     | Change tags of current heading                                                                  | fey_set_tags_command                    |
+| <prefix>tc     | insert table after current line using count or obtained input. default 2x2                      | fey_table_create_after                  |
+| <prefix>tC     | insert table before curent line using count or obtained input. default 2x2                      | fey_table_create_before                 |
+| <prefix>tdc    | delete the current col under cursor                                                             | fey_table_delete_col                    |
+| <prefix>tdr    | delete the current row under curosr                                                             | fey_table_delete_row                    |
+| <prefix>tie    | inserts a logical row bounary end line after the current row                                    | fey_table_insert_boundary_end_after     |
+| <prefix>tiE    | inserts a logical row bounary end line before the current row                                   | fey_table_insert_boundary_end_before    |
+| <prefix>tii    | inserts a logical row inner boundary line after the current row                                 | fey_table_insert_boundary_inner_after   |
+| <prefix>tiI    | inserts a logical row inner boundary line before the current row                                | fey_table_insert_boundary_inner_before  |
+| <prefix>tis    | inserts a logical row bounary start line after the current row                                  | fey_table_insert_boundary_start_after   |
+| <prefix>tiS    | inserts a logical row bounary start line before the current row                                 | fey_table_insert_boundary_start_before  |
+| <prefix>tic    | insert a blank col after the current col under cursor                                           | fey_table_insert_col_after              |
+| <prefix>tiC    | insert a blank col befre the current col under curosr                                           | fey_table_insert_col_before             |
+| <prefix>tir    | insert a blank row after the current row under cursor                                           | fey_table_insert_row_after              |
+| <prefix>tiR    | insert a blank row before the current row under cursor                                          | fey_table_insert_row_before             |
+| <prefix>tid    | inserts a section divider line after the current row                                            | fey_table_insert_section_divider_after  |
+| <prefix>tiD    | inserts a section divider line before the current row                                           | fey_table_insert_section_divider_before |
+| <prefix>tmS    | Merge the content of the cell above into this cell                                              | fey_table_merge_cell_content_from_above |
+| <prefix>tms    | Merge the content of the cell below into this cell                                              | fey_table_merge_cell_content_from_below |
+| <prefix>tmV    | Merge the content of the cell to the left into this cell                                        | fey_table_merge_cell_content_from_left  |
+| <prefix>tmv    | Merge the content of the cell to the right into this cell                                       | fey_table_merge_cell_content_from_right |
+| <prefix>tmd    | combine current cell under cursor with cell below                                               | fey_table_merge_cell_down               |
+| <prefix>tmR    | combine current cell under cursor with cell to the left                                         | fey_table_merge_cell_left               |
+| <prefix>tmr    | combine current cell under cursor with cell to the right                                        | fey_table_merge_cell_right              |
+| <prefix>tmD    | combine current cell under cursor with cell above                                               | fey_table_merge_cell_up                 |
+| <prefix>tj     | swap current cell under cursor with cell below                                                  | fey_table_move_cell_down                |
+| <prefix>th     | swap current cell under cursor with cell to the left                                            | fey_table_move_cell_left                |
+| <prefix>tl     | swap current cell under cursor with cell to the right                                           | fey_table_move_cell_right               |
+| <prefix>tk     | swap current cell under curosr with cell above                                                  | fey_table_move_cell_up                  |
+| <prefix>tmh    | move the current table col under curosr left                                                    | fey_table_move_col_left                 |
+| <prefix>tml    | move the current table col under curosr right                                                   | fey_table_move_col_right                |
+| <prefix>tmj    | move the current table row under cursor down                                                    | fey_table_move_row_down                 |
+| <prefix>tmk    | move the current table row under cursor up                                                      | fey_table_move_row_up                   |
+| <prefix>tf     | reformat table, reflowing text and aligning to a grid                                           | fey_table_reformat                      |
+| <prefix>tu     | break apart combined cells into individual cells                                                | fey_table_unmerge_cells                 |
+| <prefix>i.     | Insert date under cursor                                                                        | fey_time_stamp                          |
+| <prefix>i!     | Insert/Update inactive date under cursor                                                        | fey_time_stamp_inactive                 |
+| <C-x>          | Decrease date part under cursor (year/month/day/hour/minute/repeater/active\|inactive)          | fey_timestamp_down                      |
+| <S-DOWN>       | Decrease timestamp by one day                                                                   | fey_timestamp_down_day                  |
+| <C-a>          | Increase date part under cursor (year/month/day/hour/minute/repeater/active\|inactive)          | fey_timestamp_up                        |
+| <S-UP>         | Increase timestamp by one day                                                                   | fey_timestamp_up_day                    |
+| cit            | Forward change TODO state of current heading                                                    | fey_todo                                |
+| ciT            | Backward change TODO state of current heading                                                   | fey_todo_prev                           |
+| <prefix>A      | Toggle "ARCHIVE" tag on current heading                                                         | fey_toggle_archive_tag                  |
+| <C-Space>      | Toggle the checkbox of the list item (adds one when there is none), and update progress cookies | fey_toggle_checkbox                     |
+| <prefix>Tc     | Show or hide the tag syntax around the todo keyword, priority and labels of headings            | fey_toggle_conceal_task_tags            |
+| <prefix>d!     | Toggle timestamp active/inactive type                                                           | fey_toggle_timestamp_type               |
+| g}             | Go to last child heading                                                                        | last_child_heading                      |
+| g{             | Go to parent heading                                                                            | outline_up_heading                      |
 
 In the agenda:
 

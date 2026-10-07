@@ -121,6 +121,11 @@ function FeyVault:dates(opts) return self._vault:dates(opts) end
 ---@return table[]
 function FeyVault:tasks(opts) return self._vault:tasks(opts) end
 
+---Footnotes of the notes: `path`, `label`, `references`, `line` of the first reference, `defined`, `definition_line`
+---@param opts? { path?: string, missing?: boolean, unused?: boolean } `missing`: referenced without a definition, `unused`: defined and never referenced
+---@return table[]
+function FeyVault:footnotes(opts) return self._vault:footnotes(opts) end
+
 ---Names of the databases in `.fey/dbs`
 ---@return string[]
 function FeyVault:databases()

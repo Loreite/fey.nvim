@@ -8,6 +8,7 @@ vim.opt.rtp:prepend(root)
 local path = root .. '/README.fey'
 local lines = vim.fn.readfile(path)
 local new, err = require('fey.docs.mappings').replace(lines)
+if new then new, err = require('fey.docs.checkboxes').replace(new) end
 if not new then
   io.stderr:write('gen_mappings: ' .. err .. '\n')
   os.exit(1)

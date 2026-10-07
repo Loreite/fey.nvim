@@ -231,10 +231,16 @@
 ---@field fey_deadline_tag_name? string Tag name of the deadline of a heading. Default: 'deadline'
 ---@field fey_closed_tag_name? string Tag name of the date a heading was closed. Default: 'closed'
 ---@field fey_clock_tag_name? string Tag name of one clock. Default: 'clock'
+---@field fey_footnote_tag_name? string Tag name of footnote references and definitions. Default: 'fn'
+---@field fey_footnote_definition_form? 'pair'|'line'|'block' Tag form of a new footnote definition. Default: 'pair'
+---@field fey_footnote_superscript? 'auto'|boolean Show footnote labels as superscript: `auto` converts digits and signs, `true` letters as well, `false` never. Default: 'auto'
 ---@field fey_logbook_tag_name? string Tag name of the pair tag that holds the clocks of a heading. Default: 'logbook'
 ---@field fey_status_tag_name? string Tag name of the todo keyword and the priority of a heading, `{# status, TODO, A #}`. Default: 'status'
 ---@field fey_labels_tag_name? string Tag name that heading labels are written with. Default: 'labels'
 ---@field fey_property_tag_name? string Tag name of the properties of a heading. Default: 'prop'
+---@field fey_show_checkbox_state_as_icons? boolean Show a checkbox as an icon of its state. Default: true
+---@field fey_checkbox_icons? 'auto'|'nerd'|'unicode' Which icons: Nerd Font glyphs, plain Unicode symbols, or by nvim-web-devicons. Default: 'auto'
+---@field fey_checkbox_icon_overrides? table<string, string> Icon of single marks. Default: {}
 ---@field fey_conceal_task_tags? boolean Hide everything of the todo, priority and labels tags in a heading title except their values. Default: true
 ---@field fey_db_tag_name? string Tag name of tags that import a database view. Default: 'feydb'
 ---@field fey_db_result_tag_name? string Tag name of the pair tag that holds an imported view. Default: 'feydb_result'

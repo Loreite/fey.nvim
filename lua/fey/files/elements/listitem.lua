@@ -1,5 +1,6 @@
 local ts_utils = require('fey.utils.treesitter')
 local indent = require('fey.fey.indent')
+local Checkbox = require('fey.files.elements.checkbox')
 
 ---@class FeyListitem
 ---@field listitem TSNode
@@ -17,52 +18,46 @@ function Listitem:new(listitem_node, file)
   return data
 end
 
-function Listitem:get_new_checkbox_value(action, current_value, total_child_checkboxes, checked_child_checkboxes)
-  if action == 'on' then
-    return '[X]'
-  elseif action == 'off' then
-    return '[ ]'
-  elseif action == 'toggle' then
-    return (current_value == '[X]' or current_value == '[x]') and '[ ]' or '[X]'
-  elseif action == 'children' then
-    if #checked_child_checkboxes == 0 then
-      return '[ ]'
-    elseif #checked_child_checkboxes == #total_child_checkboxes then
-      return '[X]'
-    end
-  end
-  return '[-]'
-end
-
+---@return { text: string, range: integer[] }|nil
 function Listitem:checkbox()
   local checkbox = self.listitem:field('checkbox')[1]
   if not checkbox then return nil end
+  -- the node starts with the blanks between the bullet and the box: the box itself is the bracket part
   local text = self.file:get_node_text(checkbox)
-  return { text = text, range = { checkbox:range() } }
+  local lead = #text:match('^%s*')
+  local sr, sc, er, ec = checkbox:range()
+  return { text = vim.trim(text), range = { sr, sc + lead, er, ec } }
 end
 
+---Change the checkbox of the item (`toggle`, `on`, `off`, or `children` to follow the items below it), write
+---the progress cookie of the item, and let the items and the heading above follow. An item without a box
+---gets one when it is toggled.
+---@param action? string `toggle`, `on`, `off`, `children`, or `mark:x` to set a mark
 function Listitem:update_checkbox(action)
   action = action or 'toggle'
 
   local checkbox = self:checkbox()
-  local total_child_checkboxes = self:child_checkboxes() or {}
-  local checked_child_checkboxes = vim.tbl_filter(function(box) return box:match('%[%w%]') end, total_child_checkboxes)
+  local boxes = self:child_checkboxes()
+  local checked, total = Checkbox.progress(boxes)
 
   if checkbox then
-    vim.api.nvim_buf_set_text(
-      0,
-      checkbox.range[1],
-      checkbox.range[2],
-      checkbox.range[3],
-      checkbox.range[4],
-      { self:get_new_checkbox_value(action, checkbox.text, total_child_checkboxes, checked_child_checkboxes) }
-    )
+    local new = Checkbox.next(action, checkbox.text, boxes)
+    if new ~= checkbox.text then
+      vim.api.nvim_buf_set_text(0, checkbox.range[1], checkbox.range[2], checkbox.range[3], checkbox.range[4], { new })
+    end
+  elseif action ~= 'children' then
+    -- no box yet: put one in front of the contents
+    local contents = self.listitem:field('contents')[1]
+    if contents then
+      local row, col = contents:start()
+      vim.api.nvim_buf_set_text(0, row, col, row, col, { Checkbox.next(action, '[ ]', boxes) .. ' ' })
+    end
   end
 
-  self:update_cookie(total_child_checkboxes, checked_child_checkboxes)
+  self:update_cookie(checked, total)
 
   local parent_list = ts_utils.closest_node(self.listitem, 'list')
-  local parent_listitem = ts_utils.closest_node(parent_list, 'listitem')
+  local parent_listitem = parent_list and ts_utils.closest_node(parent_list, 'listitem')
   if parent_listitem then
     Listitem:new(parent_listitem, self.file):update_checkbox('children')
   else
@@ -71,39 +66,44 @@ function Listitem:update_checkbox(action)
   end
 end
 
+---The boxes of the items directly below this one (an item without a box is not counted)
+---@return string[]
 function Listitem:child_checkboxes()
-  local contents = self.listitem:field('contents')
-  for _, content in ipairs(contents) do
-    if content:type() == 'list' then
-      return vim.tbl_map(function(node)
-        local text = self.file:get_node_text(node)
-        return text:match('%[.%]')
-      end, ts_utils.get_named_children(content))
-    end
+  for _, content in ipairs(self.listitem:field('contents')) do
+    if content:type() == 'list' then return Listitem.boxes_of_list(content, self.file) end
   end
+  return {}
 end
 
+---The boxes of the items of a list
+---@param list_node TSNode
+---@param file FeyFile
+---@return string[]
+function Listitem.boxes_of_list(list_node, file)
+  local boxes = {}
+  for _, item in ipairs(ts_utils.get_named_children(list_node)) do
+    if item:type() == 'listitem' then
+      local box = item:field('checkbox')[1]
+      if box then boxes[#boxes + 1] = vim.trim(file:get_node_text(box)) end
+    end
+  end
+  return boxes
+end
+
+---The progress cookie at the end of the text of the item
+---@return TSNode|nil
 function Listitem:cookie()
   local content = self.listitem:field('contents')[1]
+  if not content or content:type() == 'list' then return nil end
   -- The cookie should be the last thing on the line
   local cookie_node = content:named_child(content:named_child_count() - 1)
   if not cookie_node then return nil end
-
-  local text = self.file:get_node_text(cookie_node)
-  if text:match('%[%d*/%d*%]') or text:match('%[%d?%d?%d?%%%]') then return cookie_node end
+  if Checkbox.is_cookie(self.file:get_node_text(cookie_node)) then return cookie_node end
 end
 
-function Listitem:update_cookie(total_child_checkboxes, checked_child_checkboxes)
+function Listitem:update_cookie(checked, total)
   local cookie = self:cookie()
-  if cookie then
-    local new_cookie_val
-    if self.file:get_node_text(cookie):find('%%') then
-      new_cookie_val = ('[%d%%]'):format((#checked_child_checkboxes / #total_child_checkboxes) * 100)
-    else
-      new_cookie_val = ('[%d/%d]'):format(#checked_child_checkboxes, #total_child_checkboxes)
-    end
-    self.file:set_node_text(cookie, new_cookie_val)
-  end
+  if cookie then self.file:set_node_text(cookie, Checkbox.cookie(self.file:get_node_text(cookie), checked, total)) end
 end
 
 ---@return TSNode|nil

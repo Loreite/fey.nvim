@@ -16,7 +16,6 @@ local Babel = require('fey.babel')
 local Promise = require('fey.utils.promise')
 local Input = require('fey.ui.input')
 local indent = require('fey.fey.indent')
-local Footnote = require('fey.objects.footnote')
 local sequences = require('fey.utils.sequences')
 local FeyFile = require('fey.files.file')
 local tableops = require('fey.files.elements.table.operations')
@@ -180,6 +179,30 @@ function FeyMappings:toggle_checkbox()
   local listitem = self.files:get_closest_listitem()
   if listitem then listitem:update_checkbox('toggle') end
 
+  vim.fn.winrestview(win_view)
+end
+
+---Pick the state of the checkbox of the item under the cursor from the list of states
+function FeyMappings:set_checkbox_state()
+  local Checkbox = require('fey.files.elements.checkbox')
+  local style = require('fey.colors.highlighter.checkbox_icons').style()
+  local win_view = vim.fn.winsaveview() or {}
+  vim.cmd([[normal! _]])
+  local row = vim.fn.line('.')
+  local states = vim.tbl_filter(function(state) return state.mark ~= 'X' end, Checkbox.STATES)
+  vim.ui.select(states, {
+    prompt = 'Checkbox state',
+    format_item = function(state)
+      return ('%s [%s] %s (%s)'):format(Checkbox.icon(state.mark, style), state.mark, state.name, state.class)
+    end,
+  }, function(choice)
+    if not choice then return end
+    vim.fn.cursor({ row, 1 })
+    vim.cmd([[normal! _]])
+    local listitem = self.files:get_closest_listitem()
+    if listitem then listitem:update_checkbox('mark:' .. choice.mark) end
+    vim.fn.winrestview(win_view)
+  end)
   vim.fn.winrestview(win_view)
 end
 
@@ -1169,42 +1192,6 @@ end
 
 function FeyMappings:open_at_point() return require('fey.links').open_at_cursor() end
 
-function FeyMappings:_jump_to_footnote_reference(footnote_definition)
-  local file = self.files:get_current_file()
-  local reference = file:find_footnote_reference(footnote_definition)
-
-  if not reference then
-    return utils.echo_info(('Cannot find reference for footnote "%s"'):format(footnote_definition:get_name()))
-  end
-
-  return vim.fn.cursor({ reference.range.start_line, reference.range.start_col })
-end
-
----@param footnote_reference FeyFootnote
-function FeyMappings:_jump_to_footnote_definition(footnote_reference)
-  local file = self.files:get_current_file()
-  local footnote = file:find_footnote_definition(footnote_reference)
-
-  if not footnote then
-    local choice = vim.fn.confirm('No footnote found. Create one?', '&Yes\n&No')
-    if choice ~= 1 then return end
-
-    local footnotes_heading = file:find_heading_by_title('footnotes')
-    local fndef = ('[fn:%s] '):format(footnote_reference.label)
-    if footnotes_heading then
-      local append_line = footnotes_heading:get_append_line()
-      vim.api.nvim_buf_set_lines(0, append_line, append_line, false, { fndef })
-      vim.fn.cursor({ append_line + 1, #fndef })
-      return vim.cmd('startinsert!')
-    end
-    local last_line = vim.api.nvim_buf_line_count(0)
-    vim.api.nvim_buf_set_lines(0, last_line, last_line, false, { '', '* Footnotes', fndef })
-    vim.fn.cursor({ last_line + 3, #fndef })
-    return vim.cmd('startinsert!')
-  end
-
-  return vim.fn.cursor({ footnote.range.start_line, footnote.range.start_col })
-end
 
 function FeyMappings:export() return require('fey.export').prompt() end
 

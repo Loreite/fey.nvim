@@ -143,6 +143,12 @@ function M.link_highlights()
     ['@fey.checkbox'] = '@markup.list.unchecked',
     ['@fey.checkbox.halfchecked'] = '@markup.list.unchecked',
     ['@fey.checkbox.checked'] = '@markup.list.checked',
+    -- the class of a mark, the colour of its icon
+    ['@fey.checkbox.open'] = '@markup.list.unchecked',
+    ['@fey.checkbox.active'] = 'DiagnosticWarn',
+    ['@fey.checkbox.done'] = '@markup.list.checked',
+    ['@fey.checkbox.cancelled'] = 'Comment',
+    ['@fey.checkbox.info'] = 'DiagnosticInfo',
 
     -- Drawers
     ['@fey.properties'] = '@property',

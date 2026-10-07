@@ -6,6 +6,7 @@ local config = require('fey.config')
 local PriorityState = require('fey.objects.priority_state')
 local indent = require('fey.fey.indent')
 local Logbook = require('fey.files.elements.logbook')
+local Checkbox = require('fey.files.elements.checkbox')
 local FeyId = require('fey.fey.id')
 local Memoize = require('fey.utils.memoize')
 local EventManager = require('fey.events')
@@ -853,13 +854,7 @@ end
 
 function Heading:_set_cookie(cookie, num, denum)
   -- Update the cookie
-  local new_cookie_val
-  if self.file:get_node_text(cookie):find('%%') then
-    new_cookie_val = ('[%d%%]'):format((num / denum) * 100)
-  else
-    new_cookie_val = ('[%d/%d]'):format(num, denum)
-  end
-  return self:_set_node_text(cookie, new_cookie_val)
+  return self:_set_node_text(cookie, Checkbox.cookie(self.file:get_node_text(cookie), num, denum))
 end
 
 function Heading:update_cookie()
@@ -878,10 +873,9 @@ function Heading:update_cookie()
   if body then
     for node in body:iter_children() do
       if node:type() == 'list' then
-        local boxes = self:child_checkboxes(node)
-        num_boxes = num_boxes + #boxes
-        local checked_boxes = vim.tbl_filter(function(box) return box:match('%[%w%]') end, boxes)
-        num_checked_boxes = num_checked_boxes + #checked_boxes
+        local checked, total = Checkbox.progress(self:child_checkboxes(node))
+        num_boxes = num_boxes + total
+        num_checked_boxes = num_checked_boxes + checked
       end
     end
   end
@@ -916,12 +910,7 @@ function Heading:update_parent_cookie()
   return self
 end
 
-function Heading:child_checkboxes(list_node)
-  return vim.tbl_map(function(node)
-    local text = self.file:get_node_text(node)
-    return text:match('%[.%]')
-  end, ts_utils.get_named_children(list_node))
-end
+function Heading:child_checkboxes(list_node) return require('fey.files.elements.listitem').boxes_of_list(list_node, self.file) end
 
 ---@return TSNode | nil
 function Heading:get_drawer(name)
@@ -1066,7 +1055,7 @@ end
 ---@private
 ---@return TSNode | nil, string
 function Heading:_parse_title_part(pattern)
-  for _, node in ipairs(ts_utils.get_named_children(self:get_child_node('item'))) do
+  for _, node in ipairs(ts_utils.get_named_children(self:get_child_node('title'))) do
     local text = self.file:get_node_text(node) or ''
     local match = text:match(pattern)
     if match then return node, match end

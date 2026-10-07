@@ -138,8 +138,9 @@ function Tag.setup(handlers)
   Tag.handlers[config.fey_link_tag_name] = link_handler.handlers
   Tag.handlers[config.fey_section_tag_name] = section_handler.handlers
   Tag.handlers[config.fey_status_tag_name] = status_handler.handlers
+  Tag.handlers[config.fey_footnote_tag_name] = require('fey.footnotes').handlers
   -- tags the open-at-point mapping applies the handler of (the others are run by their own mappings)
-  Tag.at_point = { [config.fey_status_tag_name] = true }
+  Tag.at_point = { [config.fey_status_tag_name] = true, [config.fey_footnote_tag_name] = true }
   for _, name in ipairs(date_handler.names()) do
     Tag.handlers[name] = date_handler.handlers
     Tag.at_point[name] = true

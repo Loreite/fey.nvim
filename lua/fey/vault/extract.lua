@@ -105,6 +105,14 @@ local DEFAULT_META_TAGS = { 'label', 'labels', 'status', 'prop', 'scheduled', 'd
 local KIND = { scope_tag = 'scope', pair_tag = 'pair', line_tag = 'line', block_tag = 'block' }
 
 local tag_query
+local item_query
+---The checkbox items of lists
+---@return vim.treesitter.Query
+local function get_item_query()
+  item_query = item_query or vim.treesitter.query.parse('fey', '(listitem checkbox: (checkbox) @box) @item')
+  return item_query
+end
+
 local function get_tag_query()
   tag_query = tag_query or vim.treesitter.query.parse('fey', '[(scope_tag) (pair_tag) (line_tag) (block_tag)] @tag')
   return tag_query
@@ -803,6 +811,41 @@ function M.extract(src, opts)
     end
   end
   meta.title = title or ''
+  -- checkbox items of lists: one task of kind `item` each, in the section that holds the list
+  for _, match in get_item_query():iter_matches(root, src, 0, -1, { all = true }) do
+    local item_node, box_node
+    for id, nodes in pairs(match) do
+      local name = get_item_query().captures[id]
+      if name == 'item' then item_node = nodes[#nodes] end
+      if name == 'box' then box_node = nodes[#nodes] end
+    end
+    if item_node and box_node and not item_node:has_error() then
+      local box = trim(text(ctx, box_node))
+      local mark = box:sub(2, 2)
+      local heading_ord
+      local p = item_node:parent()
+      while p do
+        if p:type() == 'section' then
+          heading_ord = ord_by_node[p:id()]
+          break
+        end
+        p = p:parent()
+      end
+      local contents = item_node:field('contents')[1]
+      local title = contents and contents:type() ~= 'list' and vim.split(trim(text(ctx, contents)), '\n', { plain = true })[1] or ''
+      table.insert(meta.tasks, {
+        heading_ord = heading_ord,
+        line = (item_node:start()) + 1,
+        kind = 'item',
+        state = mark == 'X' and 'x' or mark,
+        -- (the class of the mark decides what is done; `[-]` is cancelled, not done)
+        done = require('fey.files.elements.checkbox').class(box) == 'done',
+        priority = nil,
+        title = title,
+      })
+    end
+  end
+
   return meta
 end
 

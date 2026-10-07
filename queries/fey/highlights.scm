@@ -14,6 +14,9 @@
 ; lists
 (list (listitem (paragraph) @spell))
 (bullet) @fey.bullet
+(checkbox) @fey.checkbox
+((checkbox) @fey.checkbox.checked (#match? @fey.checkbox.checked "\\[[xX]\\]"))
+((checkbox) @fey.checkbox.halfchecked (#match? @fey.checkbox.halfchecked "\\[/\\]"))
 
 ; blocks
 (block [ (fence) (expr) ] @fey.block)

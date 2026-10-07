@@ -245,10 +245,17 @@ return {
       'fey_mappings.priority_down',
       { opts = { desc = 'fey decrease priority', help_desc = 'Decrease priority of heading' } }
     ),
-    --   fey_toggle_checkbox = m.action(
-    --     'fey_mappings.toggle_checkbox',
-    --     { opts = { desc = 'fey toggle checkbox', help_desc = 'Toggle checkbox' } }
-    --   ),
+    fey_toggle_checkbox = m.action(
+      'fey_mappings.toggle_checkbox',
+      { opts = { desc = 'fey toggle checkbox', help_desc = 'Toggle the checkbox of the list item (adds one when there is none), and update progress cookies' } }
+    ),
+    fey_insert_footnote = m.custom([[<Cmd>lua require('fey.footnotes').insert()<CR>]], {
+      opts = { desc = 'insert footnote', help_desc = 'Write a footnote reference at the cursor and its definition, ready to type' },
+    }),
+    fey_set_checkbox_state = m.action(
+      'fey_mappings.set_checkbox_state',
+      { opts = { desc = 'fey set checkbox state', help_desc = 'Pick the state of the checkbox of the list item (in progress, important, note ...)' } }
+    ),
     --   fey_toggle_heading = m.action(
     --     'fey_mappings.toggle_heading',
     --     { opts = { desc = 'fey toggle heading', help_desc = 'Toggle current line to heading and vice versa' } }

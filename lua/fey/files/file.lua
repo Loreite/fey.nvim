@@ -7,7 +7,6 @@ local config = require('fey.config')
 local Block = require('fey.files.elements.block')
 local Hyperlink = require('fey.fey.links.hyperlink')
 local Range = require('fey.files.elements.range')
-local Footnote = require('fey.objects.footnote')
 local Memoize = require('fey.utils.memoize')
 local Buffers = require('fey.state.buffers')
 local sequences = require('fey.utils.sequences')
@@ -938,33 +937,6 @@ function FeyFile:get_links()
   return links
 end
 
----@param footnote_reference FeyFootnote
----@return FeyFootnote | nil
-function FeyFile:find_footnote_definition(footnote_reference)
-  self:parse(true)
-  local ts_query = ts_utils.get_query(([[
-      (fndef label: (expr) @_label (#eq? @_label "%s")) @footnotes
-  ]]):format(footnote_reference.label))
-
-  for _, match in ts_query:iter_captures(self.root, self:get_source()) do
-    if match and match:type() == 'fndef' then return Footnote.from_node(match, self:get_source()) end
-  end
-end
-
----@param footnote_definition FeyFootnote
----@return FeyFootnote | nil
-function FeyFile:find_footnote_reference(footnote_definition)
-  self:parse(true)
-  local ts_query = ts_utils.get_query(([[
-      (fnref label: (expr) @_label (#eq? @_label "%s")) @footnotes
-  ]]):format(footnote_definition.label))
-
-  local matches = {}
-  for _, match in ts_query:iter_captures(self.root, self:get_source()) do
-    if match:type() == 'fnref' then table.insert(matches, match) end
-  end
-  if #matches > 0 then return Footnote.from_node(matches[#matches], self:get_source()) end
-end
 
 memoize('get_directive')
 ---@param directive_name string

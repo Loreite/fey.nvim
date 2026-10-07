@@ -69,6 +69,22 @@ function M.check_setup()
   else
     h.ok('`fey_default_notes_file` configured')
   end
+
+  -- footnotes that are referenced and have no definition, in the hollows that can be seen
+  local ok, hollows = pcall(function() return require('fey.hollow.court').hollows() end)
+  local missing = {}
+  if ok then
+    for _, hollow in ipairs(hollows) do
+      for _, row in ipairs(hollow.vault:footnotes({ missing = true })) do
+        missing[#missing + 1] = ('%s/%s: footnote %s (line %d)'):format(hollow.id, row.path, row.label, row.line or 0)
+      end
+    end
+  end
+  if #missing == 0 then
+    h.ok('every footnote has a definition')
+  else
+    h.warn(('%d footnote%s without a definition'):format(#missing, #missing == 1 and '' or 's'), missing)
+  end
 end
 
 function M.check_shellslash()

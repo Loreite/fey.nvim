@@ -153,10 +153,20 @@ FeyApiVault:dates({opts?})                                *FeyApiVault:dates()*
     (leave out done tasks) and `path`.
 
 FeyApiVault:tasks({opts?})                                *FeyApiVault:tasks()*
-    The headings with a todo keyword or a priority. Rows: `path`, `line`,
-    `heading_ord`, `title`, `signature`, `state`, `done`, `priority`, `labels`.
-    `opts`: `state` (string or list), `done`, `priority`, `label` (matches
-    nested labels too) and `path`.
+    The headings with a todo keyword or a priority, or the checkbox items of
+    lists. Rows: `path`, `line`, `heading_ord`, `title`, `signature`, `state`,
+    `done`, `priority`, `kind` (`heading` or `item`) and `labels`. For an item
+    `state` is the mark of its box (a space, `x`, `/`, `!`, `n`, ...) and `done`
+    is true only for the class done (`x` and `X`). `opts`: `state` (string
+    or list), `done`, `priority`, `label` (matches nested labels too), `path`
+    and `kind` (`heading` by default, `item` or `all`).
+
+FeyApiVault:footnotes({opts?})                        *FeyApiVault:footnotes()*
+    The footnotes of the notes, one row per label of a file: `path`, `label`,
+    `references` (how many), `line` (of the first), `defined` (a pair, line or
+    block tag with the label exists) and `definition_line`. `opts.missing` keeps those that are
+    referenced and not defined, `opts.unused` those defined and not referenced,
+    `opts.path` limits to one file.
 
 FeyApiVault:headings({path})                           *FeyApiVault:headings()*
     The heading rows of a file, `data` decoded.
@@ -352,14 +362,15 @@ All `path` columns are relative to the vault root; JSON columns hold JSON text.
     properties  file_id, name, value (JSON): the top level keys of the data
     dates       file_id, heading_ord, line, col, kind, active, start_ts,
                 start_time, end_ts, end_time, repeater, warn
-    tasks       file_id, heading_ord, line, kind, state, done, priority, title
+    tasks       file_id, heading_ord, line, kind (heading or item), state, done,
+                priority, title
 
 `region` says where a tag sits: `title`, `body` (a tag line right under a
 heading), `text` or `document`. `container` of a label is `title`, `body`,
 `text`, `document` or `data`. `target_ref` of a link is the hollow it names
 (`court:notes`, `current`) and is NULL for a link inside the hollow. Times are
 epoch seconds in local time; `start_time` is 1 when the date has a time of day.
-The index version is 5 (a clock is a `dates` row with `kind` `clock` and no end while it runs): a vault written by an older version is rebuilt when
+The index version is 6 (a checkbox item is a `tasks` row of kind `item`; a clock is a `dates` row with `kind` `clock` and no end while it runs): a vault written by an older version is rebuilt when
 it is opened.
 
 `heading_ord` is NULL for entries outside any section. `target_sig` is the
