@@ -21,7 +21,7 @@ local Promise = require('fey.utils.promise')
 ---@field filter? string
 ---@field tag_filter? string
 ---@field category_filter? string
----@field agenda_files string | string[] | nil
+---@field paths string | string[] | nil
 ---@field span? FeyAgendaSpan
 ---@field from? FeyDate
 ---@field start_on_weekday? number
@@ -29,7 +29,7 @@ local Promise = require('fey.utils.promise')
 ---@field header? string
 ---@field show_clock_report? boolean
 ---@field sorting_strategy? FeyAgendaSortingStrategy[]
----@field remove_tags? boolean
+---@field remove_labels? boolean
 ---@field id? string
 
 ---@class FeyAgendaType:FeyAgendaViewType
@@ -40,7 +40,7 @@ local Promise = require('fey.utils.promise')
 ---@field filter? FeyAgendaFilter
 ---@field tag_filter? FeyAgendaFilter
 ---@field category_filter? FeyAgendaFilter
----@field agenda_files string | string[] | nil
+---@field paths string | string[] | nil
 ---@field span? FeyAgendaSpan
 ---@field from? FeyDate
 ---@field to? FeyDate
@@ -52,7 +52,7 @@ local Promise = require('fey.utils.promise')
 ---@field clock_report? FeyClockReport
 ---@field clock_report_view? FeyAgendaView
 ---@field sorting_strategy? FeyAgendaSortingStrategy[]
----@field remove_tags? boolean
+---@field remove_labels? boolean
 ---@field valid_filters? FeyAgendaFilter[]
 ---@field id? string
 ---@field private _grid_times { hour: number, min: number }[]
@@ -77,11 +77,11 @@ function FeyAgendaType:new(opts)
     show_clock_report = opts.show_clock_report or false,
     start_on_weekday = utils.if_nil(opts.start_on_weekday, config.fey_agenda_start_on_weekday),
     start_day = utils.if_nil(opts.start_day, config.fey_agenda_start_day),
-    agenda_files = opts.agenda_files,
+    paths = opts.paths or opts.agenda_files, -- `agenda_files` is the old name of the key of a custom command
     header = opts.header,
     sorting_strategy = opts.sorting_strategy or vim.tbl_get(config.fey_agenda_sorting_strategy, 'agenda') or {},
     id = opts.id,
-    remove_tags = utils.if_nil(opts.remove_tags, config.fey_agenda_remove_tags),
+    remove_labels = utils.if_nil(opts.remove_labels, config.fey_agenda_remove_labels),
   }
   data.valid_filters = vim.tbl_filter(function(filter)
     return filter and true or false
@@ -104,14 +104,14 @@ end
 -- the dates are read from the index each time the view is built, there is nothing to reload
 function FeyAgendaType:redo() end
 
----`agenda_files` of a custom command limits the source to those files and directories
+---`paths` of a custom command (`agenda_files` before) limits the source to those files and directories
 function FeyAgendaType:_setup_agenda_files()
-  if not self.agenda_files then
+  if not self.paths then
     return
   end
   local source = self.source or require('fey.agenda.source').new()
   self.source = setmetatable({ paths = nil }, { __index = source })
-  self.source:set_paths(self.agenda_files)
+  self.source:set_paths(self.paths)
 end
 
 function FeyAgendaType:advance_span(count, direction)
@@ -543,8 +543,8 @@ function FeyAgendaType:_build_line(agenda_item, metadata)
     content = heading:get_title(),
     add_markup_to_heading = heading,
   }))
-  if not self.remove_tags and #heading:get_tags() > 0 then
-    local tags_string = heading:tags_to_string()
+  if not self.remove_labels and #heading:get_labels() > 0 then
+    local tags_string = heading:labels_to_string()
     line:add_token(AgendaLineToken:new({
       content = tags_string,
       virt_text_pos = 'right_align',

@@ -276,25 +276,25 @@ function Config:is_archive_file(file)
 end
 
 function Config:exclude_tags(tags)
-  if vim.tbl_isempty(self.opts.fey_tags_exclude_from_inheritance) then
+  if vim.tbl_isempty(self.opts.fey_labels_exclude_from_inheritance) then
     return tags
   end
 
   return vim.tbl_filter(function(tag)
-    return not vim.tbl_contains(self.opts.fey_tags_exclude_from_inheritance, tag)
+    return not vim.tbl_contains(self.opts.fey_labels_exclude_from_inheritance, tag)
   end, tags)
 end
 
 function Config:get_inheritable_tags(heading)
-  if not heading.tags or not self.opts.fey_use_tag_inheritance then
+  if not heading.tags or not self.opts.fey_use_label_inheritance then
     return {}
   end
-  if vim.tbl_isempty(self.opts.fey_tags_exclude_from_inheritance) then
+  if vim.tbl_isempty(self.opts.fey_labels_exclude_from_inheritance) then
     return { unpack(heading.tags) }
   end
 
   return vim.tbl_filter(function(tag)
-    return not vim.tbl_contains(self.opts.fey_tags_exclude_from_inheritance, tag)
+    return not vim.tbl_contains(self.opts.fey_labels_exclude_from_inheritance, tag)
   end, heading.tags)
 end
 

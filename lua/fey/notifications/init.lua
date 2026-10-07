@@ -119,7 +119,7 @@ function Notifications:get_tasks(time)
         priority = entry:get_priority(),
         title = entry:get_title(),
         signature = entry.signature and vim.trim(entry.signature) or '',
-        tags = entry:get_tags(),
+        tags = entry:get_labels(),
         original_time = item.date,
         time = reminder.time,
         reminder_type = reminder.reminder_type,

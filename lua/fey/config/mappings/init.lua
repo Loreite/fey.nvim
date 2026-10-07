@@ -154,9 +154,9 @@ return {
       'agenda.toggle_archive_tag',
       { opts = { desc = 'fey toggle archive tag', help_desc = 'Toggle "ARCHIVE" tag on current heading' } }
     ),
-    fey_agenda_set_tags = m.action(
-      'agenda.set_tags',
-      { opts = { desc = 'fey set tags', help_desc = 'Change tags of current heading' } }
+    fey_agenda_set_labels = m.action(
+      'agenda.set_labels',
+      { opts = { desc = 'fey set labels', help_desc = 'Change labels of current heading' } }
     ),
     fey_agenda_deadline = m.action(
       'agenda.set_deadline',
@@ -229,23 +229,23 @@ return {
     fey_refile = m.custom([[<Cmd>lua require('fey.refile').at_cursor()<CR>]], {
       opts = { desc = 'fey refile', help_desc = 'Refile heading to specific destination' },
     }),
-    fey_timestamp_up_day = m.action(
-      'fey_mappings.timestamp_up_day',
-      { opts = { desc = 'fey increase timestamp (day)', help_desc = 'Increase timestamp by one day' } }
+    fey_date_up_day = m.action(
+      'fey_mappings.date_up_day',
+      { opts = { desc = 'fey increase date (day)', help_desc = 'Increase date by one day' } }
     ),
-    fey_timestamp_down_day = m.action(
-      'fey_mappings.timestamp_down_day',
-      { opts = { desc = 'fey decrease timestamp (day)', help_desc = 'Decrease timestamp by one day' } }
+    fey_date_down_day = m.action(
+      'fey_mappings.date_down_day',
+      { opts = { desc = 'fey decrease date (day)', help_desc = 'Decrease date by one day' } }
     ),
-    fey_timestamp_up = m.action('fey_mappings.timestamp_up', {
+    fey_date_up = m.action('fey_mappings.date_up', {
       opts = {
-        desc = 'fey increase timestamp',
+        desc = 'fey increase date',
         help_desc = 'Increase date part under cursor (year/month/day/hour/minute/repeater/active|inactive)',
       },
     }),
-    fey_timestamp_down = m.action('fey_mappings.timestamp_down', {
+    fey_date_down = m.action('fey_mappings.date_down', {
       opts = {
-        desc = 'fey decrease timestamp',
+        desc = 'fey decrease date',
         help_desc = 'Decrease date part under cursor (year/month/day/hour/minute/repeater/active|inactive)',
       },
     }),
@@ -357,9 +357,9 @@ return {
     fey_archive_subtree = m.custom([[<Cmd>lua require('fey.refile').archive_at_cursor()<CR>]], {
       opts = { desc = 'fey archive subtree', help_desc = 'Archive subtree to archive file' },
     }),
-    fey_set_tags_command = m.action(
-      'fey_mappings.set_tags',
-      { opts = { desc = 'fey set tags', help_desc = 'Change tags of current heading' } }
+    fey_set_labels_command = m.action(
+      'fey_mappings.set_labels',
+      { opts = { desc = 'fey set labels', help_desc = 'Change labels of current heading' } }
     ),
     fey_toggle_archive_tag = m.action(
       'fey_mappings.toggle_archive_tag',
@@ -733,13 +733,13 @@ return {
       'fey_mappings.fey_schedule',
       { opts = { desc = 'fey schedule', help_desc = 'Insert/Update scheduled date' } }
     ),
-    fey_time_stamp = m.action(
-      'fey_mappings.fey_time_stamp',
-      { opts = { desc = 'fey timestamp', help_desc = 'Insert date under cursor' } }
+    fey_date_insert = m.action(
+      'fey_mappings.fey_date_insert',
+      { opts = { desc = 'fey date', help_desc = 'Insert date under cursor' } }
     ),
-    fey_time_stamp_inactive = m.action('fey_mappings.fey_time_stamp', {
+    fey_date_insert_inactive = m.action('fey_mappings.fey_date_insert', {
       args = { true },
-      opts = { desc = 'fey timestamp (inactive)', help_desc = 'Insert/Update inactive date under cursor' },
+      opts = { desc = 'fey date (inactive)', help_desc = 'Insert/Update inactive date under cursor' },
     }),
     fey_insert_link = m.action('fey_mappings.insert_link', {
       modes = { 'n', 'x' },
@@ -785,9 +785,9 @@ return {
     fey_babel_check = m.action('fey_mappings.fey_babel_check', {
       opts = { desc = 'fey tangle check', help_desc = 'List in quickfix the references that name no block and the targets two files write' },
     }),
-    fey_toggle_timestamp_type = m.action(
-      'fey_mappings.fey_toggle_timestamp_type',
-      { opts = { desc = 'fey toggle timestamp type', help_desc = 'Toggle timestamp active/inactive type' } }
+    fey_toggle_date_type = m.action(
+      'fey_mappings.fey_toggle_date_type',
+      { opts = { desc = 'fey toggle date type', help_desc = 'Toggle date active/inactive type' } }
     ),
     fey_toggle_link_conceal = m.action('fey_mappings.toggle_option', {
       args = { 'fey_link_conceal_default' },

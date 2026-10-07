@@ -12,7 +12,7 @@ local Input = require('fey.ui.input')
 
 local SelState = { DAY = 0, HOUR = 1, MIN_BIG = 2, MIN_SMALL = 3 }
 local big_minute_step = config.calendar.min_big_step
-local small_minute_step = config.calendar.min_small_step or config.fey_time_stamp_rounding_minutes
+local small_minute_step = config.calendar.min_small_step or config.fey_date_rounding_minutes
 
 ---@class FeyCalendar
 ---@field win number?

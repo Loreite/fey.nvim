@@ -960,6 +960,20 @@ drawn) and the corpus of the grammar. It prints one line per part and exits with
      `tests/links.lua` for a new one. A change of the grammar needs a corpus case in `test/corpus` of tree-sitter-fey (`tree-sitter test -u` writes the expected tree; read it)
 
 
+  II.M.xiii. Words
+
+The plugin began as orgmode for Neovim and some of its words mean something else in Fey. Say these: the words of a heading are its **labels**
+(a tag is only the syntax, the brackets and the name), a date tag holds a **date** and not a timestamp, the planning lines are **planning tags**, a drawer is a pair or block tag,
+a directive is a **key of the document data**, an agenda file is the **vault**, a src block is a fenced block. The glossary is in `legal/contributing.fey`.
+
+  -  renamed: the options `fey_use_label_inheritance`, `fey_labels_exclude_from_inheritance`, `fey_agenda_remove_labels` and `fey_date_rounding_minutes`; the mappings
+     `fey_set_labels_command`, `fey_agenda_set_labels`, `fey_date_up`, `fey_date_down`, `fey_date_up_day`, `fey_date_down_day`, `fey_date_insert`, `fey_date_insert_inactive`
+     and `fey_toggle_date_type`; in the Lua API `get_labels`, `set_labels`, `add_label`, `has_label`, `labels_to_string`, `get_planning_dates`, `get_heading_path`, `get_data_key`, `is_src`
+  -  the old names keep working for a release: `setup` moves the old options and mappings to the new names and says so once, a note's `plugin` tag may use the old option names,
+     `:checkhealth fey` lists the old names the setup used, and the old methods call the new ones and say so once (`vim.deprecate`)
+  -  `scripts/terms.lua` lists where the old words are (`nvim --headless --clean -l scripts/terms.lua`); `--check` fails on a new use of one, and runs with the tests
+
+
   II.N. Queries and databases
 
 Notes can hold queries (a Dataview style language, with TABLE, LIST and TASK) and
@@ -1025,6 +1039,12 @@ In Fey files:
 | <prefix>xi            | Clock in current heading                                                                        | fey_clock_in                                       |
 | <prefix>xo            | Clock out current heading                                                                       | fey_clock_out                                      |
 | <TAB>                 | Toggle folding                                                                                  | fey_cycle                                          |
+| <C-x>                 | Decrease date part under cursor (year/month/day/hour/minute/repeater/active\|inactive)          | fey_date_down                                      |
+| <S-DOWN>              | Decrease date by one day                                                                        | fey_date_down_day                                  |
+| <prefix>i.            | Insert date under cursor                                                                        | fey_date_insert                                    |
+| <prefix>i!            | Insert/Update inactive date under cursor                                                        | fey_date_insert_inactive                           |
+| <C-a>                 | Increase date part under cursor (year/month/day/hour/minute/repeater/active\|inactive)          | fey_date_up                                        |
+| <S-UP>                | Increase date by one day                                                                        | fey_date_up_day                                    |
 | <prefix>id            | Insert/Update deadline date                                                                     | fey_deadline                                       |
 | <prefix>L             | Demote whole subtree                                                                            | fey_demote_subtree                                 |
 | ><                    | Demote heading                                                                                  | fey_do_demote                                      |
@@ -1068,7 +1088,7 @@ In Fey files:
 | <prefix>is            | Insert/Update scheduled date                                                                    | fey_schedule                                       |
 | <prefix>sc            | Pick the state of the checkbox of the list item (in progress, important, note ...)              | fey_set_checkbox_state                             |
 | <prefix>xe            | Set effort estimate on current heading                                                          | fey_set_effort                                     |
-| <prefix>sl            | Change tags of current heading                                                                  | fey_set_tags_command                               |
+| <prefix>sl            | Change labels of current heading                                                                | fey_set_labels_command                             |
 | g?                    | Show this help                                                                                  | fey_show_help                                      |
 | <prefix>ls            | Store link to current heading                                                                   | fey_store_link                                     |
 | <prefix>tc            | insert table after current line using count or obtained input. default 2x2                      | fey_table_create_after                             |
@@ -1105,12 +1125,6 @@ In Fey files:
 | <prefix>tmk           | move the current table row under cursor up                                                      | fey_table_move_row_up                              |
 | <prefix>tf            | reformat table, reflowing text and aligning to a grid                                           | fey_table_reformat                                 |
 | <prefix>tu            | break apart combined cells into individual cells                                                | fey_table_unmerge_cells                            |
-| <prefix>i.            | Insert date under cursor                                                                        | fey_time_stamp                                     |
-| <prefix>i!            | Insert/Update inactive date under cursor                                                        | fey_time_stamp_inactive                            |
-| <C-x>                 | Decrease date part under cursor (year/month/day/hour/minute/repeater/active\|inactive)          | fey_timestamp_down                                 |
-| <S-DOWN>              | Decrease timestamp by one day                                                                   | fey_timestamp_down_day                             |
-| <C-a>                 | Increase date part under cursor (year/month/day/hour/minute/repeater/active\|inactive)          | fey_timestamp_up                                   |
-| <S-UP>                | Increase timestamp by one day                                                                   | fey_timestamp_up_day                               |
 | cit                   | Forward change TODO state of current heading                                                    | fey_todo                                           |
 | ciT                   | Backward change TODO state of current heading                                                   | fey_todo_prev                                      |
 | <prefix>?e <prefix>Ts | Apply settings when a note is entered, or stop doing it                                         | fey_toggle_apply_all_settings_at_buffer_enter      |
@@ -1118,12 +1132,12 @@ In Fey files:
 | <C-Space>             | Toggle the checkbox of the list item (adds one when there is none), and update progress cookies | fey_toggle_checkbox                                |
 | <prefix>Ti            | Show checkboxes as icons, or as written                                                         | fey_toggle_checkbox_icons                          |
 | <prefix>Tc            | Show or hide the tag syntax around the todo keyword, priority and labels of headings            | fey_toggle_conceal_task_tags                       |
+| <prefix>d!            | Toggle date active/inactive type                                                                | fey_toggle_date_type                               |
 | <prefix>*             | Toggle current line to heading and vice versa                                                   | fey_toggle_heading                                 |
 | <prefix>Tl            | Hide the head of links, or show it                                                              | fey_toggle_link_conceal                            |
 | <prefix>To            | Paint the overdue dates, or stop                                                                | fey_toggle_overdue                                 |
 | <prefix>Tq            | Hide queries and their result heads, or show them                                               | fey_toggle_query_conceal                           |
 | <prefix>!e <prefix>Te | Run the buffer commands when a note is entered and left, or stop doing it                       | fey_toggle_run_all_buffer_commands_at_buffer_enter |
-| <prefix>d!            | Toggle timestamp active/inactive type                                                           | fey_toggle_timestamp_type                          |
 | g}                    | Go to last child heading                                                                        | last_child_heading                                 |
 | g{                    | Go to parent heading                                                                            | outline_up_heading                                 |
 
@@ -1157,7 +1171,7 @@ In the agenda:
 | <prefix>r  | Refile heading to specific destination                                   | fey_agenda_refile             |
 | <prefix>is | Insert/Update scheduled date on current heading                          | fey_agenda_schedule           |
 | <prefix>xe | Set effort estimate for item under cursor                                | fey_agenda_set_effort         |
-| <prefix>t  | Change tags of current heading                                           | fey_agenda_set_tags           |
+| <prefix>t  | Change labels of current heading                                         | fey_agenda_set_labels         |
 | g?         | Show this help                                                           | fey_agenda_show_help          |
 | <CR>       | Open in current window                                                   | fey_agenda_switch_to          |
 | t          | Change TODO state of an item                                             | fey_agenda_todo               |

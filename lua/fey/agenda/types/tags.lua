@@ -50,7 +50,7 @@ function FeyAgendaTagsType:prepare()
     return self
   end
 
-  return self:get_tags()
+  return self:get_labels()
 end
 
 ---The entries that match: labels (`+work-home`), props (`priority="A"`, `deadline<"<today>"`) and todo
@@ -113,7 +113,7 @@ function FeyAgendaTagsType:get_entries()
   return headings
 end
 
-function FeyAgendaTagsType:get_tags()
+function FeyAgendaTagsType:get_labels()
   return Input.open('Match: ', self.match_query or '', function(arg_lead)
     return utils.prompt_autocomplete(arg_lead, self.source:labels())
   end):next(function(tags)
@@ -134,7 +134,7 @@ function FeyAgendaTagsType:redraw()
   if self.id then
     return self
   end
-  return self:get_tags()
+  return self:get_labels()
 end
 
 return FeyAgendaTagsType

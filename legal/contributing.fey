@@ -190,10 +190,36 @@ or a bug you want to fix), the following channels can be used:
 - etc...
 
 
+  I.vi. Glossary: say Fey, not org
+
+The code, the options and the docs were written for orgmode and some words mean something else in Fey (the worst is "tag": in org it is a word of a
+headline, in Fey it is a piece of syntax, and the words of a heading are labels). `scripts/terms.lua --check` fails when a file uses an old word more often than it
+did (`scripts/test.sh` runs it); the old public names of the Lua API, the options and the mappings still work for a release and say so once
+(`fey.utils.deprecate`, `fey.config.migrate`).
+
+| org word                          | Fey word                      | where it shows                                           |
++===================================+===============================+==========================================================+
+| headline                          | heading                       | comments, docs, config text                              |
+| tags of a headline, `:a:b:`       | labels                        | get_labels, set_labels, add_label, labels_to_string      |
+| (the same, in options)            | labels                        | fey_use_label_inheritance, fey_agenda_remove_labels      |
+| tag (the word, syntax)            | tag                           | stays, and only means the syntax                         |
+| stars                             | signature                     | fey_hide_leading_signature                               |
+| headline text, item               | title                         | FeyFile:get_title                                        |
+| TODO keyword                      | status (keyword and priority) | fey_todo_keywords stays, the text says status            |
+| plan, planning line               | planning tags                 | get_planning_dates, FeyPlanningDateTypes                 |
+| timestamp                         | date                          | fey_date_insert, fey_date_up, fey_date_rounding_minutes  |
+| property drawer, drawer           | prop tag, pair or block tag   | get_drawer, add_to_drawer, fey_log_into_logbook          |
+| directive, `#+name:`              | key of the document data      | get_data_key, get_data_properties                        |
+| agenda files                      | the vault                     | `paths` of an agenda, the deprecated fey_agenda_files    |
+| src block, babel                  | fenced block named src        | is_src                                                   |
+| dynamic block                     | result tag                    | `*_result` tags                                          |
+| org file, `.org`                  | Fey file, `.fey`              | docs, helpers                                            |
+| outline path                      | path of a heading             | get_heading_path (the index calls it `path`)             |
+| directory with a `.fey` folder    | hollow                        | fey.hollow.*                                             |
+| the database in `.fey` (the index)| vault                         | fey.vault.*; a vault belongs to one hollow               |
+| the master vault, the top         | court                         | fey_court_dir                                            |
+| org, orgmode, nvim-orgmode        | fey                           | only in the credits and the history                      |
+
+
 Thanks for your interest in contributing!
     - The Fey.nvim development team
-
-
-
-
-

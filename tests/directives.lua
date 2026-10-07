@@ -39,7 +39,7 @@ check('title is the file name', plain:get_title(), 'n1')
 check('category too', plain:get_category(), 'n1')
 check('the configured todo keywords', plain:get_todo_keywords():find('TODO') ~= nil and plain:get_todo_keywords():find('NEXT') == nil, true)
 check('no file labels', plain:get_filetags(), {})
-check('no directive properties', plain:get_directive_properties(), {})
+check('no directive properties', plain:get_data_properties(), {})
 check('default header arguments', plain:get_header_args(), conf.fey_babel_default_header_args)
 check('no archive of its own', plain:get_archive_file_location():sub(-14), 'n1.fey_archive')
 
@@ -56,7 +56,7 @@ local f = file_of({
 })
 check('title', f:get_title(), 'Project plan')
 check('category', f:get_category(), 'Work')
-check('a key by name', { f:get_directive('author'), f:get_directive('missing') }, { 'Ada', nil })
+check('a key by name', { f:get_data_key('author'), f:get_data_key('missing') }, { 'Ada', nil })
 check('file labels are the labels above the first heading', f:get_filetags(), { 'project', 'plan/2026' })
 local keywords = f:get_todo_keywords()
 check('the todo keywords of the file', { keywords:find('NEXT') ~= nil, keywords:find('CANCELLED') ~= nil, keywords:find('NEXT').type, keywords:find('CANCELLED').type }, { true, true, 'TODO', 'DONE' })
@@ -65,8 +65,8 @@ check('the keywords of the file decide what is a task and what is done', { headi
 check('the archive location, a template relative to the file', f:get_archive_file_location():sub(-16), '/archive/n2.fey_old' and f:get_archive_file_location():sub(-16))
 check('and from the data', f:get_archive_file_location():find('archive/n2.fey_old', 1, true) ~= nil, true)
 check('header arguments from the data over the defaults', { f:get_header_args()[':tangle'], f:get_header_args()[':results'] }, { 'yes', 'output' })
-check('a property by name', { f:get_directive_property('Author'), f:get_directive_property('header-args'), f:get_directive_property('nothing') }, { 'Ada', ':tangle yes :results output', nil })
-check('the scalar keys', f:get_directive_properties().title, 'Project plan')
+check('a property by name', { f:get_data_property('Author'), f:get_data_property('header-args'), f:get_data_property('nothing') }, { 'Ada', ':tangle yes :results output', nil })
+check('the scalar keys', f:get_data_properties().title, 'Project plan')
 
 -- todo as a list: sequences ------------------------------------------------------------------------------------------
 local g = file_of({

@@ -188,7 +188,7 @@ function utils.parse_tags_string(tags)
   return parsed_tags
 end
 
-function utils.tags_to_string(taglist, sorted)
+function utils.labels_to_string(taglist, sorted)
   local tags = ''
   local tags_list = taglist
   if #taglist > 0 then
@@ -569,5 +569,11 @@ function utils.set(set)
 end
 
 function utils.unquote(s) return (s:gsub([[^(["'`])(.*)%1$]], '%2')) end
+
+-- the old names, kept for a release (III.R)
+utils.tags_to_string = function(...)
+  vim.deprecate('utils.tags_to_string', 'utils.labels_to_string', '0.2.0', 'fey.nvim', false)
+  return utils.labels_to_string(...)
+end
 
 return utils

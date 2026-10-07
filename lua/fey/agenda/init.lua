@@ -152,11 +152,11 @@ function Agenda:_build_custom_commands()
     opts_by_type[opts.type].files = self.files
     opts_by_type[opts.type].source = self.source
     opts_by_type[opts.type].header = opts.fey_agenda_overriding_header
-    opts_by_type[opts.type].agenda_files = opts.fey_agenda_files
+    opts_by_type[opts.type].paths = opts.fey_agenda_files
     opts_by_type[opts.type].tag_filter = opts.fey_agenda_tag_filter_preset
     opts_by_type[opts.type].category_filter = opts.fey_agenda_category_filter_preset
     opts_by_type[opts.type].highlighter = self.highlighter
-    opts_by_type[opts.type].remove_tags = opts.fey_agenda_remove_tags
+    opts_by_type[opts.type].remove_labels = opts.fey_agenda_remove_labels
     opts_by_type[opts.type].id = id
 
     return opts_by_type[opts.type]
@@ -481,9 +481,9 @@ function Agenda:toggle_archive_tag()
   })
 end
 
-function Agenda:set_tags()
+function Agenda:set_labels()
   return self:_remote_edit({
-    action = 'fey_mappings.set_tags',
+    action = 'fey_mappings.set_labels',
     update_in_place = true,
   })
 end

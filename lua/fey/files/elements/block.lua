@@ -25,7 +25,7 @@ function Block:new(node, file)
   }, self)
 end
 
-function Block:is_src_block() return self:get_type() == 'src' end
+function Block:is_src() return self:get_type() == 'src' end
 
 function Block:get_content()
   local node = self.node:field('contents')[1]
@@ -105,5 +105,7 @@ function Block:get_type()
   if name_node then return self.file:get_node_text(name_node):lower() end
   return nil
 end
+
+require('fey.utils.deprecate').alias(Block, 'is_src_block', 'is_src', 'Block:is_src_block')
 
 return Block

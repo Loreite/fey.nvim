@@ -1,17 +1,6 @@
-local fey = require('fey')
 local Table = require('fey.files.elements.table')
 
 local function format_line(linenr)
-  local line_text = vim.fn.getline(linenr)
-
-  if line_text:match('^%*+%s') then
-    local heading = fey.files:get_closest_heading_or_nil({ linenr, 1 })
-    if heading then
-      heading:align_tags()
-      return true
-    end
-  end
-
   local tbl = Table.from_current_node({ linenr, 0 })
   if tbl and tbl:reformat() then
     return true

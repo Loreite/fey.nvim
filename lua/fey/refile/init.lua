@@ -163,7 +163,7 @@ function M.move(source, destination, opts)
       moved.title = heading:get_title()
       moved.lines = lines_at_level(heading, target_level)
       moved.first, moved.last = first, last
-      moved.outline = heading:get_outline_path()
+      moved.outline = heading:get_heading_path()
       moved.state = heading:get_todo()
       old_path = moved.outline
     end)
@@ -468,7 +468,7 @@ function M.archive(source)
   local outline, state
   return Edit.run(source, function()
     local heading = heading_here()
-    outline, state = heading:get_outline_path(), heading:get_todo()
+    outline, state = heading:get_heading_path(), heading:get_todo()
   end):next(function()
     if outline and outline ~= '' then props.archived_path = outline end
     if state then props.archived_state = state end

@@ -83,8 +83,8 @@ function SortingStrategy.tag_up(a, b)
   if not a.heading or not b.heading then
     return
   end
-  local a_tags = a.heading:tags_to_string(true)
-  local b_tags = b.heading:tags_to_string(true)
+  local a_tags = a.heading:labels_to_string(true)
+  local b_tags = b.heading:labels_to_string(true)
   if a_tags == '' and b_tags == '' then
     return
   end

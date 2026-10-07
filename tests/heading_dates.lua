@@ -47,7 +47,7 @@ local buf, file = open({
   '',
 })
 local h = file:get_closest_heading({ 1, 0 })
-local plan, nodes, has = h:get_plan_dates()
+local plan, nodes, has = h:get_planning_dates()
 check('has plan dates', has, true)
 check('scheduled', plan.SCHEDULED[1]:to_tag_value(), '2026-10-06 Tue 10:00 +1w')
 check('deadline', plan.DEADLINE[1]:to_tag_value(), '2026-10-10 Sat')
@@ -55,7 +55,7 @@ check('no closed', plan.CLOSED, nil)
 check('plan nodes', nodes.SCHEDULED:type(), 'scope_tag')
 check('get_scheduled_date', h:get_scheduled_date().day, 6)
 check('get_deadline_date', h:get_deadline_date().day, 10)
-check('non plan dates', vim.tbl_map(function(d) return d.day end, h:get_non_plan_dates()), { 8 })
+check('non plan dates', vim.tbl_map(function(d) return d.day end, h:get_non_planning_dates()), { 8 })
 check('all dates', #h:get_all_dates(), 3)
 check('plan dates are typed', { h:get_scheduled_date().type, h:get_deadline_date().type }, { 'SCHEDULED', 'DEADLINE' })
 local child = file:get_closest_heading({ 6, 0 })
@@ -109,10 +109,10 @@ mappings:_adjust_date(-2, 'd', '')
 check('adjust back', lines(buf)[3], 'a {@ date, 2026-10-05 Mon 10:00 +1w @} b')
 
 vim.api.nvim_win_set_cursor(0, { 3, 8 })
-mappings:fey_toggle_timestamp_type()
+mappings:fey_toggle_date_type()
 check('toggle to inactive', lines(buf)[3], 'a {@ date, 2026-10-05 Mon 10:00 +1w; active: false @} b')
 vim.api.nvim_win_set_cursor(0, { 3, 8 })
-mappings:fey_toggle_timestamp_type()
+mappings:fey_toggle_date_type()
 check('toggle back to active', lines(buf)[3], 'a {@ date, 2026-10-05 Mon 10:00 +1w @} b')
 
 -- on the end of a range
@@ -125,10 +125,10 @@ check('adjust the start of a range', lines(buf)[4], '{@ date, 2026-10-07 Wed--20
 
 -- a closed date toggles to active with an explicit key
 vim.api.nvim_win_set_cursor(0, { 5, 5 })
-mappings:fey_toggle_timestamp_type()
+mappings:fey_toggle_date_type()
 check('closed becomes active', lines(buf)[5], '{# closed, 2026-10-09 Fri; active: true #}')
 vim.api.nvim_win_set_cursor(0, { 5, 5 })
-mappings:fey_toggle_timestamp_type()
+mappings:fey_toggle_date_type()
 check('closed becomes inactive again', lines(buf)[5], '{# closed, 2026-10-09 Fri #}')
 
 -- the part under the cursor

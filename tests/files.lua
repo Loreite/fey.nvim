@@ -29,7 +29,7 @@ local fey = require('fey')
 
 check('nothing is loaded at startup', #fey.files:all(), 0)
 check('the cache is not the glob', fey.files.paths, nil)
-check('the preloading is gone', { fey.files.load, fey.files.load_sync, fey.files.find_headings_by_title, fey.files.get_tags }, {})
+check('the preloading is gone', { fey.files.load, fey.files.load_sync, fey.files.find_headings_by_title, fey.files.get_labels }, {})
 
 -- loaded on demand
 vim.cmd('edit ' .. vim.fn.fnameescape(base .. '/notes/n03.fey'))

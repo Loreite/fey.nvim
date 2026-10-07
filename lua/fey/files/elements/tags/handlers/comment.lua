@@ -9,7 +9,7 @@
 --     (later) has nothing to export, the index skips everything in it. In a section it comments the text of
 --     the section, not its subsections
 --
--- The body is dimmed with the group `FeyComment`, the comment style of orgmode.
+-- The body is dimmed with the group `FeyComment`, the style of a comment in code.
 local config = require('fey.config')
 
 local M = {}

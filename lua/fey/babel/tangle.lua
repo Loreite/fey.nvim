@@ -189,7 +189,7 @@ end
 function Tangle.infos_of_file(file)
   local infos = {}
   for _, block in ipairs(file:get_blocks()) do
-    if block:is_src_block() then
+    if block:is_src() then
       local info = block:get_tangle_info()
       table.insert(infos, {
         file = vim.fn.fnamemodify(file.filename, ':p'),

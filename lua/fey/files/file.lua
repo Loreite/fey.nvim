@@ -459,15 +459,15 @@ end
 
 memoize('get_todo_keywords')
 function FeyFile:get_todo_keywords()
-  local todo_directives = self:_get_directive('todo', true)
+  local todo_lines = self:_get_data_key('todo', true)
 
-  if not todo_directives then return config:get_todo_keywords() end
+  if not todo_lines then return config:get_todo_keywords() end
 
-  if type(todo_directives) ~= 'table' then todo_directives = { todo_directives } end
+  if type(todo_lines) ~= 'table' then todo_lines = { todo_lines } end
 
   local keywords_data = {}
-  for _, directive in ipairs(todo_directives) do
-    local keywords = vim.split(vim.trim(directive), '%s+')
+  for _, line in ipairs(todo_lines) do
+    local keywords = vim.split(vim.trim(line), '%s+')
     table.insert(keywords_data, keywords)
   end
 
@@ -508,7 +508,7 @@ function FeyFile:apply_search(search, todo_only)
         todo = item:get_todo() or '',
         level = level,
       }),
-      tags = item:get_tags(),
+      tags = item:get_labels(),
       todo = item:get_todo() or '',
     })
   end, self:get_headings())
@@ -744,22 +744,22 @@ end
 ---The header arguments of the file: the data key `header_args` (`:tangle yes :results output`) over the defaults
 ---@return table<string, string>
 function FeyFile:get_header_args()
-  local header_args = self:_get_directive('header_args')
+  local header_args = self:_get_data_key('header_args')
   if not header_args then return vim.tbl_extend('force', {}, config.fey_babel_default_header_args) end
   return vim.tbl_extend('force', config.fey_babel_default_header_args, config:parse_header_args(header_args))
 end
 
-memoize('get_directive_property')
----A key of the document data as text (what an org `#+PROPERTY:` line was); the name is read case insensitively,
+memoize('get_data_property')
+---A key of the document data as text (what a `#+PROPERTY:` line was); the name is read case insensitively,
 ---and `-` and `_` are the same: `header-args` is `header_args`
 --- @param name string
 --- @return string | nil
-function FeyFile:get_directive_property(name) return self:get_directive_properties()[(name:lower():gsub('[^%w_]', '_'))] end
+function FeyFile:get_data_property(name) return self:get_data_properties()[(name:lower():gsub('[^%w_]', '_'))] end
 
-memoize('get_directive_properties')
+memoize('get_data_properties')
 ---The scalar keys of the document data, by lower case name, as text
 ---@return table<string, string>
-function FeyFile:get_directive_properties()
+function FeyFile:get_data_properties()
   local properties = {}
   local data = self:get_data()
   if type(data) ~= 'table' or vim.islist(data) then return properties end
@@ -864,7 +864,7 @@ memoize('get_category')
 --- If no category is set, the filename without extension is returned
 --- @return string
 function FeyFile:get_category()
-  local category = self:_get_directive('category')
+  local category = self:_get_data_key('category')
   if category then return category end
 
   return vim.fn.fnamemodify(self.filename, ':t:r') or ''
@@ -875,7 +875,7 @@ memoize('get_title')
 --- If no title is set, the filename without extension is returned
 --- @return string
 function FeyFile:get_title()
-  local title = self:_get_directive('title')
+  local title = self:_get_data_key('title')
   if title then return title end
 
   return vim.fn.fnamemodify(self.filename, ':t:r') or ''
@@ -896,14 +896,14 @@ end
 --- If this file is an archive file, it returns null
 --- @return string | nil
 function FeyFile:get_archive_file_location()
-  local archive_location = self:_get_directive('archive')
+  local archive_location = self:_get_data_key('archive')
   return config:parse_archive_location(self.filename, archive_location)
 end
 
-memoize('get_directive')
----@param directive_name string
+memoize('get_data_key')
+---@param key_name string
 ---@return string[] | string | nil
-function FeyFile:get_directive(directive_name) return self:_get_directive(directive_name) end
+function FeyFile:get_data_key(key_name) return self:_get_data_key(key_name) end
 
 --- Get heading id or create a new one if it doesn't exist
 --- @return string
@@ -915,16 +915,16 @@ function FeyFile:id_get_or_create()
   return fey_id
 end
 
----A key of the document data (README VII), what the org directives were: `title`, `category`, `todo`
+---A key of the document data (README VII), what the `#+title:` lines were: `title`, `category`, `todo`
 ---(todo keywords, `TODO NEXT | DONE`), `archive` ...
 ---@private
----@param directive_name string
+---@param key_name string
 ---@param all_matches? boolean If true, returns an array of all matching values
 ---@return  string[] | string | nil
-function FeyFile:_get_directive(directive_name, all_matches)
+function FeyFile:_get_data_key(key_name, all_matches)
   local data = self:get_data()
   if type(data) ~= 'table' or vim.islist(data) then return nil end
-  local value = data[directive_name]
+  local value = data[key_name]
   if value == nil or value == vim.NIL then return nil end
 
   if all_matches then
@@ -981,6 +981,14 @@ function FeyFile:get_source()
   local bufnr = self:bufnr()
   if bufnr > -1 then return bufnr end
   return self.content
+end
+
+-- the old names, kept for a release (III.R)
+do
+  local alias = require('fey.utils.deprecate').alias
+  alias(FeyFile, 'get_directive', 'get_data_key', 'FeyFile:get_directive')
+  alias(FeyFile, 'get_directive_property', 'get_data_property', 'FeyFile:get_directive_property')
+  alias(FeyFile, 'get_directive_properties', 'get_data_properties', 'FeyFile:get_directive_properties')
 end
 
 return FeyFile

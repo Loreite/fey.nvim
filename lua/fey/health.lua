@@ -13,6 +13,9 @@ end
 
 ---Options that are not options, that have the wrong type or that are gone
 function M.check_options()
+  -- (the setup moved the old names; the original table is what it was given)
+  local moved = require('fey.config.migrate').find(require('fey').given_options())
+  if #moved > 0 then h.warn(('%d old name%s in the options of `setup`, still working for now'):format(#moved, #moved == 1 and '' or 's'), moved) end
   local problems = require('fey.config.validate').check(require('fey').setup_options(), require('fey.config.defaults'))
   if #problems == 0 then return h.ok('the options of `setup` are fine') end
   h.warn(

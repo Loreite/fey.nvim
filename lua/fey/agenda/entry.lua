@@ -1,6 +1,6 @@
 -- A heading of the agenda: what the agenda views need to know about a heading, read from a row of the
 -- vault instead of the syntax tree. It answers the questions the views ask of a heading (`get_todo`,
--- `is_done`, `get_priority`, `get_category`, `get_title`, `get_tags`, ...), so sorting, filtering and
+-- `is_done`, `get_priority`, `get_category`, `get_title`, `get_labels`, ...), so sorting, filtering and
 -- rendering do not care where it comes from.
 --
 -- An entry also knows where it lives, for the actions on it (II.L): the hollow, the file (`path` relative
@@ -114,11 +114,11 @@ end
 function Entry:matches_category(category) return self:get_category() == category end
 
 ---@return string[] labels
-function Entry:get_tags() return self.labels, nil end
+function Entry:get_labels() return self.labels, nil end
 
 ---@param tag string
 ---@return boolean
-function Entry:has_tag(tag)
+function Entry:has_label(tag)
   for _, label in ipairs(self.labels) do
     if label == tag then return true end
   end
@@ -127,7 +127,7 @@ end
 
 ---@param sorted? boolean
 ---@return string
-function Entry:tags_to_string(sorted) return utils.tags_to_string(self.labels, sorted) end
+function Entry:labels_to_string(sorted) return utils.labels_to_string(self.labels, sorted) end
 
 ---@return boolean
 function Entry:is_archived()
@@ -143,11 +143,11 @@ end
 function Entry:_plan_date(kind)
   local row = self._plan and self._plan[kind]
   if not row then return nil end
-  self._plan_dates = self._plan_dates or {}
-  if self._plan_dates[kind] == nil then
-    self._plan_dates[kind] = require('fey.agenda.source').dates_of(row)[1] or false
+  self._planning_dates = self._planning_dates or {}
+  if self._planning_dates[kind] == nil then
+    self._planning_dates[kind] = require('fey.agenda.source').dates_of(row)[1] or false
   end
-  return self._plan_dates[kind] or nil
+  return self._planning_dates[kind] or nil
 end
 
 ---@return FeyDate|nil
@@ -203,5 +203,13 @@ end
 ---Does a clock run on this heading (set when the source builds the entry)
 ---@return boolean
 function Entry:is_clocked_in() return self._clocked == true end
+
+-- the old names, kept for a release (III.R)
+do
+  local alias = require('fey.utils.deprecate').alias
+  alias(Entry, 'get_tags', 'get_labels', 'Entry:get_tags')
+  alias(Entry, 'has_tag', 'has_label', 'Entry:has_tag')
+  alias(Entry, 'tags_to_string', 'labels_to_string', 'Entry:tags_to_string')
+end
 
 return Entry

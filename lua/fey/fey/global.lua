@@ -50,7 +50,7 @@ local build = function(fey)
 
     helpgrep = function()
       fey.agenda:open_view('search', {
-        agenda_files = ('%s/**/*'):format(docs_dir),
+        paths = ('%s/**/*'):format(docs_dir),
       })
     end,
 

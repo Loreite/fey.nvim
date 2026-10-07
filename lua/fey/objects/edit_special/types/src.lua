@@ -13,7 +13,7 @@ function EditSpecialSrc:new(opts)
   o.fey_bufnr = opts.fey_bufnr
   o.fey_pos = opts.fey_pos
   o.file = opts.file
-  o.src_block = opts.position_info
+  o.fenced = opts.position_info
 
   setmetatable(o, self)
   self.__index = self
@@ -66,13 +66,13 @@ function EditSpecialSrc:abort()
 end
 
 function EditSpecialSrc:init()
-  local block_start_line, block_start_col, block_end_line, block_end_col = self.src_block.node:range()
+  local block_start_line, block_start_col, block_end_line, block_end_col = self.fenced.node:range()
   local start_extmark = vim.api.nvim_buf_set_extmark(0, self.extmark_ns, block_start_line, block_start_col, {})
   local end_extmark = vim.api.nvim_buf_set_extmark(0, self.extmark_ns, block_end_line, block_end_col, {})
 
   -- Only the "content" of the block should change, however we might not have content yet
   -- so base the range off of the name of the block
-  local ft = self.src_block.children.parameters and self.src_block.children.parameters.text
+  local ft = self.fenced.children.parameters and self.fenced.children.parameters.text
   if ft and ft:sub(1, 1) ~= ':' then
     ft = config:detect_filetype(ft, true)
   else
@@ -100,8 +100,8 @@ function EditSpecialSrc:init()
   -- The node content 'text_list' does not include the leading whitespace of the first line of the content,
   -- grab the entire line instead
   local content = {}
-  if self.src_block.children.contents then
-    local content_start_line, _, content_end_line = self.src_block.children.contents.node:range()
+  if self.fenced.children.contents then
+    local content_start_line, _, content_end_line = self.fenced.children.contents.node:range()
     content = vim.api.nvim_buf_get_lines(self.fey_bufnr, content_start_line, content_end_line, false)
   end
 

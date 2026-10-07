@@ -24,7 +24,7 @@ M.LIST = {
   'fey_todo_keyword_faces',
   'fey_log_done',
   'fey_deadline_warning_days',
-  'fey_time_stamp_rounding_minutes',
+  'fey_date_rounding_minutes',
   -- the agenda
   'fey_agenda_span',
   'fey_agenda_start_on_weekday',
@@ -35,7 +35,7 @@ M.LIST = {
   'fey_agenda_skip_archived',
   'fey_agenda_skip_scheduled_if_done',
   'fey_agenda_skip_deadline_if_done',
-  'fey_agenda_remove_tags',
+  'fey_agenda_remove_labels',
   'fey_agenda_use_time_grid',
   'fey_agenda_time_grid',
   'fey_agenda_block_separator',

@@ -15,7 +15,7 @@
 ---@field fey_agenda_tag_filter_preset? string
 ---@field fey_agenda_category_filter_preset? string
 ---@field fey_agenda_sorting_strategy? FeyAgendaSortingStrategy[]
----@field fey_agenda_remove_tags? boolean
+---@field fey_agenda_remove_labels? boolean
 
 ---@class FeyAgendaCustomCommandAgenda:FeyAgendaCustomCommandTypeInterface
 ---@field fey_agenda_span? FeyAgendaSpan Default: 'week'
@@ -45,7 +45,7 @@
 
 ---@class FeyCalendarSettings
 ---@field round_min_with_hours? boolean Should minutes be rounded to hour when changing hour. Default: true
----@field min_small_step? number Step size for changing the minutes while cursor is on the second digit. Default: value of `fey_time_stamp_rounding_minutes` = 5
+---@field min_small_step? number Step size for changing the minutes while cursor is on the second digit. Default: value of `fey_date_rounding_minutes` = 5
 ---@field min_big_step? number Step size for changing the minutes while cursor is on the first digit. Default: 15
 
 ---@class FeySettingsConfig
@@ -97,7 +97,7 @@
 ---@field fey_agenda_priority_down? FeyMappingValue Default: '-'
 ---@field fey_agenda_archive? FeyMappingValue Default: '<prefix>$'
 ---@field fey_agenda_toggle_archive_tag? FeyMappingValue Default: '<prefix>A'
----@field fey_agenda_set_tags? FeyMappingValue Default: '<prefix>t'
+---@field fey_agenda_set_labels? FeyMappingValue Default: '<prefix>t'
 ---@field fey_agenda_deadline? FeyMappingValue Default: '<prefix>id'
 ---@field fey_agenda_schedule? FeyMappingValue Default: '<prefix>is'
 ---@field fey_agenda_filter? FeyMappingValue Default: '/'
@@ -118,10 +118,10 @@
 ---
 ---@class FeyMappingsFey
 ---@field fey_refile? FeyMappingValue Default: '<prefix>r'
----@field fey_timestamp_up_day? FeyMappingValue Default: '<S-UP>'
----@field fey_timestamp_down_day? FeyMappingValue Default: '<S-DOWN>'
----@field fey_timestamp_up? FeyMappingValue Default: '<C-a>'
----@field fey_timestamp_down? FeyMappingValue Default: '<C-x>'
+---@field fey_date_up_day? FeyMappingValue Default: '<S-UP>'
+---@field fey_date_down_day? FeyMappingValue Default: '<S-DOWN>'
+---@field fey_date_up? FeyMappingValue Default: '<C-a>'
+---@field fey_date_down? FeyMappingValue Default: '<C-x>'
 ---@field fey_change_date? FeyMappingValue Default: 'cid'
 ---@field fey_priority? FeyMappingValue Default: '<prefix>,'
 ---@field fey_priority_up? FeyMappingValue Default: 'ciR'
@@ -136,7 +136,7 @@
 ---@field fey_cycle? FeyMappingValue Default: '<TAB>'
 ---@field fey_global_cycle? FeyMappingValue Default: '<S-TAB>'
 ---@field fey_archive_subtree? FeyMappingValue Default: '<prefix>$'
----@field fey_set_tags_command? FeyMappingValue Default: '<prefix>t'
+---@field fey_set_labels_command? FeyMappingValue Default: '<prefix>t'
 ---@field fey_toggle_archive_tag? FeyMappingValue Default: '<prefix>A'
 ---@field fey_do_promote? FeyMappingValue Default: '<<'
 ---@field fey_do_demote? FeyMappingValue Default: '>>'
@@ -157,9 +157,9 @@
 ---@field outline_up_heading? FeyMappingValue Default: 'g{'
 ---@field fey_deadline? FeyMappingValue Default: '<prefix>id'
 ---@field fey_schedule? FeyMappingValue Default: '<prefix>is'
----@field fey_time_stamp? FeyMappingValue Default: '<prefix>i.'
----@field fey_time_stamp_inactive? FeyMappingValue Default: '<prefix>i!'
----@field fey_toggle_timestamp_type? FeyMappingValue Default: '<prefix>d!'
+---@field fey_date_insert? FeyMappingValue Default: '<prefix>i.'
+---@field fey_date_insert_inactive? FeyMappingValue Default: '<prefix>i!'
+---@field fey_toggle_date_type? FeyMappingValue Default: '<prefix>d!'
 ---@field fey_insert_link? FeyMappingValue Default: '<prefix>li'
 ---@field fey_store_link? FeyMappingValue Default: '<prefix>ls'
 ---@field fey_check_links? FeyMappingValue Default: '<prefix>lc'
@@ -236,7 +236,7 @@
 ---@field fey_query_tag_name? string Tag name of query tags. Default: 'query'
 ---@field fey_link_tag_name? string Tag name of file/URL links. Default: 'link'
 ---@field fey_section_tag_name? string Tag name of links to headings by signature. Default: 'section'
----@field fey_date_tag_name? string Tag name of a date or time stamp. Default: 'date'
+---@field fey_date_tag_name? string Tag name of a date. Default: 'date'
 ---@field fey_scheduled_tag_name? string Tag name of the date a heading is scheduled. Default: 'scheduled'
 ---@field fey_deadline_tag_name? string Tag name of the deadline of a heading. Default: 'deadline'
 ---@field fey_closed_tag_name? string Tag name of the date a heading was closed. Default: 'closed'
@@ -281,7 +281,7 @@
 ---@field fey_agenda_custom_commands? table<string, FeyAgendaCustomCommand> Custom commands for the agenda view. Default: {}
 ---@field fey_agenda_block_separator? string Separator for blocks in the agenda view. Default: '-'
 ---@field fey_agenda_sorting_strategy? table<'agenda' | 'todo' | 'tags', FeyAgendaSortingStrategy[]> Sorting strategy for the agenda view. See docs for default value
----@field fey_agenda_remove_tags? boolean If true, tags will be removed from the all agenda views. Default: false
+---@field fey_agenda_remove_labels? boolean If true, tags will be removed from the all agenda views. Default: false
 ---@field fey_agenda_use_time_grid? boolean If true, Render time grid in agenda as set by fey_agenda_time_grid. Default: true
 ---@field fey_agenda_show_future_repeats? boolean | 'next' If true, show all future repeats. If `next`, show only next repeat. If false, do hnot show any repeats. Default: true
 ---@field fey_agenda_time_grid? FeyAgendaTimeGridOpts Agenda time grid configuration. Default: { type = { 'daily', 'today', 'require-timed' }, times = { 800, 1000, 1200, 1400, 1600, 1800, 2000 }, time_separator = '┄┄┄┄┄', time_label = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄' }
@@ -293,8 +293,8 @@
 ---@field fey_refile_scope? FeyScopeSpec Hollows refile offers as destinations. Default: 'court'
 ---@field fey_refile_leave_link? boolean Leave a link where a refiled heading was. Default: false
 ---@field fey_archive_location? string Location where to archive subtrees. `%s` indicates the file name from where archiving is done. Default: '%s_archive'
----@field fey_use_tag_inheritance? boolean If true, tags will be inherited from parent headings. Default: true
----@field fey_tags_exclude_from_inheritance? string[] List of tags that should be excluded from tag inheritance. Default: {}
+---@field fey_use_label_inheritance? boolean If true, tags will be inherited from parent headings. Default: true
+---@field fey_labels_exclude_from_inheritance? string[] List of tags that should be excluded from tag inheritance. Default: {}
 ---@field fey_hide_leading_signature? boolean If true, leading signature on the headings with level > 1 will be hidden. Default: false
 ---@field fey_hide_emphasis_markers? boolean If true, emphasis markers will be hidden with conceal feature. Default: false
 ---@field fey_ellipsis? string Ellipsis character to use when folding text. Default: '...'
@@ -312,7 +312,7 @@
 ---@field fey_startup_indented? boolean If true, apply virtual indents to the content. Default: false
 ---@field fey_indent_mode_turns_off_fey_adapt_indentation? boolean If true, turning on indent mode will turn off `fey_adapt_indentation`. Default: true
 ---@field fey_indent_mode_turns_on_hiding_signature? boolean If true, turning on indent mode will hide leading signature. Default: true
----@field fey_time_stamp_rounding_minutes? number Rounding minutes for time stamps. Default: 5
+---@field fey_date_rounding_minutes? number Rounding minutes for dates. Default: 5
 ---@field fey_cycle_separator_lines? number Min number of spaces are needed at the end of heading to show empty line between folds. Default: 2
 ---@field fey_blank_before_new_entry? { heading: boolean, list_item: boolean } Should blank line be prepended. Default: { heading = true, plain_list_item = false }
 ---@field fey_src_window_setup? string | fun() How to open "special edit" buffer window. Default: 'top 16new'

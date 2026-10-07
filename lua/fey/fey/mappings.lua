@@ -59,10 +59,10 @@ end
 function FeyMappings:archive() return require('fey.refile').archive_at_cursor() end
 
 ---@param tags? string|string[]
-function FeyMappings:set_tags(tags)
+function FeyMappings:set_labels(tags)
   local heading = self.files:get_closest_heading()
-  local heading_tags = heading:get_own_tags()
-  local current_tags = utils.tags_to_string(heading_tags)
+  local heading_tags = heading:get_own_labels()
+  local current_tags = utils.labels_to_string(heading_tags)
   -- Capture range before promise chain — TS nodes become stale after edits
   local range = heading:get_range()
 
@@ -75,14 +75,14 @@ function FeyMappings:set_tags(tags)
           function(arg_lead) return utils.prompt_autocomplete(arg_lead, require('fey.agenda.source').new():labels()) end
         )
       end
-      if type(tags) == 'table' then tags = utils.tags_to_string(tags) end
+      if type(tags) == 'table' then tags = utils.labels_to_string(tags) end
 
       return tags
     end)
     :next(function(new_tags)
       if not new_tags then return end
 
-      heading:set_tags(new_tags)
+      heading:set_labels(new_tags)
       schedule_fold_update(range)
     end)
 end
@@ -103,7 +103,7 @@ local function is_expandable(section)
   return body ~= nil and vim.treesitter.get_node_text(body, 0):find('%S') ~= nil
 end
 
----Toggle the fold under the cursor. On a heading it cycles like org-mode: a closed section
+---Toggle the fold under the cursor. On a heading it cycles through states: a closed section
 ---opens (children stay folded), an open one with open children folds those first, otherwise
 ---it closes. On the head or closer of a block or pair tag, or inside its body, it toggles the
 ---fold of the tag.
@@ -207,26 +207,26 @@ function FeyMappings:set_checkbox_state()
   vim.fn.winrestview(win_view)
 end
 
-function FeyMappings:timestamp_up_day()
-  return self:_adjust_date(vim.v.count1, 'd', vim.v.count1 .. config.mappings.fey.fey_timestamp_up_day)
+function FeyMappings:date_up_day()
+  return self:_adjust_date(vim.v.count1, 'd', vim.v.count1 .. config.mappings.fey.fey_date_up_day)
 end
 
-function FeyMappings:timestamp_down_day()
-  return self:_adjust_date(-vim.v.count1, 'd', vim.v.count1 .. config.mappings.fey.fey_timestamp_down_day)
+function FeyMappings:date_down_day()
+  return self:_adjust_date(-vim.v.count1, 'd', vim.v.count1 .. config.mappings.fey.fey_date_down_day)
 end
 
-function FeyMappings:timestamp_up()
-  return self:_adjust_date_part('+', vim.v.count1, vim.v.count1 .. config.mappings.fey.fey_timestamp_up)
+function FeyMappings:date_up()
+  return self:_adjust_date_part('+', vim.v.count1, vim.v.count1 .. config.mappings.fey.fey_date_up)
 end
 
-function FeyMappings:timestamp_down()
-  return self:_adjust_date_part('-', vim.v.count1, vim.v.count1 .. config.mappings.fey.fey_timestamp_down)
+function FeyMappings:date_down()
+  return self:_adjust_date_part('-', vim.v.count1, vim.v.count1 .. config.mappings.fey.fey_date_down)
 end
 
 function FeyMappings:_adjust_date_part(direction, amount, fallback)
   local date_on_cursor = self:_get_date_under_cursor()
   local get_adj = function(span, count) return string.format('%d%s', count or amount, span) end
-  local minute_adj = get_adj('M', tonumber(config.fey_time_stamp_rounding_minutes) * amount)
+  local minute_adj = get_adj('M', tonumber(config.fey_date_rounding_minutes) * amount)
   ---@param date FeyDate
   local do_replacement = function(date)
     local col = vim.fn.col('.') or 0
@@ -1422,7 +1422,7 @@ end
 
 ---Change the date under the cursor, or insert a date tag after the cursor
 ---@param inactive boolean
-function FeyMappings:fey_time_stamp(inactive)
+function FeyMappings:fey_date_insert(inactive)
   local date = self:_get_date_under_cursor()
 
   if date then
@@ -1474,7 +1474,7 @@ function FeyMappings:toggle_option(name)
   utils.echo_info(('%s: %s'):format(label, enabled and 'on' or 'off'))
 end
 
-function FeyMappings:fey_toggle_timestamp_type()
+function FeyMappings:fey_toggle_date_type()
   local date = self:_get_date_under_cursor()
   if not date then return end
 

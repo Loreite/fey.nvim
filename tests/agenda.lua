@@ -118,8 +118,8 @@ check('title without the metadata tags', report ~= nil, true)
 check('todo', { report:get_todo() }, { 'TODO', nil, 'TODO', 1 })
 check('priority', report:get_priority(), 'A')
 check('priority sort value is set', report:get_priority_sort_value() > by_title['Weekly chore']:get_priority_sort_value(), true)
-check('labels are the tags: own and of the document', report:get_tags(), { 'office', 'projectx' })
-check('has tag', { report:has_tag('office'), report:has_tag('home') }, { true, false })
+check('labels are the tags: own and of the document', report:get_labels(), { 'office', 'projectx' })
+check('has tag', { report:has_label('office'), report:has_label('home') }, { true, false })
 check('category of the document', report:get_category(), 'Work')
 check('category of a document without one is its name', by_title['Child item']:get_category(), 'c')
 check('done', { by_title['Finished thing']:is_done(), report:is_done() }, { true, false })
@@ -241,7 +241,7 @@ local function entry_of(title)
   end
 end
 check('labels of the heading, of its parents and of the document',
-  { entry_of('Write report'):get_tags(), entry_of('Nested task'):get_tags(), entry_of('Child item'):get_tags() },
+  { entry_of('Write report'):get_labels(), entry_of('Nested task'):get_labels(), entry_of('Child item'):get_labels() },
   { { 'office', 'projectx' }, { 'parentlabel' }, { 'home' } })
 check('props of a heading', entry_of('Nested task').props.effort, '2')
 check('planning dates of an entry', { entry_of('Write report'):get_scheduled_date():is_today(), entry_of('Write report'):get_deadline_date():is_today(), entry_of('Finished thing'):get_closed_date() }, { true, false, nil })
@@ -330,9 +330,9 @@ check('and the index knows', fresh('Write report'):get_priority(), 'B')
 check('no buffer is left behind', vim.fn.bufnr(alpha .. '/a.fey') == -1 or not vim.api.nvim_buf_is_loaded(vim.fn.bufnr(alpha .. '/a.fey')), true)
 check('the rest of the file is as it was', vim.list_slice(vim.fn.readfile(alpha .. '/a.fey'), 4), vim.list_slice(before, 4))
 
-local _, err2 = wait_for(Edit.run(fresh('Weekly chore'), action('fey_mappings.set_tags', { { 'errand', 'weekly' } })))
+local _, err2 = wait_for(Edit.run(fresh('Weekly chore'), action('fey_mappings.set_labels', { { 'errand', 'weekly' } })))
 check('set tags runs', err2, nil)
-check('labels changed in the index', fresh('Weekly chore'):get_tags(), { 'errand', 'weekly', 'projectx' })
+check('labels changed in the index', fresh('Weekly chore'):get_labels(), { 'errand', 'weekly', 'projectx' })
 
 local _, err3 = wait_for(Edit.run(fresh('Finished thing'), action('fey_mappings.todo_next_state')))
 check('todo state runs', err3, nil)

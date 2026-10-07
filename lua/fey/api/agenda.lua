@@ -27,16 +27,16 @@ local function get_shared_opts(options)
     opts.filter = options.filters
   end
   opts.header = options.header
-  opts.agenda_files = options.fey_agenda_files
+  opts.paths = options.fey_agenda_files
   opts.scope = options.scope
   opts.sorting_strategy = options.fey_agenda_sorting_strategy
   opts.tag_filter = options.fey_agenda_tag_filter_preset
   opts.category_filter = options.fey_agenda_category_filter_preset
-  opts.remove_tags = options.fey_agenda_remove_tags
+  opts.remove_labels = options.fey_agenda_remove_labels
   return opts
 end
 
-local function get_tags_opts(options)
+local function get_match_opts(options)
   local opts = get_shared_opts(options)
   opts.match_query = options.match_query
   opts.todo_ignore_scheduled = options.fey_agenda_todo_ignore_scheduled
@@ -52,7 +52,7 @@ end
 ---@field fey_agenda_tag_filter_preset? string
 ---@field fey_agenda_category_filter_preset? string
 ---@field fey_agenda_sorting_strategy? FeyAgendaSortingStrategy[]
----@field fey_agenda_remove_tags? boolean
+---@field fey_agenda_remove_labels? boolean
 
 ---@class FeyApiAgendaOptions:FeyApiAgendaOpts
 ---@field from? string | FeyDate
@@ -84,7 +84,7 @@ end
 ---@param options? FeyApiAgendaTagsOptions
 function FeyAgenda.tags_todo(options)
   options = options or {}
-  local opts = get_tags_opts(options)
+  local opts = get_match_opts(options)
   fey.agenda:tags_todo(opts)
 end
 
@@ -94,7 +94,7 @@ end
 ---@param options? FeyApiAgendaTagsOptions
 function FeyAgenda.tags(options)
   options = options or {}
-  local opts = get_tags_opts(options)
+  local opts = get_match_opts(options)
   opts.todo_only = options.todo_only
   fey.agenda:tags(opts)
 end

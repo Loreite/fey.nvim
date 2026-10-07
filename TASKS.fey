@@ -2384,6 +2384,22 @@ Done (2026-10-07): one command, and the smoke tests that were missing.
    finished code is not touched twice. New code follows the rule of I.C
    meanwhile.
 
+Done (2026-10-07): terminology, the code and the options.
+
+-  Chose:  the rename is done for everything that has a replacement, in one go, with the old public names kept for a release. `scripts/terms.lua` is the inventory (by word and by
+   file) and the check; the check is a ratchet over a baseline, which is empty now (no old word left in the code outside the aliases and the migration), so a new use of
+   one fails (`tests/terms.lua`, run by `scripts/test.sh` and so by the pre-commit hook). Renamed: the label API (`get_labels`, `get_own_labels`, `has_label`,
+   `set_labels`, `add_label`, `labels_to_string` on `Heading`, `Entry` and `utils`), the planning API (`get_planning_dates`, `FeyPlanningDateTypes`), `get_heading_path`, the data keys of a
+   file (`get_data_key`, `get_data_property`, `get_data_properties`), `is_src`, the options `fey_use_label_inheritance`, `fey_labels_exclude_from_inheritance`, `fey_agenda_remove_labels`,
+   `fey_date_rounding_minutes`, the mappings (`fey_set_labels_command`, `fey_agenda_set_labels`, `fey_date_up`, `fey_date_down`, `fey_date_up_day`, `fey_date_down_day`,
+   `fey_date_insert`, `fey_date_insert_inactive`, `fey_toggle_date_type`) with their actions, and the `paths` of an agenda (a custom command still accepts `agenda_files`).
+   `fey.config.migrate` moves the old options and mappings at `setup` with one warning per name, accepts the old option names in a note's `plugin` tag, and `:checkhealth fey` lists them;
+   `fey.utils.deprecate` makes the old method names call the new ones with `vim.deprecate`. Removed as dead: the `align_tags` listener and method (labels are not aligned
+   to a column) and the star heading branch of `format.lua`. The glossary is in `legal/contributing.fey`.
+-  Not done:  see VII.
+-  Tests:  `tests/terms.lua` (30 checks): the defaults say the new words, the migration of options and mappings in every group, setup warning once and using them, the plugin tag with old names,
+   every old method working and saying so, the check passing, failing on a probe file with the old words and naming it, the inventory.
+
   III.S. Documentation: the final pass
 
 -  Now:  `docs/*.org` (index, tutorial, configuration, installation, plugins,
@@ -2631,3 +2647,8 @@ done. Add to it when a task leaves something out.
   VII.L. Tests (from III.Q)
 -  Run the suites in parallel in `scripts/test.sh` (about a minute with the screen checks now), a continuous integration workflow that runs it, a measure of which
    lines of Lua no suite reaches, and screen checks for the agenda and the database views (the suites read their text, the screen checks would read what is drawn).
+
+  VII.M. Terminology (from III.R)
+-  The words of the agenda views: the view types `tags` and `tags_todo` (and the match language they use) say tags for labels, the agenda filter and the sorting say `tag` for a label, and about
+   sixty variables in the agenda, the notifications, refile and capture do the same; rename them with the view types as aliases. The old names of the options and the Lua API are removed
+   after a release (`fey.config.migrate`, `fey.utils.deprecate`), and the docs (`docs/*.org`, `doc/*.txt`) still speak org until III.S.

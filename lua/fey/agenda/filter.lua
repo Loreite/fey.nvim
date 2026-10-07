@@ -59,7 +59,7 @@ function AgendaFilter:_match(heading)
   local filters = {}
   if vim.tbl_contains(self.types, 'tags') then
     table.insert(filters, function(tag)
-      return heading:has_tag(tag)
+      return heading:has_label(tag)
     end)
   end
   if vim.tbl_contains(self.types, 'categories') then
@@ -130,7 +130,7 @@ function AgendaFilter:parse_available_filters(agenda_views)
           values[line.heading:get_category()] = true
         end
         if vim.tbl_contains(self.types, 'tags') then
-          for _, tag in ipairs(line.heading:get_tags()) do
+          for _, tag in ipairs(line.heading:get_labels()) do
             values[tag] = true
           end
         end

@@ -14,7 +14,7 @@ local events = EventManager.event
 local sequences = require('fey.utils.sequences')
 local edit = require('fey.files.elements.tags.edit')
 
----@alias FeyPlanDateTypes 'DEADLINE' | 'SCHEDULED' | 'CLOSED'
+---@alias FeyPlanningDateTypes 'DEADLINE' | 'SCHEDULED' | 'CLOSED'
 
 ---@class FeyHeading
 ---@field heading TSNode
@@ -247,7 +247,7 @@ function Heading:get_logbook() return Logbook.from_heading(self) end
 
 ---@return FeyDate | nil
 function Heading:get_closed_date()
-  local dates = self:get_plan_dates()
+  local dates = self:get_planning_dates()
   return vim.tbl_get(dates, 'CLOSED', 1)
 end
 
@@ -258,14 +258,14 @@ function Heading:get_priority_sort_value()
 end
 
 function Heading:is_archived()
-  return #vim.tbl_filter(function(tag) return tag:upper() == 'ARCHIVE' end, self:get_tags()) > 0
+  return #vim.tbl_filter(function(tag) return tag:upper() == 'ARCHIVE' end, self:get_labels()) > 0
 end
 
 ---Check if heading has tag
 ---@param tag string
 ---@return boolean
-function Heading:has_tag(tag)
-  for _, tag_item in ipairs(self:get_tags()) do
+function Heading:has_label(tag)
+  for _, tag_item in ipairs(self:get_labels()) do
     if tag_item == tag then return true end
   end
   return false
@@ -281,9 +281,9 @@ function Heading:get_category()
   return self.file:get_category()
 end
 
-memoize('get_outline_path')
+memoize('get_heading_path')
 --- @return string
-function Heading:get_outline_path()
+function Heading:get_heading_path()
   local inner_to_outer_parent_headings = {}
   local parent_section = self:node():parent():parent()
 
@@ -299,8 +299,8 @@ function Heading:get_outline_path()
 
   -- reverse heading order
   local outer_to_inner_parent_headings = utils.reverse(inner_to_outer_parent_headings)
-  local outline_path = table.concat(outer_to_inner_parent_headings, '/')
-  return outline_path
+  local heading_path = table.concat(outer_to_inner_parent_headings, '/')
+  return heading_path
 end
 
 ---The labels of a heading are the values of its label tags (`labels` by default, see `vault.label_tags`)
@@ -309,7 +309,7 @@ end
 ---Set the labels of the heading. The first label tag of the region is rewritten, further ones are
 ---removed, and with none a tag goes to the end of the title. No labels remove the tags.
 ---@param tags string|string[] a list, or a string separated by blanks, `,`, `;` or `:`
-function Heading:set_tags(tags)
+function Heading:set_labels(tags)
   local list = tags
   if type(tags) == 'string' then list = vim.split(vim.trim(tags), '[%s:,;]+', { trimempty = true }) end
   ---@cast list string[]
@@ -344,41 +344,38 @@ end
 
 ---@param tag string
 ---@return boolean newly_added
-function Heading:add_tag(tag)
-  local current_tags = self:get_own_tags()
+function Heading:add_label(tag)
+  local current_tags = self:get_own_labels()
   local present = vim.tbl_contains(current_tags, tag)
   if not present then table.insert(current_tags, tag) end
-  self:set_tags(current_tags)
+  self:set_labels(current_tags)
   return not present
 end
 
 ---@param tag string
 ---@return boolean newly_removed
 function Heading:remove_tag(tag)
-  local current_tags = self:get_own_tags()
+  local current_tags = self:get_own_labels()
   ---@type string[]
   local new_tags = vim.tbl_filter(function(i) return i ~= tag end, current_tags)
   local present = #new_tags ~= #current_tags
-  if present then self:set_tags(new_tags) end
+  if present then self:set_labels(new_tags) end
   return present
 end
 
 ---@param tag string
 ---@return boolean newly_added
 function Heading:toggle_tag(tag)
-  local current_tags = self:get_own_tags()
+  local current_tags = self:get_own_labels()
   local present = vim.tbl_contains(current_tags, tag)
   if present then
     current_tags = vim.tbl_filter(function(i) return i ~= tag end, current_tags)
   else
     table.insert(current_tags, tag)
   end
-  self:set_tags(current_tags)
+  self:set_labels(current_tags)
   return not present
 end
-
---- The labels are shown where they are written, there is nothing to align
-function Heading:align_tags() end
 
 ---Write the status tag of the title from a keyword and a priority, both optional: `{# status, TODO, A #}`,
 ---`{# status, TODO #}`, or `{# status; priority: A #}` without a keyword. With neither the tag is removed.
@@ -606,28 +603,28 @@ end
 
 ---@return FeyDate | nil
 function Heading:get_scheduled_date()
-  local dates = self:get_plan_dates()
+  local dates = self:get_planning_dates()
   return vim.tbl_get(dates, 'SCHEDULED', 1)
 end
 
 ---@return FeyDate | nil
 function Heading:get_deadline_date()
-  local dates = self:get_plan_dates()
+  local dates = self:get_planning_dates()
   return vim.tbl_get(dates, 'DEADLINE', 1)
 end
 
-memoize('get_tags')
----The labels of the heading and, with `fey_use_tag_inheritance`, those of the headings above it and of
+memoize('get_labels')
+---The labels of the heading and, with `fey_use_label_inheritance`, those of the headings above it and of
 ---the file
 ---@return string[], TSNode | nil
-function Heading:get_tags()
-  local tags, own_tags_node = self:get_own_tags()
-  if not config.fey_use_tag_inheritance then return tags, own_tags_node end
+function Heading:get_labels()
+  local tags, own_tags_node = self:get_own_labels()
+  if not config.fey_use_label_inheritance then return tags, own_tags_node end
 
   local parent_tags = {}
   local parent = self:get_parent_heading()
   while parent do
-    utils.concat(parent_tags, utils.reverse((parent:get_own_tags())), true)
+    utils.concat(parent_tags, utils.reverse((parent:get_own_labels())), true)
     parent = parent:get_parent_heading()
   end
   local file_tags = self.file:get_filetags()
@@ -650,11 +647,11 @@ function Heading:get_parent_heading()
   return Heading:new(heading, self.file)
 end
 
-memoize('get_own_tags')
+memoize('get_own_labels')
 ---The labels written in the metadata region of the heading (title and tag lines), and the node of the
 ---first label tag
 ---@return string[], TSNode | nil
-function Heading:get_own_tags()
+function Heading:get_own_labels()
   local names = label_names()
   local labels, first_node = {}, nil
   for _, tag in ipairs((edit.for_heading(self.file:get_source(), self:node()))) do
@@ -708,7 +705,7 @@ function Heading:get_append_line()
 end
 
 ---Names of the planning tags and the kind of date each stands for
----@return table<string, FeyPlanDateTypes>
+---@return table<string, FeyPlanningDateTypes>
 local function plan_tag_types()
   return {
     [config.fey_scheduled_tag_name] = 'SCHEDULED',
@@ -720,7 +717,7 @@ end
 ---The planning tags in the metadata region of the heading, the first of each kind
 ---@private
 ---@param source? integer|string defaults to the source of the file
----@return table<FeyPlanDateTypes, FeyMetaTag>
+---@return table<FeyPlanningDateTypes, FeyMetaTag>
 function Heading:_plan_tags(source)
   local types, tags = plan_tag_types(), {}
   for _, tag in ipairs((edit.for_heading(source or self.file:get_source(), self:node()))) do
@@ -730,34 +727,34 @@ function Heading:_plan_tags(source)
   return tags
 end
 
-memoize('get_plan_dates')
----@return FeyTable<FeyPlanDateTypes, FeyDate[]>,FeyTable<FeyPlanDateTypes, TSNode>, boolean
-function Heading:get_plan_dates()
-  local dates, dates_nodes, has_plan_dates = {}, {}, false
+memoize('get_planning_dates')
+---@return FeyTable<FeyPlanningDateTypes, FeyDate[]>,FeyTable<FeyPlanningDateTypes, TSNode>, boolean
+function Heading:get_planning_dates()
+  local dates, dates_nodes, has_planning_dates = {}, {}, false
   for type_, tag in pairs(self:_plan_tags()) do
     dates[type_] = Date.from_tag(tag, { type = type_ })
     dates_nodes[type_] = tag.node
-    has_plan_dates = true
+    has_planning_dates = true
   end
-  return dates, dates_nodes, has_plan_dates
+  return dates, dates_nodes, has_planning_dates
 end
 
 memoize('get_all_dates')
 ---Return all dates including the ones added to the body of the heading
 ---@return FeyDate[]
 function Heading:get_all_dates()
-  local d = self:get_plan_dates()
-  local plan_dates = utils.flatten(vim.tbl_values(d))
-  local body_dates_list = self:get_non_plan_dates()
+  local d = self:get_planning_dates()
+  local planning_dates = utils.flatten(vim.tbl_values(d))
+  local body_dates_list = self:get_non_planning_dates()
 
-  return vim.list_extend(plan_dates, body_dates_list)
+  return vim.list_extend(planning_dates, body_dates_list)
 end
 
 local date_tag_query
-memoize('get_non_plan_dates')
+memoize('get_non_planning_dates')
 ---Dates written in the title and the body of the heading (date tags), not the planning tags
 ---@return FeyDate[]
-function Heading:get_non_plan_dates()
+function Heading:get_non_planning_dates()
   local heading_node = self:node()
   local section = heading_node:parent()
   if not section then return {} end
@@ -780,9 +777,9 @@ end
 
 ---@param sorted? boolean
 ---@return string, TSNode | nil
-function Heading:tags_to_string(sorted)
-  local tags, node = self:get_tags()
-  return utils.tags_to_string(tags, sorted), node
+function Heading:labels_to_string(sorted)
+  local tags, node = self:get_labels()
+  return utils.labels_to_string(tags, sorted), node
 end
 
 ---@return boolean
@@ -835,7 +832,7 @@ function Heading:set_scheduled_date(date) return self:_add_date('SCHEDULED', dat
 
 ---@param date? FeyDate
 function Heading:set_closed_date(date)
-  local dates = self:get_plan_dates()
+  local dates = self:get_planning_dates()
   if vim.tbl_get(dates, 'CLOSED', 1) then return end
   return self:_add_date('CLOSED', date or Date.now(), false)
 end
@@ -1020,7 +1017,7 @@ end
 
 ---Write a planning date: replaces the tag of that kind, else goes next to the other planning tags,
 ---else to a line of its own under the heading
----@param type FeyPlanDateTypes
+---@param type FeyPlanningDateTypes
 ---@param date FeyDate
 ---@param active? boolean
 ---@private
@@ -1050,7 +1047,7 @@ function Heading:_add_date(type, date, active)
   return self:refresh()
 end
 
----@param type FeyPlanDateTypes
+---@param type FeyPlanningDateTypes
 ---@private
 function Heading:_remove_date(type)
   local tag = self:_plan_tags(self.file:get_valid_bufnr())[type]
@@ -1137,8 +1134,8 @@ function Heading:_handle_promote_demote(recursive, modifier, dryRun)
 
   if recursive then
     for _, child_node in ipairs(child_sections) do
-      local child_headline = Heading:new(child_node:field('heading')[1], self.file)
-      local child_res = child_headline:_handle_promote_demote(true, modifier, dryRun)
+      local child_heading = Heading:new(child_node:field('heading')[1], self.file)
+      local child_res = child_heading:_handle_promote_demote(true, modifier, dryRun)
       if dryRun and child_res then vim.list_extend(result_lines, child_res) end
     end
   end
@@ -1160,6 +1157,20 @@ function Heading:add_to_drawer(drawer_name, content)
   end
   vim.api.nvim_buf_set_lines(self.file:get_valid_bufnr(), append_line, append_line, false, lines)
   return self:refresh()
+end
+
+-- the old names, kept for a release (III.R)
+do
+  local alias = require('fey.utils.deprecate').alias
+  alias(Heading, 'get_tags', 'get_labels', 'Heading:get_tags')
+  alias(Heading, 'get_own_tags', 'get_own_labels', 'Heading:get_own_tags')
+  alias(Heading, 'has_tag', 'has_label', 'Heading:has_tag')
+  alias(Heading, 'set_tags', 'set_labels', 'Heading:set_tags')
+  alias(Heading, 'add_tag', 'add_label', 'Heading:add_tag')
+  alias(Heading, 'tags_to_string', 'labels_to_string', 'Heading:tags_to_string')
+  alias(Heading, 'get_plan_dates', 'get_planning_dates', 'Heading:get_plan_dates')
+  alias(Heading, 'get_non_plan_dates', 'get_non_planning_dates', 'Heading:get_non_plan_dates')
+  alias(Heading, 'get_outline_path', 'get_heading_path', 'Heading:get_outline_path')
 end
 
 return Heading

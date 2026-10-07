@@ -296,6 +296,7 @@ end
 M.plugin_handlers = {
   fey = {
     apply = function(opts, ignored, additive)
+      opts = require('fey.config.migrate').options(opts)
       local applied = state.global.fey
       for key, value in pairs(opts) do
         if not FeyOptions.allowed(key) then

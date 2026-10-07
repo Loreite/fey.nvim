@@ -18,12 +18,12 @@ local Promise = require('fey.utils.promise')
 ---@field filter? string
 ---@field tag_filter? string
 ---@field category_filter? string
----@field agenda_files string | string[] | nil
+---@field paths string | string[] | nil
 ---@field header? string
 ---@field subheader? string
 ---@field todo_only? boolean
 ---@field sorting_strategy? FeyAgendaSortingStrategy[]
----@field remove_tags? boolean
+---@field remove_labels? boolean
 ---@field id? string
 
 ---@class FeyAgendaTodosType:FeyAgendaViewType
@@ -34,13 +34,13 @@ local Promise = require('fey.utils.promise')
 ---@field filter? FeyAgendaFilter
 ---@field tag_filter? string
 ---@field category_filter? string
----@field agenda_files string | string[] | nil
+---@field paths string | string[] | nil
 ---@field header? string
 ---@field subheader? string
 ---@field bufnr? number
 ---@field todo_only? boolean
 ---@field sorting_strategy? FeyAgendaSortingStrategy[]
----@field remove_tags? boolean
+---@field remove_labels? boolean
 ---@field valid_filters FeyAgendaFilter[]
 ---@field id? string
 local FeyAgendaTodosType = {}
@@ -59,11 +59,11 @@ function FeyAgendaTodosType:new(opts)
       :parse(opts.category_filter, true) or nil,
     header = opts.header,
     subheader = opts.subheader,
-    agenda_files = opts.agenda_files,
+    paths = opts.paths or opts.agenda_files, -- `agenda_files` is the old name of the key of a custom command
     todo_only = opts.todo_only == nil and true or opts.todo_only,
     sorting_strategy = opts.sorting_strategy or vim.tbl_get(config.fey_agenda_sorting_strategy, 'todo') or {},
     id = opts.id,
-    remove_tags = type(opts.remove_tags) == 'boolean' and opts.remove_tags or config.fey_agenda_remove_tags,
+    remove_labels = type(opts.remove_labels) == 'boolean' and opts.remove_labels or config.fey_agenda_remove_labels,
   }, FeyAgendaTodosType)
   this.valid_filters = vim.tbl_filter(function(filter)
     return filter and true or false
@@ -82,13 +82,13 @@ function FeyAgendaTodosType:prepare()
   return Promise.resolve(self)
 end
 
----`agenda_files` of a custom command limits the source to those files and directories
+---`paths` of a custom command (`agenda_files` before) limits the source to those files and directories
 function FeyAgendaTodosType:_setup_agenda_files()
-  if not self.agenda_files then
+  if not self.paths then
     return
   end
   self.source = setmetatable({ paths = nil }, { __index = self.source })
-  self.source:set_paths(self.agenda_files)
+  self.source:set_paths(self.paths)
 end
 
 -- the headings are read from the index each time the view is built, there is nothing to reload
@@ -170,8 +170,8 @@ function FeyAgendaTodosType:_build_line(heading, metadata)
     content = heading:get_title(),
     add_markup_to_heading = heading,
   }))
-  if not self.remove_tags and #heading:get_tags() > 0 then
-    local tags_string = heading:tags_to_string()
+  if not self.remove_labels and #heading:get_labels() > 0 then
+    local tags_string = heading:labels_to_string()
     line:add_token(AgendaLineToken:new({
       content = tags_string,
       virt_text_pos = 'right_align',
