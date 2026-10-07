@@ -69,9 +69,7 @@ function M.at(bufnr, row, col, opts)
   for _, last_col in ipairs({ col + 1, col }) do
     local node = root:descendant_for_range(row, col, row, last_col)
     while node do
-      if M.TAG_TYPES[node:type()] and not node:has_error() and wanted(node) then
-        return parse_tag_node(bufnr, node)
-      end
+      if M.TAG_TYPES[node:type()] and not node:has_error() and wanted(node) then return parse_tag_node(bufnr, node) end
       node = node:parent()
     end
   end
@@ -144,16 +142,20 @@ end
 local function escape(s) return (s:gsub('[\\,;]', '\\%0')) end
 
 ---@param s any
----@param end_of_tag? string sigil and close bracket of the tag, e.g. `#}`: blank + this ends the head
+---@param end_of_tag? string the end of the head, e.g. `#}`, `#]` or `]#`: a blank and this in a value would end the tag
+---@param pair? boolean the tag is the opener of a pair tag. Its closing bracket may not start a word (the text `[ name, a ] b` is text, the head of a pair opener ends at its sign and bracket, but the scanner reads a tag as a pair opener or not before it reads the head, and takes a bracket word as no opener)
 ---@return string|nil escaped
 ---@return string|nil err
-local function head_word(s, end_of_tag)
+local function head_word(s, end_of_tag, pair)
   s = vim.trim(tostring(s))
   if s == '' then return nil, 'empty value' end
   if s:find('[\r\n]') then return nil, 'a tag value cannot hold a line break: ' .. s end
-  if s:find('^[' .. CLOSERS .. ']') then return nil, 'a tag value cannot start with a closing bracket: ' .. s end
-  if end_of_tag and s:find('%s' .. vim.pesc(end_of_tag)) then
+  if end_of_tag and (s:find('%s' .. vim.pesc(end_of_tag)) or s:find('^' .. vim.pesc(end_of_tag))) then
     return nil, 'a tag value cannot hold the end of the tag: ' .. s
+  end
+  local close = end_of_tag and end_of_tag:sub(-1)
+  if pair and close and (s:find('^' .. vim.pesc(close)) or s:find('%s' .. vim.pesc(close))) then
+    return nil, 'a word of the head of a pair tag cannot start with its closing bracket: ' .. s
   end
   return escape(s)
 end
@@ -227,8 +229,16 @@ end
 ---@param replacement string
 local function replace_range(bufnr, from, to, replacement)
   local sr, sc, er, ec
-  if type(from) == 'table' and from[1] then sr, sc = from[1], from[2] else sr, sc = from:start() end
-  if type(to) == 'table' and to[1] then er, ec = to[1], to[2] else er, ec = to:end_() end
+  if type(from) == 'table' and from[1] then
+    sr, sc = from[1], from[2]
+  else
+    sr, sc = from:start()
+  end
+  if type(to) == 'table' and to[1] then
+    er, ec = to[1], to[2]
+  else
+    er, ec = to:end_()
+  end
   vim.api.nvim_buf_set_text(bufnr, sr, sc, er, ec, vim.split(replacement, '\n', { plain = true }))
 end
 
@@ -289,14 +299,14 @@ function M.set_key(tag, key, value)
     return true
   end
 
-  local word, err = head_word(value, sigil_of(tag))
+  local word, err = head_word(value, sigil_of(tag), tag.type == 'pair_tag')
   if not word then return false, err end
 
   if kv then
     local old = kv:field('value')[1]
     local lead = old and text(tag.bufnr, old):match('^%s*') or ' '
     if not old then return false, 'key without a value: ' .. key end
-    replace_range(tag.bufnr, old, old, (lead ~= '' and lead or ' ') .. word)
+    replace_range(tag.bufnr, old, old, lead .. word)
     return true
   end
 
@@ -324,13 +334,13 @@ end
 ---@return boolean ok
 ---@return string|nil err
 function M.set_value(tag, index, value)
-  local word, err = head_word(value, sigil_of(tag))
+  local word, err = head_word(value, sigil_of(tag), tag.type == 'pair_tag')
   if not word then return false, err end
   local values = tag.head:field('value')
   local node = values[index]
   if node then
     local lead = text(tag.bufnr, node):match('^%s*')
-    replace_range(tag.bufnr, node, node, (lead ~= '' and lead or ' ') .. word)
+    replace_range(tag.bufnr, node, node, lead .. word)
     return true
   end
   if index ~= #values + 1 then return false, 'no value at index ' .. index end
@@ -383,9 +393,7 @@ end
 ---@return boolean ok
 ---@return string|nil err
 function M.replace(tag, text)
-  if tag.type ~= 'scope_tag' and tag.type ~= 'line_tag' then
-    return false, 'only scope and line tags can be replaced'
-  end
+  if tag.type ~= 'scope_tag' and tag.type ~= 'line_tag' then return false, 'only scope and line tags can be replaced' end
   replace_range(tag.bufnr, tag.node, tag.node, text)
   return true
 end
@@ -395,9 +403,7 @@ end
 ---@return boolean ok
 ---@return string|nil err
 function M.remove(tag)
-  if tag.type ~= 'scope_tag' and tag.type ~= 'line_tag' then
-    return false, 'only scope and line tags can be removed'
-  end
+  if tag.type ~= 'scope_tag' and tag.type ~= 'line_tag' then return false, 'only scope and line tags can be removed' end
   local bufnr = tag.bufnr
   local sr, sc, er, ec = tag.node:range()
   local first = vim.api.nvim_buf_get_lines(bufnr, sr, sr + 1, false)[1] or ''

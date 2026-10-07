@@ -28,7 +28,9 @@ local function buffer(lines)
 end
 
 local function lines(buf) return vim.api.nvim_buf_get_lines(buf, 0, -1, false) end
-local function names(tags) return vim.tbl_map(function(t) return t.name end, tags) end
+local function names(tags)
+  return vim.tbl_map(function(t) return t.name end, tags)
+end
 
 ---re-read the tag at a position after an edit
 local function tag_at(buf, row, col)
@@ -78,6 +80,17 @@ check('build escapes', edit.build('t', { 'a,b;c\\d' }), '{# t, a\\,b\\;c\\\\d #}
 check('build bracket', edit.build('date', { '2026-10-06' }, nil, { sigil = '@', bracket = '[' }), '[@ date, 2026-10-06 @]')
 check('build rejects an end', (edit.build('t', { 'a #}' })), nil)
 check('build rejects a bad name', (edit.build('1x', {})), nil)
+check(
+  'build: a word may start with a closing bracket',
+  edit.build('link', { 'a' }, { desc = 'x > y ] z' }, { sigil = '@' }),
+  '{@ link, a; desc: x > y ] z @}'
+)
+check(
+  'build: a sign and a bracket is a word, only the sigil and bracket of the tag end it',
+  edit.build('link', { 'a' }, { desc = 'go -> there :) #] x' }, { sigil = '@' }),
+  '{@ link, a; desc: go -> there :) #] x @}'
+)
+check('build: ... the end of this tag is refused', (edit.build('t', { 'a #}' })), nil)
 
 -- set_key ---------------------------------------------------------------------
 buf = buffer({ '  I. Head', '', '{# prop; effort: 2h; id: x #}' })
@@ -107,7 +120,11 @@ buf = buffer({ '  I. Head', '', '{# prop;', '     effort: 2h;', '     id: x', '#
 tag = tag_at(buf, 4, 8)
 check('multi line tag found', tag and tag.name, 'prop')
 edit.set_key(tag, 'effort', '5h')
-check('multi line set_key', { lines(buf)[3], lines(buf)[4], lines(buf)[5], lines(buf)[6] }, { '{# prop;', '     effort: 5h;', '     id: x', '#}' })
+check(
+  'multi line set_key',
+  { lines(buf)[3], lines(buf)[4], lines(buf)[5], lines(buf)[6] },
+  { '{# prop;', '     effort: 5h;', '     id: x', '#}' }
+)
 
 -- values ----------------------------------------------------------------------
 buf = buffer({ '  I. Head', '', '{# labels, a, b #}' })
@@ -149,9 +166,17 @@ check('add_to_region new', edit.add_to_region(buf, root:field('subsection')[1], 
 check('add_to_region new text', { lines(buf)[2], lines(buf)[3] }, { '{# scheduled, 2026-10-06 #}', '' })
 root = vim.treesitter.get_parser(buf, 'fey'):parse()[1]:root()
 edit.add_to_region(buf, root:field('subsection')[1], '{# deadline, 2026-10-07 #}')
-check('add_to_region next', { lines(buf)[2], lines(buf)[3], lines(buf)[4] }, { '{# scheduled, 2026-10-06 #}', '{# deadline, 2026-10-07 #}', '' })
+check(
+  'add_to_region next',
+  { lines(buf)[2], lines(buf)[3], lines(buf)[4] },
+  { '{# scheduled, 2026-10-06 #}', '{# deadline, 2026-10-07 #}', '' }
+)
 root = vim.treesitter.get_parser(buf, 'fey'):parse()[1]:root()
-check('region after the edits', names((edit.for_heading(buf, root:field('subsection')[1]))), { 'todo', 'labels', 'scheduled', 'deadline' })
+check(
+  'region after the edits',
+  names((edit.for_heading(buf, root:field('subsection')[1]))),
+  { 'todo', 'labels', 'scheduled', 'deadline' }
+)
 
 buf = buffer({ '  I.' })
 root = vim.treesitter.get_parser(buf, 'fey'):parse()[1]:root()
@@ -166,7 +191,11 @@ local extract = require('fey.vault.extract')
 local meta = extract.extract('  I. {# status, TODO, A #} Write {# labels, a #} the report\n\n  I.A. Sub {# prop; x: 1 #}\n')
 check('vault titles', vim.tbl_map(function(h) return h.title end, meta.headings), { 'Write the report', 'Sub' })
 check('vault paths', meta.headings[2].path, 'Write the report/Sub')
-check('vault keeps other tags in titles', extract.extract('  I. See {@ link, a.fey @} now\n').headings[1].title, 'See {@ link, a.fey @} now')
+check(
+  'vault keeps other tags in titles',
+  extract.extract('  I. See {@ link, a.fey @} now\n').headings[1].title,
+  'See {@ link, a.fey @} now'
+)
 check('vault labels still found', vim.tbl_map(function(l) return l.label end, meta.labels), { 'a' })
 
 if failures > 0 then

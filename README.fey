@@ -1017,8 +1017,8 @@ in). What the grammars do not know is matched in the text between the nodes: the
      blocks, `$math$` and `$$display$$`, footnotes (references and definitions), `%%comments%%` and HTML comments as `comment` tags. HTML blocks are kept as `html` source blocks and inline HTML is dropped
   -  org comes in as: `#+title:` and the other keywords as document data (`#+filetags:` as labels, `#+todo:` as the keywords), headings with their keyword and priority as the `status` tag and their
      tags as labels, `SCHEDULED:`, `DEADLINE:` and `CLOSED:` as planning tags, the property drawer as a `prop` tag, `CLOCK:` lines as `clock` tags in a `logbook`, other drawers as block tags, lists with boxes
-     (`[-]` is `[/]`), tables, source blocks with their arguments and `#+name:`, quote blocks, footnotes, timestamps in the text as `date` tags, and links (`file:` and `.org` targets become `.fey`)
-  -  not carried: highlights (`==x==`), table formulas (`#+tblfm`), links to a heading of the same file, blocks of other kinds in org (kept as comments), nested YAML in the front matter, and tag openers in
+     (`[-]` is `[/]`), tables (a `#+tblfm:` line becomes a `tblfm` line tag under the table, the formula as its body), source blocks with their arguments and `#+name:`, quote blocks, footnotes, timestamps in the text as `date` tags, and links (`file:` and `.org` targets become `.fey`)
+  -  not carried: highlights (`==x==`), links to a heading of the same file, blocks of other kinds in org (kept as comments), nested YAML in the front matter, and tag openers in
      the text, which cannot be written in a paragraph (a blank is put inside). Each of these is named in the notes the import gives back. The result is read back with the Fey grammar and a syntax error is one of the notes
   -  adjacent lists of different kinds (a bulleted and a numbered one) are one list in Fey
 

@@ -8,7 +8,7 @@
 --              props = { {key, value}... }, logbook = Block[]|nil, clocks = { {start, end, dur}... }, drawers = { {name, blocks}... },
 --              blocks = Block[], sections = Section[] }
 --   Block    { t = 'paragraph', inlines }  { t = 'list', ordered, items = { { box, blocks }... } }  { t = 'code', lang, name, text }
---            { t = 'quote', blocks, callout, title }  { t = 'table', header, rows }  { t = 'math', s }  { t = 'comment', s }
+--            { t = 'quote', blocks, callout, title }  { t = 'table', header, rows }  { t = 'math', s }  { t = 'comment', s }  { t = 'tblfm', s }
 --            { t = 'fndef', label, blocks }
 --   Inline   { t = 'text', s }  { t = 'em', kind, children }  { t = 'code', s }  { t = 'link', href, children, embed }  { t = 'fnref', label }
 --            { t = 'math', s }  { t = 'date', value, active }  { t = 'label', name }  { t = 'br' }
@@ -90,13 +90,11 @@ local function plain(items)
 end
 M.plain = plain
 
----A tag, or its text when it cannot be written
----@return string
-function Writer:tag(name, values, keys, opts)
-  -- a closing angle bracket in a value is an error to the grammar unless it is escaped, and the builder escapes only the backslash, the comma and
-  -- the semicolon: it is marked here and escaped after
-  local MARK = '\1'
-  local function one(v) return (tostring(v):gsub('%s*\n%s*', ' '):gsub('>', MARK)) end
+---The text of a tag, or nil and why it cannot be written (see `tags.edit.build`)
+---@return string|nil text
+---@return string|nil err
+function Writer:build(name, values, keys, opts)
+  local function one(v) return (tostring(v):gsub('%s*\n%s*', ' ')) end
   local clean = {}
   for k, v in pairs(keys or {}) do
     clean[k] = one(v)
@@ -105,12 +103,43 @@ function Writer:tag(name, values, keys, opts)
   for i, v in ipairs(values or {}) do
     cv[i] = one(v)
   end
-  local text, err = edit.build(name, cv, clean, opts)
+  return edit.build(name, cv, clean, opts)
+end
+
+---A tag, or an empty text (and a note) when it cannot be written
+---@return string
+function Writer:tag(name, values, keys, opts)
+  local text, err = self:build(name, values, keys, opts)
   if not text then
     self:warn('a tag could not be written: ' .. tostring(err))
     return ''
   end
-  return (text:gsub(MARK, '\\>'))
+  return text
+end
+
+---A link: a tag, or its text when it points nowhere or cannot be written
+---@param item table
+---@return string
+function Writer:link(item)
+  local desc = plain(item.children)
+  -- a link to nowhere (`[text]()`) is its text
+  if (item.href or '') == '' then return self:inlines(item.children) end
+  local keys =
+    { desc = desc ~= '' and desc ~= item.href and desc or nil, section = item.section, embed = item.embed and 'true' or nil }
+  local opts = { sigil = '@' }
+  local text, err = self:build('link', { item.href }, keys, opts)
+  if not text and keys.desc then
+    -- the description holds something a tag head cannot (a word like `->`): the link keeps its target, the words stay beside it as text
+    self:warn('a link description was written as text: ' .. tostring(err))
+    keys.desc = nil
+    text = self:build('link', { item.href }, keys, opts)
+    if text then text = text .. ' ' .. self:text(desc) end
+  end
+  if not text then
+    self:warn('a link could not be written: ' .. tostring(err))
+    text = self:text(desc ~= '' and desc or item.href)
+  end
+  return text
 end
 
 ---@param items table[]
@@ -132,13 +161,7 @@ function Writer:inlines(items)
         out[#out + 1] = '`' .. item.s .. '`'
       end
     elseif t == 'link' then
-      local desc = plain(item.children)
-      local keys = {
-        desc = desc ~= '' and desc ~= item.href and desc or nil,
-        section = item.section,
-        embed = item.embed and 'true' or nil,
-      }
-      out[#out + 1] = self:tag('link', { item.href or '' }, keys, { sigil = '@' })
+      out[#out + 1] = self:link(item)
     elseif t == 'fnref' then
       out[#out + 1] = self:tag('fn', { item.label }, nil, { sigil = '@' })
     elseif t == 'math' then
@@ -173,7 +196,7 @@ end
 
 local function width(s) return vim.fn.strdisplaywidth(s) end
 
----A block tag: the head, and the body indented under it. (The body of a pair tag cannot hold a bar in a paragraph, a block tag's can.)
+---A block tag: the head, and the body indented under it (no closer to write or to forget)
 ---@param head string the tag without the brackets: `blockquote; class: x`
 ---@param body string[]
 ---@return string[]
@@ -193,7 +216,9 @@ local function render_blocks(self, blocks)
   for i, block in ipairs(blocks or {}) do
     local part = self:block(block)
     if #part > 0 then
-      if #lines > 0 then lines[#lines + 1] = '' end
+      -- the formula tag of a table sits directly under it
+      local under = block.t == 'tblfm' and blocks[i - 1] and (blocks[i - 1].t == 'table' or blocks[i - 1].t == 'tblfm')
+      if #lines > 0 and not under then lines[#lines + 1] = '' end
       vim.list_extend(lines, part)
     end
   end
@@ -225,18 +250,10 @@ function Writer:block(block)
       end
       local pad = string.rep(' ', #bullet + 2)
       if #body == 0 then body = { '' } end
-      if body[1]:match('^###') then
-        -- a fence on the line of the bullet confuses the grammar for the fences that follow, so the item starts with its box alone
-        lines[#lines + 1] = bullet .. (box ~= '' and ('  ' .. vim.trim(box)) or '')
-        for k = 1, #body do
-          lines[#lines + 1] = body[k] == '' and '' or (pad .. body[k])
-        end
-      else
-        body[1] = box .. body[1]
-        lines[#lines + 1] = bullet .. '  ' .. body[1]
-        for k = 2, #body do
-          lines[#lines + 1] = body[k] == '' and '' or (pad .. body[k])
-        end
+      body[1] = box .. body[1]
+      lines[#lines + 1] = bullet .. '  ' .. body[1]
+      for k = 2, #body do
+        lines[#lines + 1] = body[k] == '' and '' or (pad .. body[k])
       end
     end
     return lines
@@ -315,6 +332,12 @@ function Writer:block(block)
     if text == '' then return {} end
     if not text:find('\n', 1, true) and not text:find(' #', 1, true) then return { '#[ comment ] ' .. text .. ' #' } end
     return block_tag('comment', vim.split(text, '\n', { plain = true }))
+  elseif t == 'tblfm' then
+    -- the formula is the body, so its characters never meet the head
+    local text = vim.trim(block.s)
+    if text == '' then return {} end
+    if not text:find(' #', 1, true) then return { '#[ tblfm ] ' .. text .. ' #' } end
+    return block_tag('tblfm', { text })
   elseif t == 'fndef' then
     local body = render_blocks(self, block.blocks)
     if #body == 1 and not body[1]:find(' #', 1, true) and not body[1]:find('^%s*[-#|%[]') then

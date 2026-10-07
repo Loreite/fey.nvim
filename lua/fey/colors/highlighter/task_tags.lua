@@ -27,9 +27,7 @@ function TaskTags.enabled(bufnr)
 end
 
 ---@param opts { highlighter: FeyHighlighter }
-function TaskTags:new(opts)
-  return setmetatable({ highlighter = opts.highlighter }, self)
-end
+function TaskTags:new(opts) return setmetatable({ highlighter = opts.highlighter }, self) end
 
 ---@param name string
 ---@return 'status'|'labels'|nil
@@ -82,8 +80,13 @@ local function visible_parts(node, kind, bufnr)
     local _, fc = value:start()
     local _, ec = value:end_()
     local text = vim.trim(text_of(value))
-    -- the blank in front of the priority is kept, so the two do not run together
-    local from = i == 1 and fc + #text_of(value):match('^%s*') or fc
+    -- the blank in front of the priority is kept, so the two do not run together (the node holds it or it is just before the node)
+    local from = fc + #text_of(value):match('^%s*')
+    if i > 1 then
+      local row = value:start()
+      local before = vim.api.nvim_buf_get_text(bufnr, row, math.max(fc - 1, 0), row, fc, {})[1] or ''
+      from = (text_of(value):match('^%s') or before:match('^%s')) and (text_of(value):match('^%s') and fc or fc - 1) or fc
+    end
     parts[#parts + 1] = { from = from, to = ec, face = face_of(i == 1 and 'keyword' or 'priority', text) }
   end
   if #parts == 0 then

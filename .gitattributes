@@ -1,1 +1,4 @@
 *.vim text eol=lf
+# run by a shell: a carriage return in the first line breaks the interpreter
+bin/* text eol=lf
+*.sh text eol=lf

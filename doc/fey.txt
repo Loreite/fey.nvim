@@ -834,11 +834,17 @@ changed with its `*_tag_name` option. A tag is written in one of four forms:
 <
 
 The head is the name, then the values after commas, then the keys after a
-semicolon (a backslash escapes a comma, a semicolon or a backslash). A scope
-tag applies to the node it is in: its paragraph, its title or its table cell,
-the whole list when it is the only content of a list item, the item when the
-item has other contents, and the whole file when it is above the first heading.
-`Tag.body` is that node, for every handler.
+semicolon (a backslash escapes a comma, a semicolon or a backslash). The head
+ends where the way the tag was opened says: at a sign and the closing bracket
+(`#}`, `#]`) for a scope tag and for the opener of a pair tag, at the closing
+bracket for a line tag, at the closing bracket and a sign for a block tag.
+Every other sign or bracket is a word, so `desc: a > b -> c :)` is a
+description. The closing bracket of the opening itself cannot start a word in
+the line, block and pair forms (it ends the head, or the text is no tag); in a
+scope tag it can. A scope tag applies to the node it is in: its paragraph, its
+title or its table cell, the whole list when it is the only content of a list
+item, the item when the item has other contents, and the whole file when it is
+above the first heading. `Tag.body` is that node, for every handler.
 
 The tags of the plugin:
 
@@ -1859,6 +1865,7 @@ Features:
 
 Changes:
 
+- fey importer (20ba084)
 - documentation overhaul (6845826)
 - III.R task completed (53bff71)
 - III.Q task completed (6ac7f4e)

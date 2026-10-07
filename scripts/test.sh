@@ -63,7 +63,7 @@ done
 
 if [ ${#names[@]} -eq 0 ]; then
   if [ -n "$FEY_PARSER" ]; then
-    run "docs: README and TASKS parse" "$NVIM_BIN" --headless --clean -c "lua vim.treesitter.language.add('fey',{path=vim.env.FEY_PARSER}); local bad={}; for _,f in ipairs({'TASKS.fey','README.fey'}) do local t=table.concat(vim.fn.readfile(f),'\\n'); if vim.treesitter.get_string_parser(t,'fey'):parse()[1]:root():has_error() then bad[#bad+1]=f end end; if #bad>0 then print('parse errors: '..table.concat(bad,', ')); vim.cmd('cquit 1') end" -c q
+    run "docs: README and TASKS parse" "$NVIM_BIN" --headless --clean -c "lua vim.treesitter.language.add('fey',{path=vim.env.FEY_PARSER}); local bad={}; for _,f in ipairs({'TASKS.fey','TASKS_COMPLETED.fey','README.fey'}) do local t=table.concat(vim.fn.readfile(f),'\\n'); if vim.treesitter.get_string_parser(t,'fey'):parse()[1]:root():has_error() then bad[#bad+1]=f end end; if #bad>0 then print('parse errors: '..table.concat(bad,', ')); vim.cmd('cquit 1') end" -c q
   fi
   if [ $fast -eq 0 ]; then
     if command -v tmux >/dev/null && [ -n "$FEY_PARSER" ]; then

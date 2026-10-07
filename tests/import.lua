@@ -146,6 +146,41 @@ has('md: reference link', t3, '{@ link, http://r.example; desc: ref @}')
 has('md: html comment', t3, '#[ comment ] aside #')
 check('md: inline html warns', w3, { 'inline HTML tags were dropped' })
 
+-- what a tag head can hold: a closing bracket at the start of a word is fine in the scope tag of a link, a sign and a closing bracket (`->`) is not
+local t4, w4 = Import.text('A [a > b](x.md) and [go -> there](y.md) and [c ) d](z.md).\n', 'markdown')
+has('md: a closing bracket in a description', t4, '{@ link, x.fey; desc: a > b @}')
+has('md: ... and a bracket alone', t4, '{@ link, z.fey; desc: c ) d @}')
+has('md: a description with a word like -> is fine', t4, '{@ link, y.fey; desc: go -> there @}')
+check('md: ... and needs no note', #w4, 0)
+do
+  local root = vim.treesitter.get_string_parser(t4, 'fey'):parse()[1]:root()
+  local n = 0
+  local function count(node)
+    if node:type() == 'scope_tag' then n = n + 1 end
+    for c in node:iter_children() do
+      count(c)
+    end
+  end
+  count(root)
+  check('md: the links are tags for the grammar, not text', n, 3)
+end
+-- a bar in a paragraph of a block that is a pair tag in the source, and a fence on the line of a bullet
+local t5 = Import.text('> quoted | with a bar\n\n- ```lua\n  x\n  ```\n- next\n\n```sh\nls\n```\n', 'markdown')
+parses('md: a bar in a quote', t5)
+has('md: a fence in a list item', t5, '-  ###  src lua\n   x\n   ###')
+do
+  local root = vim.treesitter.get_string_parser(t5, 'fey'):parse()[1]:root()
+  local blocks = 0
+  local function count(node)
+    if node:type() == 'block' then blocks = blocks + 1 end
+    for c in node:iter_children() do
+      count(c)
+    end
+  end
+  count(root)
+  check('md: both fences are blocks', blocks, 2)
+end
+
 -- org ---------------------------------------------------------------------------------------------------------------------
 
 local org_ok = require('fey.import.org').available()
@@ -188,6 +223,7 @@ if org_ok then
     '| a | b |',
     '|---+---|',
     '| 1 | 2 |',
+    '#+tblfm: $3=$1+$2::@2$1=5',
     '',
     '# a comment',
     '[fn:1] The note.',
@@ -219,6 +255,7 @@ if org_ok then
   has('org: source block with arguments and a name', otext, '###  src python :tangle x.py :name demo\nprint(1)\n###')
   has('org: quote', otext, '[ blockquote ]#\n   Quoted')
   has('org: table header', otext, '| a | b |\n+===+===+\n| 1 | 2 |')
+  has('org: table formula', otext, '| 1 | 2 |\n#[ tblfm ] $3=$1+$2::@2$1=5 #')
   has('org: comment', otext, '#[ comment ] a comment #')
   has('org: archive tag is the label', otext, '  II. Second {# labels, archive #}')
   has('org: other drawer is a block tag', otext, '[ mydrawer ]#\n   inside')

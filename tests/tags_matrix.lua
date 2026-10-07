@@ -180,7 +180,7 @@ local covered = {}
 for _, sample in ipairs(SAMPLES) do
   covered[sample[1]] = true
 end
-local tasks = vim.fn.readfile(vim.fn.getcwd() .. '/TASKS.fey')
+local tasks = vim.fn.readfile(vim.fn.getcwd() .. '/TASKS_COMPLETED.fey')
 local in_table, missing, rows_seen = false, {}, 0
 for _, line in ipairs(tasks) do
   if line:match('^| tag%s+| format') then in_table = true end

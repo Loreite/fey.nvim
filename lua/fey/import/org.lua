@@ -234,7 +234,7 @@ local function block(ctx, node)
 end
 
 local function table_of(ctx, node)
-  local header, rows, seen_hr = nil, {}, false
+  local header, rows, seen_hr, formulas = nil, {}, false, {}
   for _, child in ipairs(node:named_children()) do
     local t = child:type()
     if t == 'row' then
@@ -246,12 +246,18 @@ local function table_of(ctx, node)
         end
       end
       rows[#rows + 1] = cells
+    elseif t == 'formula' then
+      local f = child:field('formula')[1]
+      local text = f and vim.trim(node_text(ctx, f)) or ''
+      if text ~= '' then formulas[#formulas + 1] = { t = 'tblfm', s = text } end
     elseif t == 'hr' and not seen_hr then
       seen_hr = true
       if #rows >= 1 then header = table.remove(rows, 1) end
     end
   end
-  return { { t = 'table', header = header, rows = rows } }
+  local out = { { t = 'table', header = header, rows = rows } }
+  vim.list_extend(out, formulas)
+  return out
 end
 
 ---@param ctx table
@@ -291,7 +297,7 @@ blocks_of = function(ctx, node)
     elseif t == 'directive' then
       local name, value = c:field('name')[1], c:field('value')[1]
       local n = name and node_text(ctx, name):lower() or ''
-      if n == 'tblfm' then ctx.dropped.tblfm = true end
+      if n == 'tblfm' and value then made = { { t = 'tblfm', s = vim.trim(node_text(ctx, value)) } } end
     elseif t == 'latex_env' or t == 'horizontal_rule' then
       made = nil
     else
@@ -463,7 +469,7 @@ function M.parse(src, opts)
             doc.labels[#doc.labels + 1] = label_of(tag)
           end
         elseif n == 'tblfm' then
-          ctx.dropped.tblfm = true
+          -- a block of the body, made by `blocks_of`
         elseif
           n ~= ''
           and not n:match('^name$')
@@ -494,7 +500,6 @@ function M.parse(src, opts)
   local names = {
     internal = 'links to a heading or a custom id of the same file were kept as their text',
     block = 'blocks of other kinds were kept as comments',
-    tblfm = 'table formulas (#+tblfm) were dropped',
   }
   for key, msg in pairs(names) do
     if ctx.dropped[key] then doc.warnings[#doc.warnings + 1] = msg end
