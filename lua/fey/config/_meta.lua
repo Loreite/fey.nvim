@@ -246,6 +246,7 @@
 ---@field fey_footnote_tag_name? string Tag name of footnote references and definitions. Default: 'fn'
 ---@field fey_footnote_definition_form? 'pair'|'line'|'block' Tag form of a new footnote definition. Default: 'pair'
 ---@field fey_footnote_superscript? 'auto'|boolean Show footnote labels as superscript: `auto` converts digits and signs, `true` letters as well, `false` never. Default: 'auto'
+---@field fey_comment_index_default? boolean Is what a comment tag comments indexed when the tag has no boolean (`{# comment, true #}` or `index: true`)? Default: false
 ---@field fey_drawer_form? 'pair'|'block' The form of a drawer the plugin makes (the logbook): a pair tag or a block tag. Drawers found in either form are used. Default: 'pair'
 ---@field fey_logbook_tag_name? string Tag name of the pair tag or block tag that holds the clocks of a heading. Default: 'logbook'
 ---@field fey_status_tag_name? string Tag name of the todo keyword and the priority of a heading, `{# status, TODO, A #}`. Default: 'status'
@@ -256,6 +257,8 @@
 ---@field fey_checkbox_icon_overrides? table<string, string> Icon of single marks. Default: {}
 ---@field fey_conceal_task_tags? boolean Hide everything of the todo, priority and labels tags in a heading title except their values. Default: true
 ---@field fey_db_tag_name? string Tag name of tags that import a database view. Default: 'feydb'
+---@field fey_clocktable_tag_name? string Tag name of a clock table. Default: 'clocktable'
+---@field fey_clocktable_result_tag_name? string Tag name of the pair tag that holds the clock table. Default: 'clocktable_result'
 ---@field fey_db_result_tag_name? string Tag name of the pair tag that holds an imported view. Default: 'feydb_result'
 ---@field fey_query_result_tag_name? string Tag name of the pair tag that holds a query's result. Default: 'query_result'
 ---@field fey_agenda_files? string | string[] Path(s) to fey files. Can be a glob pattern (example: `~/fey/**/*`). Default: {}
@@ -300,7 +303,7 @@
 ---@field fey_log_done? 'time' | 'note' How to log done tasks. `time` indicates adding CLOSED date. `note` prompts for closing note. Default: 'time'
 ---@field fey_log_repeat? 'time' | 'note' | false How to log repeated tasks. `time` just logs the time of repeat. `note` prompts for closing note alongside the time. `false` disables. Default: 'time'
 ---@field fey_log_into_logbook? boolean Write notes into the logbook of the heading as well. Default: false
----@field fey_highlight_latex_and_related? 'native' | 'entities' | nil What level of latex highlighting to use. This option is experimental. Default: nil
+---@field fey_math_tag_name? string Tag name of math: a line, block or pair tag whose text is LaTeX, highlighted with the `latex` tree-sitter parser when it is installed. Default: 'math'
 ---@field fey_custom_exports? table<string, FeyCustomExport> List of custom exports. Default: {}
 ---@field fey_adapt_indentation? boolean Add spaces as indents to the content. Default: true
 ---@field fey_startup_indented? boolean If true, apply virtual indents to the content. Default: false

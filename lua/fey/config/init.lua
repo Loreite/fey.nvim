@@ -441,6 +441,14 @@ function Config:setup_ts_predicates()
     return valid_priorities[text] and valid_priorities[text].type == type
   end, { force = true, all = true })
 
+  -- the name of a tag is the name of math (`fey_math_tag_name`), whose text is injected as LaTeX
+  vim.treesitter.query.add_predicate('fey-is-math-tag?', function(match, _, source, predicate)
+    local node = match[predicate[2]]
+    node = node and node[#node]
+    if not node then return false end
+    return vim.trim(vim.treesitter.get_node_text(node, source)) == self.fey_math_tag_name
+  end, { force = true, all = true })
+
   vim.treesitter.query.add_directive('fey-set-block-language!', function(match, _, bufnr, pred, metadata)
     local lang_node = match[pred[2]]
     lang_node = lang_node and lang_node[#lang_node]

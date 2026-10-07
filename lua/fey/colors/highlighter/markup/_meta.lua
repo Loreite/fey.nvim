@@ -1,7 +1,7 @@
 ---@meta
 ---@alias FeyMarkupRange { line: number, start_col: number, end_col: number }
 
----@alias FeyMarkupParserType 'emphasis' | 'link' | 'latex' | 'date'
+---@alias FeyMarkupParserType 'emphasis' | 'link' | 'date'
 
 ---@class FeyMarkupNode
 ---@field type FeyMarkupParserType

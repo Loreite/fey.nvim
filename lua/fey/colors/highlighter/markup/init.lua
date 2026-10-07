@@ -2,7 +2,7 @@
 ---@field highlighter FeyHighlighter
 ---@field private cache table
 ---@field private query vim.treesitter.Query
----@field private parsers { emphasis: FeyEmphasisHighlighter, link: FeyLinkHighlighter, latex: FeyLatexHighlighter }
+---@field private parsers { emphasis: FeyEmphasisHighlighter }
 local FeyMarkup = {}
 
 ---@param opts { highlighter: FeyHighlighter }
@@ -22,7 +22,6 @@ end
 function FeyMarkup:_init_highlighters()
   self.parsers = {
     emphasis = require('fey.colors.highlighter.markup.emphasis'):new({ markup = self }),
-    latex = require('fey.colors.highlighter.markup.latex'):new({ markup = self }),
   }
 end
 
@@ -42,7 +41,7 @@ end
 ---@param line number
 ---@param tree TSTree
 ---@param use_cache? boolean
----@return { emphasis: FeyMarkupHighlight[], link: FeyMarkupHighlight[], latex: FeyMarkupHighlight[], date: FeyMarkupHighlight[] }
+---@return { emphasis: FeyMarkupHighlight[], link: FeyMarkupHighlight[], date: FeyMarkupHighlight[] }
 function FeyMarkup:_get_highlights(bufnr, line, tree, use_cache)
   local line_content = vim.api.nvim_buf_get_lines(bufnr, line, line + 1, false)[1]
   -- Highlights also depend on the structure around the line (emphasis in a
@@ -88,11 +87,10 @@ end
 ---@param root_node TSNode
 ---@param source number | string
 ---@param line number
----@return { emphasis: FeyMarkupHighlight[], link: FeyMarkupHighlight[], latex: FeyMarkupHighlight[], date: FeyMarkupHighlight[] }
+---@return { emphasis: FeyMarkupHighlight[], link: FeyMarkupHighlight[], date: FeyMarkupHighlight[] }
 function FeyMarkup:get_node_highlights(root_node, source, line)
   local result = {
     emphasis = {},
-    latex = {},
   }
   ---@type FeyMarkupNode[]
   local entries = {}

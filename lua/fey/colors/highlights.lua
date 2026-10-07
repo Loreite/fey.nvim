@@ -176,8 +176,6 @@ function M.link_highlights()
     ['@fey.hyperlink'] = '@markup.link',
     ['@fey.hyperlink.url'] = '@markup.link.url',
     ['@fey.hyperlink.desc'] = '@markup.link.label',
-    ['@fey.latex'] = '@markup.math',
-    ['@fey.latex_env'] = '@markup.environment',
     ['@fey.footnote'] = '@markup.link.url',
     ['@fey.footnote.reference'] = '@markup.link.url',
 

@@ -97,6 +97,36 @@ check 'the court sets line numbers for a note without a setting' "$out" '  1   I
 out=$(screen_of "$TMP/plain/own.fey" ':sleep 700m' ':normal zR')
 check 'the note beats the court' "$out" '  1 ' no
 
+
+# concealed queries: the tag and its body are hidden, the result keeps its body but not its head and closer
+cat >"$TMP/conceal.fey" <<'EOF'
+  I. Concealed
+
+before
+
+[ query; conceal: true ]#
+   LIST WITHOUT ID file.name
+[ query_result; conceal: true #]
+-  shown result
+[# query_result ]
+
+after {# query, LIST; conceal: true #} the line
+
+[ query_result #]
+-  plain result
+[# query_result ]
+EOF
+export FEY_OPTS="{ fey_court_dir = '$TMP/court' }"
+out=$(screen_of "$TMP/conceal.fey" ':set conceallevel=2' ':normal zR' ':normal G')
+check 'the body of a result stays' "$out" 'shown result' yes
+check 'a concealed query body is hidden' "$out" 'LIST WITHOUT ID' no
+check 'a concealed result head is hidden' "$out" 'query_result; conceal' no
+total=$((total + 1))
+[ "$(grep -cF -- '[# query_result ]' <<<"$out")" = 1 ] || { echo "FAIL only the closer of the plain result is drawn"; failed=$((failed + 1)); }
+check 'an inline concealed tag is hidden' "$out" 'conceal: true #}' no
+check 'text around it stays' "$out" 'after  the line' yes
+check 'a result with no conceal shows its head' "$out" '[ query_result #]' yes
+
 rm -rf "$TMP"
 if [ "$failed" -gt 0 ]; then echo "screen: $failed of $total checks failed"; exit 1; fi
 echo "ok: $total screen checks"

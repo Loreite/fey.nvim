@@ -32,18 +32,23 @@
 --
 -- and writes the table into a `feydb_result` pair tag the same way. Both kinds of
 -- tags also update when a buffer first loads.
+--
+-- A `clocktable` tag (see `fey.clock.table`) is the same kind of tag: its result, the time clocked in a span,
+-- is written into a `clocktable_result` pair tag.
 local config = require('fey.config')
 
 local M = {}
 
 ---@param name string
----@return 'query'|'feydb'|nil
+---@return 'query'|'feydb'|'clocktable'|nil
 local function tag_kind(name)
   if name == config.fey_query_tag_name then return 'query' end
   if name == config.fey_db_tag_name then return 'feydb' end
+  if name == config.fey_clocktable_tag_name then return 'clocktable' end
 end
 
 local function result_name_for(kind)
+  if kind == 'clocktable' then return config.fey_clocktable_result_tag_name end
   return kind == 'feydb' and config.fey_db_result_tag_name or config.fey_query_result_tag_name
 end
 
@@ -117,7 +122,20 @@ function M.query_text(bufnr, node)
       local sr, sc = select(1, name:end_()), select(2, name:end_())
       local er, ec = tag_end:start()
       raw = table.concat(vim.api.nvim_buf_get_text(bufnr, sr, sc, er, ec, {}), '\n')
-      raw = raw:gsub('^%s*[,;]', ''):gsub('\\([,;])', '%1')
+      -- the keys (`; scope: tree`) are not part of the query: cut at the first `;` that is not escaped
+      raw = raw:match('^%s*;') and '' or raw:gsub('^%s*,', '')
+      local cut = 1
+      while true do
+        local semi = raw:find(';', cut, true)
+        if not semi then break end
+        local slashes = #raw:sub(1, semi - 1):match('\\*$')
+        if slashes % 2 == 0 then
+          raw = raw:sub(1, semi - 1)
+          break
+        end
+        cut = semi + 1
+      end
+      raw = raw:gsub('\\([,;])', '%1')
     end
   end
   return dedent(raw)
@@ -188,6 +206,23 @@ local function feydb_lines(bufnr, node, vault)
   })
 end
 
+---Lines for the result of a `clocktable` tag
+---@param bufnr integer
+---@param node TSNode
+---@param vault FeyVault
+---@return string[]
+local function clocktable_lines(bufnr, node, vault)
+  local tag = require('fey.files.elements.tags').parse_tag_node(bufnr, node)
+  return require('fey.clock.table').lines(vault, {
+    span = tag.key_values.span or tag.values[1],
+    by = tag.key_values.by,
+    scope = M.scope_of(tag),
+  }, {
+    link_tag = (vault.opts.link_tags or {})[1] or 'link',
+    hollow_id = require('fey.hollow.tree').id_of(vault.root),
+  })
+end
+
 ---The scope of a query tag: its `scope` key, `current` (the default), `tree`, `court` or a list of hollow
 ---references separated by blanks (`scope: court:notes court:play:*`)
 ---@param tag FeyTag
@@ -215,6 +250,7 @@ local function plan(bufnr, node, vault, this, silent)
   local body
   local ok, res = pcall(function()
     if kind == 'feydb' then return feydb_lines(bufnr, node, vault) end
+    if kind == 'clocktable' then return clocktable_lines(bufnr, node, vault) end
     local query_src = M.query_text(bufnr, node)
     if query_src == '' then error('query: the tag holds no query', 0) end
     local tag = require('fey.files.elements.tags').parse_tag_node(bufnr, node)
@@ -228,16 +264,19 @@ local function plan(bufnr, node, vault, this, silent)
     body = res
   else
     local msg = tostring(res):gsub('[\r\n]+', ' ')
-    msg = msg:gsub('^query: ', ''):gsub('^feydb: ', '')
+    msg = msg:gsub('^query: ', ''):gsub('^feydb: ', ''):gsub('^clocktable: ', '')
     if not silent then vim.notify(('fey %s: %s'):format(kind, msg), vim.log.levels.WARN) end
-    body = { (kind == 'feydb' and 'feydb error: ' or 'query error: ') .. msg }
+    body = { kind .. ' error: ' .. msg }
   end
 
   local anchor = anchor_of(node)
   local _, a_er = row_range(anchor)
   local indent = (' '):rep(select(2, anchor:start()))
 
-  local block = { indent .. ('[ %s #]'):format(result_name) }
+  -- a concealed query has a concealed result: its head and its closer, the body stays
+  local tag_for_keys = require('fey.files.elements.tags').parse_tag_node(bufnr, node)
+  local conceal = (tag_for_keys.key_values.conceal or ''):lower() == 'true'
+  local block = { indent .. (conceal and ('[ %s; conceal: true #]') or '[ %s #]'):format(result_name) }
   for _, l in ipairs(body) do
     block[#block + 1] = l == '' and l or (indent .. l)
   end

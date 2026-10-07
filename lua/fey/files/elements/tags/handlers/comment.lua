@@ -54,7 +54,32 @@ local function name_of(node, src)
   return name and vim.treesitter.get_node_text(name, src) or nil
 end
 
----The bodies of the comment tags of a tree, as byte ranges
+---Is what the comment tag comments indexed. The tag takes an optional boolean, as the first value or the key `index`:
+---`{# comment, true #}` keeps indexing it, `{# comment, false #}` ignores it. Without one, `fey_comment_index_default`.
+---@param node TSNode
+---@param src integer|string buffer or text
+---@return boolean
+function M.is_indexed(node, src)
+  local head = node:type() == 'pair_tag' and node:field('open')[1] or node
+  local function bool(text)
+    text = vim.trim(text):lower()
+    if text == 'true' then return true end
+    if text == 'false' then return false end
+  end
+  for _, kv in ipairs(head:field('key_value')) do
+    local key, value = kv:field('key')[1], kv:field('value')[1]
+    if key and value and vim.trim(vim.treesitter.get_node_text(key, src)) == 'index' then
+      local b = bool(vim.treesitter.get_node_text(value, src))
+      if b ~= nil then return b end
+    end
+  end
+  local first = head:field('value')[1]
+  local b = first and bool(vim.treesitter.get_node_text(first, src))
+  if b ~= nil then return b end
+  return config.fey_comment_index_default == true
+end
+
+---The bodies of the comment tags of a tree that the index ignores, as byte ranges
 ---@param root TSNode
 ---@param src integer|string buffer or text
 ---@param query vim.treesitter.Query the tags query
@@ -64,7 +89,7 @@ function M.bodies(root, src, query, name)
   name = name or config.fey_comment_tag_name
   local out = {}
   for _, node in query:iter_captures(root, src) do
-    if name_of(node, src) == name then
+    if name_of(node, src) == name and not M.is_indexed(node, src) then
       local body = M.body_node(node)
       if body then
         local _, _, from = body:start()
@@ -76,7 +101,7 @@ function M.bodies(root, src, query, name)
   return out
 end
 
----Is the node inside the body of one of the comments, other than a comment tag itself?
+---Is the node inside the body of one of the comments the index ignores, other than a comment tag itself?
 ---@param node TSNode
 ---@param bodies { node: TSNode, from: integer, to: integer }[]
 ---@return boolean

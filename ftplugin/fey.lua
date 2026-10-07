@@ -54,8 +54,6 @@ for _, op in ipairs({ 'za', 'zo', 'zc' }) do
   vim.keymap.set('n', op, function() require('fey.fey.folds').fold_op(op) end, { buffer = bufnr, desc = 'fey fold ' .. op })
 end
 
-if config.fey_highlight_latex_and_related then vim.bo[bufnr].syntax = 'ON' end
-
 vim.b.undo_ftplugin = table.concat({
   'setlocal',
   'commentstring<',

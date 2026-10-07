@@ -96,6 +96,18 @@ check('a commented file has no labels', #file.labels, 0)
 local list = index('  I. H\n\n-  [ ] one\n-  {# comment #}\n-  [ ] three\n\nbreak\n\n-  [ ] outside\n')
 check('a commented list has no tasks, another list has', #vim.tbl_filter(function(t) return t.kind == 'item' end, list.tasks), 1)
 
+
+-- indexing on request -----------------------------------------------------------------------------
+local kept = index('  I. H\n\n[ comment, true #]\n{# labels, kept #}\n[# comment ]\n')
+check('comment, true keeps indexing', #kept.labels, 1)
+local kept_key = index('  I. H\n\n[ comment; index: true #]\n{# labels, kept #}\n[# comment ]\n')
+check('index: true keeps indexing', #kept_key.labels, 1)
+check('comment, false ignores', #index('  I. H\n\n[ comment, false #]\n{# labels, x #}\n[# comment ]\n').labels, 0)
+config:extend({ fey_comment_index_default = true })
+check('default true: indexed', #index('  I. H\n\n[ comment #]\n{# labels, x #}\n[# comment ]\n').labels, 1)
+check('default true, false still ignores', #index('  I. H\n\n[ comment, false #]\n{# labels, x #}\n[# comment ]\n').labels, 0)
+config:extend({ fey_comment_index_default = false })
+
 -- the drawn comment ---------------------------------------------------------------------------------
 local buf = vim.api.nvim_create_buf(true, false)
 vim.api.nvim_buf_set_lines(buf, 0, -1, false, { '  I. H', '', '#[ comment ] quiet #', '', 'loud' })

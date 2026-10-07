@@ -715,7 +715,9 @@ the vault indexes its date and a query finds it.
 
 The tag `comment` (`fey_comment_tag_name`) comments its body in every form. The body is shown in the
 comment colour (`FeyComment`, linked to `Comment`) and nothing in it is indexed: no tags, labels, links, dates or
-checkbox items. The comment tag itself is still indexed.
+checkbox items. The comment tag itself is still indexed. An optional boolean, as the first value or the key
+`index`, turns that around for one comment: `{# comment, true #}` keeps indexing, `{# comment, false #}` ignores.
+Without it the option `fey_comment_index_default` decides (default `false`, ignore).
 
     ###  src fey
     #[ comment ] a line #
@@ -736,6 +738,50 @@ A scope tag comments its parent, the same node the `hl` tag colours:
   -  in a section, not above a heading: the text of that section, not its subsections
 
 `commentstring` is the line form, so `gc` writes `#[ comment ] text #`.
+
+
+  II.M.iii. The clock table
+
+A `clocktable` tag is a dynamic block: it runs like a query tag (`<prefix>qq` at the cursor, `<prefix>qa` for
+the buffer, and when the buffer loads) and writes the time clocked into a `clocktable_result` pair tag after it,
+replacing the last result. It reads the clocks of the index, so it needs no logbook parsing.
+
+    ###  src fey
+    {# clocktable; span: thisweek; by: heading #}
+    [ clocktable_result #]
+    | Heading                       | Time |
+    +==============================+======+
+    | {@ link, a.fey; section: I. @} | 1:30 |
+    | Total                        | 1:30 |
+    [# clocktable_result ]
+    ###
+
+  -  `span` (or the first plain value): `today`, `yesterday`, `thisweek` (the default), `lastweek`, `thismonth`,
+     `lastmonth`, `thisyear`, `lastyear`, `all`, `7d` (the last 7 days), `2026`, `2026-10`, `2026-10-07`, or a range
+     of two, `2026-10-01--2026-10-07`
+  -  `by`: `heading` (the default, a link to each heading), `file` or `day`
+  -  `scope`: as for a query tag, `current`, `tree`, `court` or hollows
+  -  a finished clock counts when it starts or ends in the span; a running clock does not
+  -  `fey_clocktable_tag_name` and `fey_clocktable_result_tag_name` rename the tags
+  -  `conceal: true`, on a `clocktable`, `query` or `feydb` tag, hides the tag and its body, and writes the result
+     as `[ clocktable_result; conceal: true #]`, which hides only the head and the closer of the result and leaves the
+     body in view (lines it fills alone are hidden whole, so it needs `conceallevel`; the cursor line shows the text)
+
+
+  II.M.iv. Math
+
+The text of a `math` tag (`fey_math_tag_name`) is LaTeX and is highlighted as such, with the `latex` tree-sitter
+parser when it is installed (without it nothing changes). A line tag is inline math, a block or a pair tag is
+a display equation, and so is a fenced block named `latex`:
+
+    ###  src fey
+    The mass #[ math ] E = mc^2 # is energy.
+
+    [ math ]#
+       \int_0^1 x \, dx = \frac{1}{2}
+    ###
+
+The scope tag form is not injected: the head of a tag treats a backslash as an escape.
 
 
   II.N. Queries and databases

@@ -1947,6 +1947,9 @@ Done (2026-10-07): comments.
    The body is dimmed with the group `FeyComment` (link `Comment`) by an extmark, like `hl`.
    The extractor skips everything inside a comment: tags, labels, links, dates, tasks and checkbox
    items. The comment tag itself stays indexed. `commentstring` is `#[ comment ] %s #`.
+-  Added:  an optional boolean, the first value or the key `index`, `{# comment, true #}` keeps
+   indexing what it comments, `false` ignores it; the option `fey_comment_index_default`
+   (default false) decides without one. The dimming is the same either way.
 -  Not done:  the exporter skipping a commented file or body (there is no exporter yet; it uses
    `comment.body_node`), and a comment in a heading title commenting the section.
 -  Tests:  `tests/comments.lua` (26 checks): every form, the list and file rules, a section, the index
@@ -1968,6 +1971,32 @@ Done (2026-10-07): comments.
 -  Vault:  yes, entirely (it is a query).
 -  After:  III.A.
 
+Done (2026-10-07): the clock table, a dynamic block.
+
+-  Chose:  `clocktable` is a query tag kind: `fey.query` knows it next to `query` and `feydb`
+   (`tag_kind`, the result name `clocktable_result`), so the mappings, the replacement of
+   the previous result and the run on load all work as they do for queries. The table
+   comes from `fey/clock/table.lua`, a query over the `dates` rows of kind clock, not a
+   written query text. Keys: `span` (or the first value), `by` (heading, file, day), `scope`.
+   The span grammar is in the README. A heading row is a link to the heading, a total
+   row ends the table, an empty span says so. The old clock report in the agenda is the same
+   idea and stays as it is.
+-  Not done:  `maxlevel` and `tcolumns` of org, formulas on the table (VI.A), the clock
+   table of a heading's subtree only (`scope: subtree`, wanted when it is asked for).
+-  Tests:  `tests/clocktable.lua` (26 checks): the spans, each `by`, a running clock not counted,
+   two months, an empty span, a bad `by`, and the tag run in a buffer, twice.
+
+Added to III.G (2026-10-07): the `conceal` key.
+
+-  Chose:  `conceal: true` on a `query`, `feydb` or `clocktable` tag hides the whole tag, head and
+   body, in every form (`handlers/conceal.lua`), and is written into the result when it regenerates:
+   `[ query_result; conceal: true #]`. A result with that key hides its head and its closer, not its
+   body. A node that fills its lines is hidden with `conceal_lines`, a scope tag in the middle of a line
+   with plain `conceal`. A scope query tag no longer passes its keys to the query parser
+   (`; scope: tree` was part of the text before).
+-  Tests:  five screen checks (the body of a result stays, a concealed body, head and closer are hidden, a
+   tag inside a line, a result without the key) and five in `tests/clocktable.lua`.
+
   III.H. LaTeX
 
 -  Now:  `colors/highlighter/markup/latex.lua`, the option
@@ -1981,6 +2010,18 @@ Done (2026-10-07): comments.
 -  Triggers:  none, it is highlighting.
 -  Vault:  none.
 -  After:  nothing.
+
+Done (2026-10-07): LaTeX.
+
+-  Chose:  the text of a `math` tag, a line, block or pair tag, is injected with the `latex` parser
+   (`queries/fey/injections.scm`, the predicate `fey-is-math-tag?` reads `fey_math_tag_name`). Fenced blocks named
+   `latex` already went through the block injection and work. The scope tag is not injected (the head of a
+   tag escapes a backslash). The old org code is gone: the markup highlighter `latex.lua`, the option
+   `fey_highlight_latex_and_related`, the `syntax` regions for `$..$` and `\begin`, the ftplugin switch and
+   the highlight links `@fey.latex` and `@fey.latex_env`; the grammar has no node for them.
+-  Not done:  rendering equations as images (`images.scm` is the place for it, with the `math` tag).
+-  Tests:  `tests/math.lua` (6 checks, skipped without a latex parser): the three tag forms, a fenced block,
+   another tag, the option.
 
   III.I. Source blocks, edit special and babel
 
@@ -2281,7 +2322,7 @@ working for a release. To decide.
 | clock                  | scope        | start; end; dur               | none                   | III.A  |
 | fn                     | scope, pair  | label                         | jump                   | III.C  |
 | comment                | all four     | body, see III.F               | none, dims the body    | III.F  |
-| clocktable             | block, pair  | span; scope; by               | run, writes result     | III.G  |
+| clocktable, clocktable_result | scope, line, block, pair | span; by; scope  | run, writes result     | III.G  |
 | math                   | line         | latex text                    | none, injection        | III.H  |
 | nvim                   | scope, line, block, pair | keys: options of the editor; body: a table | apply (hot loaded) | III.D (settings) |
 | plugin                 | scope, line, block, pair | plugin name; keys: options; body: a table | apply (hot loaded) | III.D (settings) |

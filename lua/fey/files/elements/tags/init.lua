@@ -137,6 +137,7 @@ function Tag.setup(handlers)
   Tag.handlers[config.fey_hl_tag_name] = hl.handlers
   Tag.handlers[config.fey_query_tag_name] = query_handler.handlers
   Tag.handlers[config.fey_db_tag_name] = feydb_handler.handlers
+  Tag.handlers[config.fey_clocktable_tag_name] = query_handler.handlers
   Tag.handlers[config.fey_link_tag_name] = link_handler.handlers
   Tag.handlers[config.fey_section_tag_name] = section_handler.handlers
   Tag.handlers[config.fey_status_tag_name] = status_handler.handlers
@@ -155,6 +156,7 @@ function Tag.setup(handlers)
   nvim_config.setup_query(Tag.parse_all_tags)
   hl.setup_query(Tag.parse_all_tags)
   comment_handler.setup_query(Tag.parse_all_tags)
+  require('fey.files.elements.tags.handlers.conceal').setup_query(Tag.parse_all_tags)
 end
 
 return Tag
