@@ -9,6 +9,7 @@
 ---@field court? FeyCourtConfig The court
 ---@field fey_agenda_files? string[]
 ---@field fey_agenda_scope? FeyScopeSpec
+---@field fey_agenda_skip_archived? boolean
 ---@field fey_agenda_show_scope? boolean
 ---@field fey_agenda_show_hollow? 'auto'|'always'|'never'|boolean
 ---@field fey_agenda_tag_filter_preset? string
@@ -49,6 +50,7 @@
 
 ---@class FeyNotificationsConfig
 ---@field enabled? boolean Enable notifications. Default: false
+---@field scope? FeyScopeSpec Hollows the reminders are read from. Default: `fey_agenda_scope`
 ---@field cron_enabled? boolean Enable cron notifications. Default: true
 ---@field repeater_reminder_time? boolean | number | number[] Number of minutes before the repeater time to send the notifiaction. Default: false
 ---@field deadline_warning_reminder_time? boolean | number | number[] Number of minutes before the deadline wrning time to send the notifiaction. Default: 0
@@ -228,6 +230,8 @@
 ---@field fey_scheduled_tag_name? string Tag name of the date a heading is scheduled. Default: 'scheduled'
 ---@field fey_deadline_tag_name? string Tag name of the deadline of a heading. Default: 'deadline'
 ---@field fey_closed_tag_name? string Tag name of the date a heading was closed. Default: 'closed'
+---@field fey_clock_tag_name? string Tag name of one clock. Default: 'clock'
+---@field fey_logbook_tag_name? string Tag name of the pair tag that holds the clocks of a heading. Default: 'logbook'
 ---@field fey_status_tag_name? string Tag name of the todo keyword and the priority of a heading, `{# status, TODO, A #}`. Default: 'status'
 ---@field fey_labels_tag_name? string Tag name that heading labels are written with. Default: 'labels'
 ---@field fey_property_tag_name? string Tag name of the properties of a heading. Default: 'prop'
@@ -265,7 +269,9 @@
 ---@field fey_priority_default? string | number Default priority level. Default: 'B'
 ---@field fey_priority_lowest? string | number Lowest priority level. Default: 'C'
 ---@field fey_priority_start_cycle_with_default? boolean If true, cycling priorities will start with the default priority. Default: true
----@field fey_archive_location? string Location where to archive subtrees. `%s` indicates the file name from where archiving is done. Default: '%s_archive::'
+---@field fey_refile_scope? FeyScopeSpec Hollows refile offers as destinations. Default: 'court'
+---@field fey_refile_leave_link? boolean Leave a link where a refiled heading was. Default: false
+---@field fey_archive_location? string Location where to archive subtrees. `%s` indicates the file name from where archiving is done. Default: '%s_archive'
 ---@field fey_tags_column? number Padding for tags column. Negative indicates how many columns to pad from heading. Positive indicates specific column. Default: -80
 ---@field fey_use_tag_inheritance? boolean If true, tags will be inherited from parent headings. Default: true
 ---@field fey_tags_exclude_from_inheritance? string[] List of tags that should be excluded from tag inheritance. Default: {}
@@ -274,7 +280,7 @@
 ---@field fey_ellipsis? string Ellipsis character to use when folding text. Default: '...'
 ---@field fey_log_done? 'time' | 'note' How to log done tasks. `time` indicates adding CLOSED date. `note` prompts for closing note. Default: 'time'
 ---@field fey_log_repeat? 'time' | 'note' | false How to log repeated tasks. `time` just logs the time of repeat. `note` prompts for closing note alongside the time. `false` disables. Default: 'time'
----@field fey_log_into_drawer? string | nil Drawer name where to log notes. Default: nil
+---@field fey_log_into_logbook? boolean Write notes into the logbook of the heading as well. Default: false
 ---@field fey_highlight_latex_and_related? 'native' | 'entities' | nil What level of latex highlighting to use. This option is experimental. Default: nil
 ---@field fey_custom_exports? table<string, FeyCustomExport> List of custom exports. Default: {}
 ---@field fey_adapt_indentation? boolean Add spaces as indents to the content. Default: true

@@ -1080,8 +1080,26 @@ function View:help()
   vim.keymap.set('n', '<Esc>', function() vim.api.nvim_win_close(win, true) end, { buffer = buf, nowait = true })
 end
 
+---A view opened in the window of another buffer gives the window back: its options, and the buffer
+---@param self FeyDbView
+local function restore_window(self)
+  local r = self.restore
+  if not r then return end
+  self.restore = nil
+  if not vim.api.nvim_win_is_valid(r.win) then return end
+  -- winfixbuf first, or the buffer cannot be swapped
+  pcall(function() vim.wo[r.win].winfixbuf = r.opts.winfixbuf end)
+  for opt, val in pairs(r.opts) do
+    if opt ~= 'winfixbuf' then pcall(function() vim.wo[r.win][opt] = val end) end
+  end
+  if vim.api.nvim_win_get_buf(r.win) == self.bufnr and vim.api.nvim_buf_is_valid(r.prev) then
+    pcall(vim.api.nvim_win_set_buf, r.win, r.prev)
+  end
+end
+
 function View:close()
   self:save()
+  restore_window(self)
   local buf = self.bufnr
   if #vim.api.nvim_tabpage_list_wins(0) > 1 or #vim.api.nvim_list_tabpages() > 1 then
     local win = vim.fn.bufwinid(buf)
@@ -1173,7 +1191,8 @@ end
 
 ---@alias FeyDbOpenMode 'split'|'vsplit'|'tab'|'current'
 
----Open a database in a new window, split or tab
+---Open a database in a new window, split or tab, or (`current`) in the window you are in, which is
+---the one to use when there are many columns: `q` puts the buffer and the window options back
 ---@param vault FeyVault
 ---@param name string
 ---@param mode? FeyDbOpenMode
@@ -1191,6 +1210,15 @@ function M.open(vault, name, mode)
   if mode == 'split' then vim.cmd('botright split')
   elseif mode == 'vsplit' then vim.cmd('botright vsplit')
   elseif mode == 'tab' then vim.cmd('tabnew') end
+
+  local restore
+  if mode == 'current' then
+    local win0 = vim.api.nvim_get_current_win()
+    restore = { win = win0, prev = vim.api.nvim_get_current_buf(), opts = {} }
+    for _, opt in ipairs({ 'wrap', 'number', 'relativenumber', 'signcolumn', 'cursorline', 'foldcolumn', 'list', 'spell', 'colorcolumn', 'winfixbuf' }) do
+      restore.opts[opt] = vim.wo[win0][opt]
+    end
+  end
 
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_win_set_buf(0, buf)
@@ -1211,7 +1239,7 @@ function M.open(vault, name, mode)
   local self = setmetatable({
     vault = vault, name = name, base = base, vi = 1, bufnr = buf,
     cur = { row = 1, col = 1 }, top = 1, left = 1, history = {}, future = {}, auto_w = {}, summary_cache = {},
-    rows = {}, entries = {}, entry_of_row = {},
+    rows = {}, entries = {}, entry_of_row = {}, restore = restore,
   }, View)
   self.model = Model.new(vault, base)
   self:sync_refs()
@@ -1223,6 +1251,7 @@ function M.open(vault, name, mode)
     callback = function()
       self:save()
       instances[buf] = nil
+      restore_window(self)
     end,
   })
   install_keymaps(self)

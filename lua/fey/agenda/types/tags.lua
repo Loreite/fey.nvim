@@ -53,15 +53,21 @@ function FeyAgendaTagsType:prepare()
   return self:get_tags()
 end
 
-function FeyAgendaTagsType:get_file_headings(file)
-  -- Cache search object to avoid re-parsing same query for every file
+---The entries that match: labels (`+work-home`), props (`priority="A"`, `deadline<"<today>"`) and todo
+---keywords (`/TODO|NEXT`), see `fey.files.elements.search`
+---@return FeyAgendaEntry[]
+function FeyAgendaTagsType:get_entries()
+  -- Cache search object to avoid re-parsing same query for every heading
   -- Re-create if query changed (e.g., user refreshed with new search)
   if not self._cached_search or self._cached_search.term ~= self.match_query then
     self._cached_search = Search:new(self.match_query)
   end
-  local headings = file:apply_search(self._cached_search, self.todo_only)
+  local search = self._cached_search
+  local headings = vim.tbl_filter(function(entry)
+    return search:check(entry:search_item())
+  end, self.source:headings({ todo_only = self.todo_only }))
   if self.todo_ignore_deadlines then
-    headings = vim.tbl_filter(function(heading) ---@cast heading FeyHeading
+    headings = vim.tbl_filter(function(heading) ---@cast heading FeyAgendaEntry
       local deadline_date = heading:get_deadline_date()
       if not deadline_date then
         return true
@@ -87,7 +93,7 @@ function FeyAgendaTagsType:get_file_headings(file)
     end, headings)
   end
   if self.todo_ignore_scheduled then
-    headings = vim.tbl_filter(function(heading) ---@cast heading FeyHeading
+    headings = vim.tbl_filter(function(heading) ---@cast heading FeyAgendaEntry
       local scheduled_date = heading:get_scheduled_date()
       if not scheduled_date then
         return true
@@ -96,10 +102,10 @@ function FeyAgendaTagsType:get_file_headings(file)
         return false
       end
       if self.todo_ignore_scheduled == 'past' then
-        return scheduled_date:is_same_or_before(Date.today(), 'day')
+        return not scheduled_date:is_same_or_before(Date.today(), 'day')
       end
       if self.todo_ignore_scheduled == 'future' then
-        return scheduled_date:is_after(Date.today(), 'day')
+        return not scheduled_date:is_after(Date.today(), 'day')
       end
       return true
     end, headings)
@@ -109,7 +115,7 @@ end
 
 function FeyAgendaTagsType:get_tags()
   return Input.open('Match: ', self.match_query or '', function(arg_lead)
-    return utils.prompt_autocomplete(arg_lead, self.files:get_tags())
+    return utils.prompt_autocomplete(arg_lead, self.source:labels())
   end):next(function(tags)
     if not tags then
       return false

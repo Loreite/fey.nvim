@@ -341,6 +341,9 @@ end
 ---@param input string
 ---@return FeyTagMatch?, string
 function TagMatch:parse(input)
+  -- a label in quotes may have anything in it: "csci-210", "design/ui"
+  local quoted = input:match('^"([^"]+)"')
+  if quoted then return TagMatch:_new(quoted), input:sub(#quoted + 3) end
   local tag
   tag, input = parse_pattern(input, '[\128-\255%w_%%@#]+')
   if not tag then

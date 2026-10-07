@@ -3,7 +3,7 @@
 --   FEY_PARSER=/path/to/fey.so nvim --headless -u NONE -l tests/index.lua
 vim.opt.rtp:prepend('.')
 if vim.env.FEY_PARSER then vim.treesitter.language.add('fey', { path = vim.env.FEY_PARSER }) end
-require('fey.config'):extend({})
+require('fey.config'):extend({ fey_court_dir = vim.fn.tempname() .. '/court' }) -- never the real court
 
 local failures, total = 0, 0
 local function check(name, got, want)

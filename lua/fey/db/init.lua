@@ -107,6 +107,7 @@ function M.pick(mode)
         map({ 'i', 'n' }, '<C-x>', open_with('split'))
         map({ 'i', 'n' }, '<C-v>', open_with('vsplit'))
         map({ 'i', 'n' }, '<C-t>', open_with('tab'))
+        map({ 'i', 'n' }, '<C-e>', open_with('current'))
         map({ 'i', 'n' }, '<C-d>', function()
           local entry = action_state.get_selected_entry()
           if entry and vim.fn.confirm('Delete database ' .. entry.value .. '?', '&Yes\n&No', 2) == 1 then
@@ -131,6 +132,13 @@ function M.setup()
   end, {
     nargs = '?',
     desc = 'Make the cwd a hollow (a .fey folder), name it (unique in the hollow above it, or the court), and index it',
+  })
+  vim.api.nvim_create_user_command('FeyDbHere', function(cmd)
+    if cmd.args == '' then return M.pick('current') end
+    M.open(cmd.args, 'current')
+  end, {
+    nargs = '?',
+    desc = 'Open a database in the current window (no argument: pick one)',
   })
   vim.api.nvim_create_user_command('FeyDb', function(cmd)
     if cmd.args == '' then return M.pick() end

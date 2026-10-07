@@ -60,7 +60,7 @@ end
 
 -- TODO:
 -- Support archiving to heading
-function FeyMappings:archive() return self.capture:refile_file_heading_to_archive(self.files:get_closest_heading()) end
+function FeyMappings:archive() return require('fey.refile').archive_at_cursor() end
 
 ---@param tags? string|string[]
 function FeyMappings:set_tags(tags)
@@ -76,7 +76,7 @@ function FeyMappings:set_tags(tags)
         return Input.open(
           'Tags: ',
           current_tags,
-          function(arg_lead) return utils.prompt_autocomplete(arg_lead, self.files:get_tags()) end
+          function(arg_lead) return utils.prompt_autocomplete(arg_lead, require('fey.agenda.source').new():labels()) end
         )
       end
       if type(tags) == 'table' then tags = utils.tags_to_string(tags) end

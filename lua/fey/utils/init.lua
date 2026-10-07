@@ -492,6 +492,17 @@ end
 ---@param heading FeyHeading
 function utils.goto_heading(heading)
   local current_file_path = utils.current_file_path()
+  if heading.abs then
+    -- an agenda entry, read from a vault: it knows its file and line
+    if heading.abs ~= current_file_path then
+      vim.cmd(('edit %s'):format(vim.fn.fnameescape(heading.abs)))
+    else
+      vim.cmd([[normal! m']])
+    end
+    vim.fn.cursor({ heading.line, 1 })
+    vim.cmd([[normal! zv]])
+    return
+  end
   if heading.file.filename ~= current_file_path then
     vim.cmd(string.format('edit %s', heading.file.filename))
   else

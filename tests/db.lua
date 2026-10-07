@@ -3,7 +3,7 @@
 --   FEY_PARSER=/path/to/fey.so nvim --headless -u NONE -l tests/db.lua
 vim.opt.rtp:prepend('.')
 if vim.env.FEY_PARSER then vim.treesitter.language.add('fey', { path = vim.env.FEY_PARSER }) end
-require('fey.config'):extend({})
+require('fey.config'):extend({ fey_court_dir = vim.fn.tempname() .. '/court' }) -- never the real court
 
 local failures, total = 0, 0
 local function check(name, got, want)
@@ -125,6 +125,38 @@ check('export lines', lines, {
   '| file.name | rating |', '+===========+========+', '| n2        | 2      |', '| n3        | 3      |',
 })
 check('export unknown db', (pcall(require('fey.db.export').table_lines, vault, { db = 'nope' })), false)
+
+-- opening in the current window: full screen, and the window is given back
+local dbview = require('fey.db.view')
+vim.cmd('enew')
+local before_buf = vim.api.nvim_create_buf(true, false)
+vim.api.nvim_win_set_buf(0, before_buf)
+vim.wo.wrap, vim.wo.number = true, true
+local wins_before = #vim.api.nvim_list_wins()
+local here = dbview.open(vault, name, 'current')
+check('current: no new window', #vim.api.nvim_list_wins(), wins_before)
+check('current: the window shows the database', vim.api.nvim_win_get_buf(0), here.bufnr)
+check('current: its options are the view options', { vim.wo.wrap, vim.wo.number, vim.wo.winfixbuf }, { false, false, true })
+here:close()
+check('current: the buffer is back', vim.api.nvim_win_get_buf(0), before_buf)
+check('current: and the window options', { vim.wo.wrap, vim.wo.number, vim.wo.winfixbuf }, { true, true, false })
+check('current: the view is gone', vim.api.nvim_buf_is_valid(here.bufnr), false)
+
+local split_before = #vim.api.nvim_list_wins()
+local in_split = dbview.open(vault, name, 'vsplit')
+check('vsplit: a new window', #vim.api.nvim_list_wins(), split_before + 1)
+in_split:close()
+check('vsplit: closed again', #vim.api.nvim_list_wins(), split_before)
+
+local mappings = require('fey.config').mappings
+check('mappings for the current window', { type(mappings.global) }, { 'table' })
+local conf = require('fey.config')
+conf:extend({ mappings = { prefix = '<Space>' } })
+conf:setup_mappings('global')
+check('<prefix>bc and <prefix>bL', { vim.fn.maparg('<Space>bc', 'n') ~= '', vim.fn.maparg('<Space>bL', 'n') ~= '' }, { true, true })
+check('the commands', { vim.fn.exists(':FeyDbHere') == 2 }, { false })
+require('fey.db').setup()
+check('FeyDbHere exists after setup', vim.fn.exists(':FeyDbHere'), 2)
 
 vault:close()
 vim.fn.delete(root, 'rf')

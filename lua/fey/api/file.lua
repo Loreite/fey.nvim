@@ -118,6 +118,17 @@ function FeyFile._new(vault, row)
   }, FeyFile)
 end
 
+---The deepest heading that holds a line (a heading line or a line of its text)
+---@param line integer 1-based
+---@return FeyApiHeading|nil
+function FeyFile:heading_at(line)
+  local best
+  for _, h in ipairs(self.headings) do
+    if h.line <= line and line <= h.end_line and (not best or h.level >= best.level) then best = h end
+  end
+  return best
+end
+
 ---Value of a top level property (a key of the document data), nil when missing
 ---@param key string
 ---@return any

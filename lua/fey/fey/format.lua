@@ -17,9 +17,11 @@ local function format_line(linenr)
     return true
   end
 
-  local item = fey.files:get_closest_heading_or_nil({ linenr, 1 })
-  if item and item:get_logbook() and item:get_logbook().range:is_in_line_range(linenr) then
-    item:get_logbook():recalculate_estimate(linenr)
+  -- a clock tag whose start or end was edited gets its time written again
+  local Logbook = require('fey.files.elements.logbook')
+  local line = vim.api.nvim_buf_get_lines(0, linenr - 1, linenr, false)[1]
+  if line and Logbook.is_clock_line(line) then
+    Logbook.recalculate_line(0, linenr)
     return true
   end
 

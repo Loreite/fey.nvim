@@ -5,7 +5,7 @@
 -- (without FEY_PARSER the parser is looked up on the runtimepath)
 vim.opt.rtp:prepend('.')
 if vim.env.FEY_PARSER then vim.treesitter.language.add('fey', { path = vim.env.FEY_PARSER }) end
-require('fey.config'):extend({})
+require('fey.config'):extend({ fey_court_dir = vim.fn.tempname() .. '/court' }) -- never the real court
 
 local V = require('fey.query.values')
 local parser = require('fey.query.parser')

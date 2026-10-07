@@ -80,6 +80,18 @@ node) are described so the decision is recorded.
 -  all example syntax in this file is in fenced blocks, so it stays raw text.
 
 
+  I.B.iii. Status
+
+Phase 1 is done (2026-10-06): II.A to II.R, each with a Done entry under its
+text that says what was chosen, what it looks like now, what was tested and what
+was left. The code section above describes the starting point, not today. Still
+open from phase 1, by design: II.O.i (rewriting links after a move), the match
+compiled to SQL (II.K), a saved agenda view as a TASK query (II.K), refiling a
+list item, a restore command for archived headings, and the org manuals
+(III.S). The suites in `tests/` (nineteen of them) all pass, and
+`scripts/check_docs.sh` keeps the documentation true.
+
+
   I.C. Naming and documentation rules while the conversion runs
 
 Two rules apply to every task below, so that the clean up at the end stays
@@ -984,7 +996,7 @@ Done (2026-10-06): the agenda reads the vaults.
    (globs and `~` work), and so does the global `fey_agenda_files`, which is
    deprecated for that use only. Titles of items are drawn without the
    markup highlights, since there is no tree to take them from.
--  Tests:  `tests/agenda.lua` (54 checks): entries, days with deadlines,
+-  Tests:  `tests/agenda.lua` (117 checks): entries, days with deadlines,
    scheduled, repeaters, ranges and times, scopes (current, tree, list,
    court, opt-out), path filters, label and category filters, priority
    sorting, rendering into a buffer.
@@ -1001,6 +1013,18 @@ Done (2026-10-06): the agenda reads the vaults.
    `bt`, `bl`). The query and tag mappings stay with documents. A user mapping
    for one of them goes under `mappings.global` now. `fey_capture` stays off
    until II.M.
+-  `fey_agenda_files` is ignored:  the agenda read nothing when a config still
+   had the old option set (it pointed at an old directory and filtered every
+   item away). The global option no longer limits the agenda; the scope does.
+   `agenda_files` of a custom command or of the API call still limits a view,
+   and `:checkhealth` says the global option is not used.
+-  Agenda buffer mappings:  `f`/`b` next and previous span, `.` today, `vd`
+   `vw` `vm` `vy` the views, `J` jump to a date, `r` redraw, `/` filter, `<CR>`
+   opens the item in this window, `<Tab>` in another, `q` closes, and `g?` shows
+   the list (the help popup now builds its list from what is mapped). Going to
+   an item works on entries, the hollow line included. The actions that change
+   an item (todo, priority, tags, dates, refile, clock, notes, preview) stay
+   off until II.L.
 -  Details on their own lines:  the title and the item line stay clean. A line
    under the title says where the agenda looks (`Scope: court (4 hollows)`,
    `fey_agenda_show_scope`), and under each item a line says its hollow and file
@@ -1028,6 +1052,50 @@ Done (2026-10-06): the agenda reads the vaults.
 -  Vault:  yes (above).
 -  After:  II.J.
 
+Done (2026-10-06): every agenda view reads the vaults.
+
+-  Chose:  the match parser (`files/elements/search.lua`) stays as it was, it
+   never looked at a tree. What changed is what it is given: the agenda entry
+   builds the item (`search_item`): the props of the heading, `category`,
+   `deadline`, `scheduled`, `closed`, `priority`, `todo`, `level`, the labels
+   and the keyword. The match is evaluated in Lua over the entries, not
+   compiled to SQL: the vault is read once per view into entries and the
+   filtering is cheap at this size. Compiling it stays an option if a vault gets
+   too big for that.
+-  Vault:  `FeyVault:agenda_headings` returns every heading with its props,
+   state, priority, level, planning dates and labels. Labels are now the ones
+   the heading has: its own, those of the headings above it, and those of the
+   document (an org tag was inherited the same way). `FeyVault:dates` uses the
+   same rule, so a tag filter on the week agenda finds the items of a
+   document labelled `csci-103`.
+-  Source:  `Source:headings({ todo_only })`, `Source:search(term)` (title or
+   the text of the heading itself up to the next heading, from the loaded
+   buffer when there is one, else the file; a plain text, not a pattern) and
+   `Source:labels()` for completion.
+-  Views:  `todo`, `tags`, `tags_todo` and `search` take their entries from
+   `get_entries()`; the prompt keys `a`, `t`, `m`, `M`, `s` are unchanged. They
+   get the `Scope:` line and, with more than one hollow, the hollow line under
+   each item, from one helper (`agenda/details.lua`) that the week agenda
+   uses too. The search header says `Search words: ...`.
+-  Match language:  labels in quotes are allowed, `"csci-210"/TODO`, since the
+   dash of an unquoted label reads as the exclude operator (`+work-home`) and
+   Fey labels have dashes. Everything else is as before: `+` `-` `|` `&`,
+   `PROP=value`, comparisons with numbers, `"text"` and dates (`"<today>"`,
+   `"<+1w>"`), and the keyword filter after a slash (`/TODO|NEXT`, `/!DONE`).
+-  Fixed:  `todo_ignore_scheduled = 'past'` kept the items scheduled in the
+   past instead of dropping them (a copied inversion); `FeyAgendaSearchType`
+   never took its `heading_query` option.
+-  Tests:  `tests/agenda.lua` (117 checks) now also covers entries (labels
+   inherited, props, planning dates, level), the todo view per scope, the
+   match language (labels, quoted labels, exclude, or, keywords, string,
+   number, priority, date and level properties, ignore deadlines and
+   scheduled), search (title, text of one heading, case, plain text) and
+   rendering the three views.
+-  Not yet:  a saved agenda view as a `TASK` query string in
+   `fey_agenda_custom_commands` (a command type `query`): it needs the query
+   result items turned into agenda lines, and comes with II.L because both need
+   the same item to carry its place. The match is not compiled to SQL.
+
   II.L. Agenda buffer actions
 
 -  Now:  the commented `agenda` mappings in `config/defaults.lua`
@@ -1047,6 +1115,40 @@ Done (2026-10-06): the agenda reads the vaults.
    file, not a reload of all files.
 -  After:  II.J, II.K.
 
+Done (2026-10-06): the actions that change an item.
+
+-  Chose:  the agenda still edits nothing itself, but it does not go through a
+   `FeyHeading` of a loaded file either. `agenda/edit.lua` (`Edit.run(entry,
+   action)`) opens the file of the item in a window nobody sees, puts the
+   cursor on the heading line, runs the same action a mapping in a document
+   would (`fey_mappings.todo_next_state`, `set_priority`, `fey_deadline`, ...),
+   saves, indexes the file again and puts the windows back. So an action behaves
+   the same from the agenda as from the document, prompts and calendar
+   included, and nothing was written twice.
+-  Unsaved buffers:  if the file of the item has a buffer with unsaved changes,
+   the action changes the buffer and does not write the file, and the index is
+   updated from the buffer text. A file that was not loaded is loaded for the
+   action and wiped after.
+-  Redraw:  every action ends in `Agenda:redo('remote_edit', true)`, which
+   rebuilds the view from the index and keeps the cursor. The old
+   `update_in_place` line replacement is gone, a rebuild is cheap and also
+   handles an item that moves or leaves the view (a todo turned done, a
+   changed date).
+-  Mappings on:  `t` todo state, `<prefix>,` / `+` / `-` priority, `<prefix>t`
+   labels (completion offers the labels of the scope), `<prefix>id` deadline,
+   `<prefix>is` schedule, `<prefix>A` toggle the ARCHIVE label, `K` preview
+   (an entry gives its lines from the loaded buffer or the file). Everything
+   that works on the hollow line works on its item and the other way around.
+-  Fixed on the way:  `ftplugin/fey.lua` assumed a global `fey` that only
+   `setup` creates.
+-  Still off:  refile and archive subtree (II.N and II.O, done below), clock,
+   effort and notes (III.A, they need the logbook). `<prefix>o` (open link at point) is not mapped
+   in the agenda.
+-  Tests:  `tests/agenda.lua` (148 checks): an action on an entry (priority,
+   labels, todo state) changes the file and the index and leaves no window or
+   buffer behind, an unsaved buffer is changed but not written, a missing file
+   is an error, and priority up through the agenda window redraws the line.
+
   II.M. Public agenda API and positions
 
 -  Now:  `api/agenda.lua` calls `fey.agenda:agenda/todos/tags/tags_todo` with
@@ -1065,6 +1167,23 @@ Done (2026-10-06): the agenda reads the vaults.
 -  Triggers:  none. Update the generated docs (`doc/fey_api.txt`).
 -  Vault:  yes (see above).
 -  After:  II.I, II.J.
+
+Done (2026-10-06): the public agenda API.
+
+-  Chose:  `FeyApiAgenda.get_heading_at_cursor` returns the `FeyApiHeading` of
+   the agenda line: the entry knows its file and line, the new
+   `FeyApiFile:heading_at(line)` finds the deepest heading that holds a line.
+   `FeyApiVault:tasks` and `dates` already exist from II.I. The view options
+   take `scope` (`current`, `tree`, `court` or a list of references, default
+   `fey_agenda_scope`) next to `fey_agenda_files`, which limits one view.
+   `FeyAgendaSource:with({ scope = .. })` is what carries it to the views.
+-  Fixed:  dates given as strings in the options were never accepted (the check
+   compared `type()` with a table).
+-  Removed:  `api/position.lua` (`FeyPosition`), nobody used it; `gendoc.lua`
+   does not list it. `doc/fey_api.txt` got `heading_at` by hand: `lemmy-help`
+   is not installed here, the full regeneration is part of II.R.
+-  Tests:  `tests/refile.lua` (the API part): `heading_at`, the heading of an
+   agenda line, a `scope` option reaching the view, a string date.
 
   II.N. Refile
 
@@ -1097,6 +1216,43 @@ Done (2026-10-06): the agenda reads the vaults.
    updates `links.target_file` when the heading changes file.
 -  After:  II.A.
 
+Done (2026-10-06): refile.
+
+-  Chose:  a new module `fey/refile/init.lua`, not the `Capture` functions: those
+   were built on loaded `FeyFiles` and org levels. A source is a file and the
+   line of a heading, a destination is a file (the end of it, as a top level
+   heading) or a heading of the index (the moved heading becomes its last
+   child). The levels are adapted with the same `promote` and `demote` the
+   document mappings use, so the signatures of the subtree come out right, and
+   `FeyFile:reindex_headings` renumbers the destination and the source. The
+   text is edited through `agenda/edit.lua` (II.L): a buffer with unsaved
+   changes is changed and left unsaved, any other file is written and
+   indexed again. The destination is written first, then the source is
+   cleaned up, so a failure never loses the heading.
+-  Destination picker:  `ui/fuzzy` over the vault: every file and every
+   heading of the hollows of `fey_refile_scope` (default `court`, so a heading
+   can leave its hollow), shown as `court:notes/a.fey  I.A. Title`.
+-  Same file:  works, a heading cannot go below itself (an error, nothing is
+   touched).
+-  Links:  `fey_refile_leave_link` (default off) leaves a `link` tag with a
+   `section` attribute at the old place, with the hollow named when the new
+   place is in another one. Links that point at the old place are found
+   through the backlinks index and counted in the message, they are not
+   rewritten (see below).
+-  Mappings:  `fey_refile` `<prefix>r` in documents and `fey_agenda_refile`
+   `<prefix>r` in the agenda. The agenda rebuilds after it. `fey_capture_refile`
+   stays off with II.P.
+-  Not yet:  rewriting the links that point to a moved heading. The count is
+   there, the rewrite needs the tag toolkit run over files of other hollows
+   and a decision about section references that the renumbering of the source
+   breaks anyway (it breaks them for plain moves too). Refiling a list item
+   subtree is not done either.
+-  Tests:  `tests/refile.lua` (66 checks): destinations, a heading under another
+   in another file (levels, numbering, status and dates kept, the source
+   renumbered, the index and the buffers), to the top level of a file in
+   another hollow, inside one file, not into itself, a link left behind,
+   inbound links counted, and the mappings.
+
   II.O. Archive
 
 -  Now:  `Capture:refile_file_heading_to_archive`, `FeyMappings:archive`,
@@ -1115,6 +1271,60 @@ Done (2026-10-06): the agenda reads the vaults.
    flag becomes a normal label filter in queries and agendas
    (`fey_agenda_skip_archived`).
 -  After:  II.G, II.H, II.N.
+
+Done (2026-10-06): archive.
+
+-  Chose:  archive is a refile to the archive file of the document, to its top
+   level, with props that say where the heading came from. The location
+   option `fey_archive_location` is a template, default `%s_archive` where
+   `%s` is the name of the file, so `a.fey` goes to `a.fey_archive` next to it;
+   the `::heading` suffix of org is gone. The archive file is created when it
+   is missing and is indexed like any file of the hollow.
+-  Props written on the moved heading (a `prop` tag):  `archived_from` (the
+   hollow and file, `court:notes/a.fey`), `archived_path` (the titles above
+   it), `archived_at` and `archived_state` (the todo keyword). They are
+   ordinary props, so a database or a query can list what was archived from
+   where. A command to restore from them is not written.
+-  Marker:  a heading is archived when it is in a `.fey_archive` file or has the
+   label `archive` (`fey_toggle_archive_tag` toggles the label in place).
+   `fey_agenda_skip_archived` (default on) keeps archived headings out of every
+   agenda view, the week as well as the lists.
+-  Mappings:  `fey_archive_subtree` `<prefix>$` and `fey_toggle_archive_tag`
+   `<prefix>A` in documents, `fey_agenda_archive` `<prefix>$` in the agenda.
+   Archiving a file that is an archive says so and does nothing. The
+   per-document `archive` directive of org is not read.
+-  Tests:  `tests/refile.lua`: archive to the template location with every prop,
+   archiving from a document buffer, from the agenda (the item leaves the
+   view), and archived headings missing from the agenda lists.
+
+  II.O.i. Rewriting links after a move
+
+-  Now:  refile and archive (II.N, II.O) count the links that point at the old
+   place and tell you, but leave them pointing there. A plain move inside a
+   document has the same problem: the renumbering of `FeyFile:reindex_headings`
+   changes signatures, and `section` tags and `section:` attributes name
+   headings by signature.
+-  Reuse:  `Vault:backlinks` and `Vault:foreign_backlinks` (they already find
+   links and section tags that point at a heading, across hollows, with the
+   hollow written in the link: `scope.backlinks`), the tag toolkit of II.A
+   (`set_value`, `set_key`, `replace`) for the edit, and `agenda/edit.lua` to
+   change files that are open, unsaved or not loaded at all.
+-  Fey:  Lua. Before a move, collect the inbound references of every heading of
+   the moved subtree and of the headings whose signature will change, as
+   (hollow, file, line, tag, old target). After the move and the reindex, read
+   the new signatures and rewrite each reference: the file part (written
+   relative to the hollow of the link, or with `court:` or `current:` when the
+   link already names a hollow or the new place is in another one) and the
+   section part. Links with an `id` key, once II.H gives headings ids, need no
+   rewrite and win over signatures. One undo step per file; an option
+   `fey_refile_rewrite_links` (`ask`, `always`, `never`, default `ask`, `ask`
+   shows the count and the files and takes one answer for all).
+-  Triggers:  part of refile, archive and the heading moves (`move_subtree_up`
+   and `down`, promote and demote, reindex). Autocmd: none.
+-  Vault:  yes, it is the whole mechanism. The reverse direction also
+   helps: a command that lists the references left dangling (a `section` tag
+   whose signature no longer exists in the index) for repairing by hand.
+-  After:  II.N, II.O.
 
   II.P. Capture
 
@@ -1149,6 +1359,55 @@ Example:
     ###
 
 
+Done (2026-10-06): capture.
+
+-  Chose:  `Capture` keeps its menu, templates and windows and drops the org
+   refile machinery. The text is written by `Refile.insert` (II.N): through
+   the buffer of the target, then saved and indexed again, with the same
+   rules as a refile (unsaved buffers stay unsaved, no half writes). The
+   level of the text is adapted in a buffer of its own first, so a top level
+   heading dropped into the middle of a file cannot take the headings after it.
+-  Default template:  Fey text, `  I. {# status, TODO #} %?` and a body line
+   `{# prop; created: %T #}`, so tasks carry their creation time as a prop.
+-  Expansions:  `%t` and `%T` are a date (and time) written for a tag value, for
+   `{# scheduled, %t #}`; `%u` and `%U` are whole inactive date tags,
+   `{@ date, ...; active: false @}`; the `^` forms ask with the calendar. `%a`
+   is a `link` tag to the heading the capture started from (with the hollow
+   named, so it resolves from anywhere). `%f %F %n %x %<fmt> %(lua) %^{prompt}`
+   as before. This changes what `%t` and `%u` mean from org.
+-  Targets:  `target` is a path (relative to the hollow of the working
+   directory), or a reference to a file of a hollow, `court:notes/inbox.fey`,
+   `court/agenda/inbox.fey`, `current:sub/todo.fey`. Without one: the
+   option `fey_default_notes_file`, else `agenda/inbox.fey` of the court. A
+   missing file is created after a confirmation.
+-  Where in the file, one of:  `heading` (a title, or a signature like `I.A.`; a
+   function of the file path also works), `datetree`, `regexp` (right after
+   the first matching line), `query` (the first cell of the first row of a
+   query over `fey_refile_scope` must be a section: `TABLE title FROM
+   @section WHERE title = "Inbox"`), or nothing for the end of the file. Two of
+   them in one template is an error.
+-  Date tree:  builds `I.` year, `I.A.` month and `I.A.i.` day headings with the
+   configured segment order, keeps them in date order (an earlier day goes
+   before, the others renumber), once per day; the capture is a child of the
+   day, at the end, or at the start with `reversed`. Types `day`, `week`,
+   `month`, `custom` as before; the patterns and formats are unchanged.
+-  Vault:  `unique = true` refuses a heading whose title already exists in the
+   index of the hollows of `fey_refile_scope`.
+-  Mappings:  `fey_capture` `<prefix>c` (global); in the capture window
+   `<C-c>` writes to the destination of the template, `<prefix>r` writes to a
+   place picked from the hollows (the refile picker), `<prefix>k` throws it
+   away, `g?` lists them. The `note` mappings of the closing note exist now
+   (they were missing, the note window would have failed). Closing the window
+   with `:q` after typing offers to write, closing an untouched one drops it.
+-  Not yet:  a template key to ask for the label list; `properties` other than
+   `empty_lines`; capturing a list item; the template still says `whole_file`
+   and ignores it (the whole text is written).
+-  Tests:  `tests/capture.lua` (55 checks): expansions, targets and references,
+   the default fallbacks, end of file, heading by title and by signature,
+   missing heading, regexp, padding, the date tree (first entry, same day,
+   later day, earlier day, new month, new year), query, unique, the real
+   window (finalize, untouched close) and the mappings.
+
   II.Q. Notifications
 
 -  Now:  `notifications/init.lua` gets tasks from `FeyFiles`, uses `Date`,
@@ -1162,6 +1421,33 @@ Example:
    where the vault is just the database file.
 -  After:  II.I.
 
+
+Done (2026-10-06): notifications.
+
+-  Chose:  reminders are computed from the index. `Source:planning(from, to)`
+   reads the open deadline and scheduled dates (not done, not archived, active)
+   that start in the window and everything that repeats; `get_tasks(time)`
+   builds the `FeyDate` of each and runs the old reminder rules over them
+   (`reminder_time`, the repeater time, the deadline warning time), so the
+   behaviour of the settings is unchanged. Nothing is loaded: no `FeyFiles`, no
+   buffers.
+-  Scope:  the hollows of `notifications.scope`, default the scope of the
+   agenda (`court`), so a project's reminders come from its own hollow.
+-  Text:  the popup and the system notification show the category with the
+   time left, the signature, keyword and title (`I.A. TODO Title`), and the date
+   as `SCHEDULED: 2026-10-06 Tue 10:00`; the stars of org are gone.
+   A task handed to a custom `notifier` has `file`, `hollow`, `todo`, `category`,
+   `priority`, `title`, `signature`, `tags`, `time`, `type`, `minutes`, `line`.
+-  Cron:  `Fey.cron` brings the index of every hollow up to date, then reminds
+   and quits: a headless instance needs only the database files and the
+   parser. Fixed on the way: it assigned to an instance that does not exist in
+   that mode, and the timer in `Fey.setup` waited for a load of files that has
+   nothing to do with it.
+-  Tests:  `tests/notifications.lua` (14 checks): reminders ten minutes ahead from
+   several hollows, done and archived items left out, what a reminder says,
+   kinds switched off, a repeating date, other times, scope, the custom
+   notifier, the timer. The cron entry point was run headless against a hollow
+   and printed the due task.
 
   II.R. Phase 1 documentation checkpoint
 
@@ -1187,6 +1473,52 @@ Example:
    the index tests, so it is checked by running its live tags.
 -  After:  II.Q.
 
+
+Done (2026-10-06): the phase 1 documentation pass.
+
+-  README.fey:  new sections for what phase one changed, written in the voice of
+   the file: headings that know things (the tag syntax, the metadata region,
+   status with keyword and priority, labels and their conceal, properties and
+   the tag names), dates and planning, hollows and the court (the vocabulary,
+   the settings, references and scopes), the navigator, the agenda (scope,
+   the scope and hollow lines, the match language, every key), refile and
+   archive, capture (templates, targets, destinations), notifications and a
+   pointer for queries and databases. Examples are in fenced blocks so they stay
+   examples.
+-  Mappings list:  the section "Currently Available Default Mappings" is
+   generated: `lua/fey/docs/mappings.lua` builds a table per group (anywhere,
+   Fey files, agenda, capture window, closing note, text objects) from
+   `config/defaults.lua` and the descriptions of the mapping entries, and
+   `scripts/gen_mappings.lua` writes it between two marker lines of the README
+   (`--check` fails when it is stale). Descriptions that were blank or from org
+   (table merges, `fey_return`, the agenda redo, the agenda prompt) were written
+   properly, because the docs come from them.
+-  API reference:  `doc/fey_api.txt` was hand written, so it was updated by hand:
+   the court and the agenda modules, `dates` and `tasks`, the `scope` option,
+   `heading_at`, label options and fields, the index schema at version 4 and a
+   note on the vocabulary. `scripts/gendoc.lua` used `lemmy-help`, which would
+   have overwritten that file, so it only says so now. Help tags were rebuilt.
+-  Keeping it true:  `tests/docs.lua` (22 checks, `scripts/check_docs.sh` runs it
+   with the mapping check): README.fey and TASKS.fey parse, the generated list is
+   current, every mapping that is mapped has a description, the defaults without
+   a mapping entry are exactly the six waiting for phase two (they do nothing),
+   every public function of the API is in the reference, the schema lists every
+   table, and the phase one options are in the config types. With
+   `FEY_TUTORIAL` set to the test vault it also runs every live tag of the
+   tutorial on a copy and fails on an error.
+-  The tutorial of the test vault (outside this repository) was updated: labels
+   with containers and heading labels, a section on tasks, dates and planning,
+   the index tables as they are now, tasks and dates in the Lua API, the court
+   API, scopes, `file.heading_labels` and `file.hollow`, TASK queries, a new
+   section on hollows, the court, the navigator, the agenda, refile, archive,
+   capture and reminders, the configuration, and a live TASK query at the end.
+   Running its tags found a wrong example (`FROM` must come right after
+   `TASK`), now fixed; all its tags run.
+-  Not done, on purpose:  `doc/fey.txt` and `docs/*.org` (the configuration
+   reference, the tutorial, the troubleshooting page) are the org manuals and are
+   still org text; converting them to Fey and rebuilding the help file is the final
+   documentation pass (III.S), together with the terminology pass (III.R). The
+   README says the :help file is behind it.
 
   III. Phase 2: the rest of the conversion
 
@@ -1219,6 +1551,47 @@ Example:
     [# logbook ]
     ###
 
+
+Done (2026-10-06): the clock and the logbook.
+
+-  Chose:  a clock is a `clock` tag inside a `logbook` pair tag in the heading's
+   own text, newest first: start as the first value, `end` and `dur` keys once
+   stopped, no `end` while it runs. Names: `fey_clock_tag_name`,
+   `fey_logbook_tag_name`. `fey_log_into_drawer` became `fey_log_into_logbook`
+   (a boolean, for the notes of III.E).
+-  Vault:  clocks are `dates` rows with `kind = clock` (index version 5, vaults
+   rebuild once). The running clock is a query for rows without an end, over the
+   court and the hollow you are in, so it is found in any file without loading
+   anything. The statusline, the report and the agenda's highlight of the
+   clocked item all read it.
+-  Code:  `files/elements/logbook.lua` is rewritten on tags (parse, clock in,
+   out, cancel, recalculate a line the user edited); `Heading:clock_in/out`,
+   `cancel_active_clock`, `is_clocked_in` and `get_logbook` use it. The clock
+   (`clock/init.lua`) changes a heading's file through `agenda/edit.lua`, like
+   every agenda action, so the mapping in a document and the agenda share it:
+   clock in stops the clock that runs (in another file or hollow too), clock out
+   stops it wherever it is, cancel removes it and the logbook when it was the
+   only clock, goto, set effort (the prop `effort`). Marking a task done still
+   clocks out (the existing listener). Quitting with a clock running says so.
+-  Agenda:  `I` `O` `X` on an item, `<prefix>xj` jump, `<prefix>xe` effort, `R`
+   toggles the clock report. The report (`clock/report.lua`) is one query over
+   the clocks; it replaces a table builder that no longer existed, so the report
+   could not have worked before.
+-  Mappings:  `fey_clock_in` `<prefix>xi`, `fey_clock_out` `<prefix>xo`,
+   `fey_clock_cancel` `<prefix>xq`, `fey_clock_goto` `<prefix>xj`,
+   `fey_set_effort` `<prefix>xe`, and the agenda ones above.
+-  Docs:  README section "The clock", the API reference (the `clock` kind,
+   schema version 5), the generated mappings list.
+-  Not yet:  clocks per label and per day as ready made queries (the data is
+   there: a `dates` query grouped as needed), and a clocktable block (III.G,
+   dynamic blocks).
+-  Tests:  `tests/clock.lua` (58 checks): clock rows in the index, clock in
+   (new logbook, existing logbook, the logbook of a heading with a child),
+   switching between files and hollows, statusline with effort, clock out,
+   cancel, the logbook object, recalculating an edited line, the report, the
+   agenda flag and the agenda actions, the mappings. Also in this stretch: the
+   database view opens in the current window (`<prefix>bc`, `<prefix>bL`,
+   `:FeyDbHere`, `<C-e>` in the picker) and gives the window back on close.
 
   III.B. Checkboxes and progress cookies
 

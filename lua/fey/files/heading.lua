@@ -217,35 +217,32 @@ function Heading:is_clocked_in()
   return logbook and logbook:is_active() or false
 end
 
+---Start a clock now (the logbook is made when the heading has none)
+---@return FeyHeading
 function Heading:clock_in()
-  local logbook = self:get_logbook()
-  if not logbook then logbook = Logbook.new_from_heading(self) end
-  logbook:add_clock_in()
+  Logbook.add_clock_in(self)
   EventManager.dispatch(events.ClockedIn:new(self))
   return self:refresh()
 end
 
+---Stop the running clock
+---@return FeyHeading
 function Heading:clock_out()
-  local logbook = self:get_logbook()
-  if logbook then
-    logbook:clock_out()
+  if Logbook.clock_out(self) then
     EventManager.dispatch(events.ClockedOut:new(self))
+    return self:refresh()
   end
-  return self:refresh()
+  return self
 end
 
 function Heading:cancel_active_clock()
-  local logbook = self:get_logbook()
-  if logbook then logbook:cancel_active_clock() end
-  return self:refresh()
+  if Logbook.cancel_active_clock(self) then return self:refresh() end
+  return self
 end
 
+---The logbook of the heading: its clocks, nil when there are none
 ---@return FeyLogbook | nil
-function Heading:get_logbook()
-  local drawer = self:get_drawer('logbook')
-  if drawer then return Logbook.from_node(drawer, self.file, self:get_non_plan_dates()) end
-  return nil
-end
+function Heading:get_logbook() return Logbook.from_heading(self) end
 
 ---@return FeyDate | nil
 function Heading:get_closed_date()

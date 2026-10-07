@@ -1,142 +1,123 @@
 local utils = require('fey.utils')
 
 ---@class FeyDatetree
----@field files FeyFiles
 local Datetree = {}
 Datetree.__index = Datetree
 
----@param opts { files: FeyFiles }
-function Datetree:new(opts)
-  return setmetatable({
-    files = opts.files,
-  }, Datetree)
+---The signature a new heading at a level starts with: `I.`, `I.A.`, `I.A.i.`, ... The reindexing that follows
+---a capture numbers it properly.
+---@param level integer
+---@return string
+local function placeholder_signature(level)
+  local config = require('fey.config')
+  local sequences = require('fey.utils.sequences')
+  local order = config.fey_default_subheading_index_order
+  local delimiters = config.fey_default_subheading_delimiter_order
+  local out = require('fey.utils.constants').heading_leading_indentation
+  for k = 1, level do
+    local pattern = order[((k - 1) % #order) + 1]
+    local delimiter = delimiters ~= '' and delimiters:sub(((k - 1) % #delimiters) + 1, ((k - 1) % #delimiters) + 1)
+      or config.fey_default_subheading_delimiter
+    out = out .. sequences.patterns[pattern].to_symbol(1) .. delimiter
+  end
+  return out
 end
 
----@param template FeyCaptureTemplate
----@return FeyHeading, number
-function Datetree:create(template)
-  local destination_file = self.files:get(template:get_target())
-  local result = self:_get_datetree_destination(template)
-
-  if result.create then
-    destination_file:update_sync(function(file)
-      vim.api.nvim_buf_set_lines(file:bufnr(), result.target_line, result.target_line, false, result.content)
-    end)
-    destination_file = destination_file:reload_sync()
+---The line to insert before to keep the headings of a level in date order, nil to append
+---@param headings FeyHeading[]
+---@param item FeyDatetreeTreeItem
+---@param date FeyDate
+---@param reversed boolean|nil
+---@return integer|nil
+local function find_target_line(headings, item, date, reversed)
+  local function sorted(matches)
+    if not matches[1] then return nil end
+    local out = {}
+    for k, i in ipairs(item.order) do
+      out[k] = matches[i]
+    end
+    return out
   end
-
-  local heading = destination_file:get_closest_heading({ result.heading_at, 0 })
-  local opts = template:get_datetree_opts()
-  local target_line = heading:get_range().end_line
-  if opts.reversed then
-    target_line = heading:get_range().start_line
+  local mine = sorted({ date:format(item.format):match(item.pattern) })
+  assert(mine)
+  local Refile = require('fey.refile')
+  for _, heading in ipairs(headings) do
+    local theirs = sorted({ heading:get_title():match(item.pattern) })
+    if theirs then
+      local same_parent = true
+      for i = 1, #mine - 1 do
+        if mine[i] ~= theirs[i] then same_parent = false end
+      end
+      if same_parent then
+        local a, b = tonumber(theirs[#theirs]), tonumber(mine[#mine])
+        if (reversed and a < b) or (not reversed and a > b) then
+          return (Refile.subtree(heading)) - 1
+        end
+      end
+    end
   end
-  return heading, target_line
 end
 
----@param template FeyCaptureTemplate
-function Datetree:_get_datetree_destination(template)
-  local destination_file = self.files:get(template:get_target())
-  local opts = template:get_datetree_opts()
+---Find the heading of a date in the tree of the file of the current buffer, putting in the headings that are
+---missing. Runs in the buffer of the file (see `fey.refile.insert`).
+---@param opts FeyCaptureTemplateDatetreeOpts
+---@return { line: integer, end_line: integer, level: integer }
+function Datetree.ensure(opts)
+  local Refile = require('fey.refile')
+  local files = require('fey').instance().files
   local date = opts.date
-  local tree = self:_get_tree_by_type(opts)
+  local tree = Datetree._get_tree_by_type(nil, opts)
+  local buf = vim.api.nvim_get_current_buf()
 
-  local top_level_headings = destination_file:get_top_level_headings()
-  ---@type FeyHeading[]
-  local result = {}
-
-  local create_levels = function(append_line)
-    local target_line = append_line
-    if not target_line then
-      target_line = #destination_file.lines
-      if #result > 0 then
-        target_line = result[#result]:get_range().end_line
-      end
+  local function walk()
+    local file = files:get_current_file()
+    local headings = file:get_top_level_headings()
+    local found = {}
+    for i, item in ipairs(tree) do
+      local title = date:format(item.format)
+      local hit = utils.find(headings, function(h) return h:get_title() == title end)
+      if not hit then return found, headings, i, item end
+      found[i] = hit
+      headings = hit:get_child_headings()
     end
-    local content = {}
-    for i = (#result + 1), #tree do
-      table.insert(content, string.rep('*', i) .. ' ' .. date:format(tree[i].format))
-    end
-
-    return {
-      create = true,
-      target_line = target_line,
-      heading_at = target_line + (#tree - #result),
-      content = content,
-    }
+    return found
   end
 
-  for i, item in ipairs(tree) do
-    local headings = top_level_headings
-    if i > 1 then
-      headings = result[i - 1]:get_child_headings()
+  local found, siblings, missing, item = walk()
+  if missing then
+    local at
+    if #found > 0 then
+      local _, last = Refile.subtree(found[#found])
+      at = last
+    else
+      at = vim.api.nvim_buf_line_count(buf)
     end
-
-    local date_str = date:format(item.format)
-
-    local existing_heading = utils.find(headings, function(heading)
-      return heading:get_title() == date_str
-    end)
-
-    if not existing_heading then
-      local target_line = self:_find_target_line(headings, item, date, opts.reversed)
-      return create_levels(target_line)
+    local before = find_target_line(siblings, item, date, opts.reversed)
+    local text = {}
+    for level = missing, #tree do
+      vim.list_extend(text, { placeholder_signature(level) .. ' ' .. date:format(tree[level].format), '' })
     end
-
-    table.insert(result, existing_heading)
+    local insert_at = before or at
+    local all = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    if not before then
+      while insert_at > 0 and all[insert_at]:match('^%s*$') do insert_at = insert_at - 1 end
+      if insert_at > 0 then table.insert(text, 1, '') end
+      table.remove(text) -- no blank line at the very end of a block that ends the file
+    end
+    vim.api.nvim_buf_set_lines(buf, insert_at, insert_at, false, text)
+    files:get_current_file():reindex_headings()
+    found = walk()
   end
 
-  return {
-    create = false,
-    heading_at = result[#result]:get_range().start_line,
-  }
-end
-
-function Datetree:_find_target_line(headings, tree_item, date, is_reversed)
-  local sort_matches = function(matches)
-    if not matches[1] then
-      return nil
-    end
-    local sorted_matches = {}
-    for k, i in ipairs(tree_item.order) do
-      sorted_matches[k] = matches[i]
-    end
-    return sorted_matches
-  end
-
-  local date_str = date:format(tree_item.format)
-  local date_matches = sort_matches({ date_str:match(tree_item.pattern) })
-  assert(date_matches)
-
-  local target_heading = utils.find(headings, function(heading)
-    local matches = sort_matches({ heading:get_title():match(tree_item.pattern) })
-    if not matches then
-      return false
-    end
-
-    for i = 1, #date_matches - 1 do
-      if date_matches[i] ~= matches[i] then
-        return false
-      end
-    end
-
-    if is_reversed then
-      return tonumber(matches[#matches]) < tonumber(date_matches[#date_matches])
-    end
-    return tonumber(matches[#matches]) > tonumber(date_matches[#date_matches])
-  end)
-
-  if target_heading then
-    return target_heading:get_range().start_line - 1
-  end
-
-  return nil
+  local day = found[#tree]
+  local first, last = Refile.subtree(day)
+  return { line = first, end_line = last, level = #tree }
 end
 
 ---@private
 ---@param opts FeyCaptureTemplateDatetreeOpts
 ---@return FeyDatetreeTreeItem[]
-function Datetree:_get_tree_by_type(opts)
+function Datetree._get_tree_by_type(_, opts)
   local trees = {
     -- Each entry in the tree is considered a heading.
     -- For example, this tree has 3 entries, and the result of it is:

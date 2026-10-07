@@ -7,14 +7,19 @@ local root_path = vim.fn.fnamemodify(current_file_path, ':p:h:h:h:h')
 
 ---@class FeyNotifications
 ---@field timer table
----@field files FeyFiles
+---@field source FeyAgendaSource
 local Notifications = {}
 
----@param opts { files: FeyFiles }
+---Reminders for the deadline and scheduled dates of the hollows of `notifications.scope` (default the scope
+---of the agenda). They are read from the index, so nothing has to be loaded: the cron mode needs only the
+---database files.
+---@param opts? { source?: FeyAgendaSource }
 function Notifications:new(opts)
+  opts = opts or {}
   local data = {
     timer = nil,
-    files = opts.files,
+    source = opts.source
+      or require('fey.agenda.source').new({ scope = (config.notifications or {}).scope }),
   }
   setmetatable(data, self)
   self.__index = self
@@ -32,6 +37,7 @@ function Notifications:start_timer()
       self:notify(Date.now())
     end)
   )
+  return self
 end
 
 function Notifications:stop_timer()
@@ -53,8 +59,8 @@ function Notifications:notify(time)
   for _, task in ipairs(tasks) do
     utils.concat(result, {
       string.format('# %s (%s)', task.category, task.humanized_duration),
-      string.format('%s %s %s', string.rep('*', task.level), task.todo or '', task.title),
-      string.format('%s: <%s>', task.type, task.time:to_string()),
+      string.format('%s %s %s', task.signature, task.todo or '', task.title),
+      string.format('%s: %s', task.type, task.time:to_tag_value()),
     })
   end
 
@@ -77,8 +83,8 @@ end
 function Notifications:_cron_notifier(tasks)
   for _, task in ipairs(tasks) do
     local title = string.format('%s (%s)', task.category, task.humanized_duration)
-    local subtitle = string.format('%s %s %s', string.rep('*', task.level), task.todo or '', task.title)
-    local date = string.format('%s: %s', task.type, task.time:to_string())
+    local subtitle = string.format('%s %s %s', task.signature, task.todo or '', task.title)
+    local date = string.format('%s: %s', task.type, task.time:to_tag_value())
 
     if vim.fn.executable('notify-send') == 1 then
       vim.system({
@@ -96,35 +102,34 @@ function Notifications:_cron_notifier(tasks)
   end
 end
 
+---The reminders that are due at a time
 ---@param time FeyDate
+---@return table[] tasks `file`, `hollow`, `todo`, `category`, `priority`, `title`, `signature`, `tags`, `time`, `reminder_type`, `minutes`, `humanized_duration`, `type`, `line`
 function Notifications:get_tasks(time)
   local tasks = {}
-  for _, feyfile in ipairs(self.files:all()) do
-    for _, heading in ipairs(feyfile:get_opened_unfinished_headings()) do
-      for _, date in ipairs(heading:get_deadline_and_scheduled_dates()) do
-        local reminders = self:_check_reminders(date, time)
-        for _, reminder in ipairs(reminders) do
-          table.insert(tasks, {
-            file = feyfile.filename,
-            todo = heading:get_todo(),
-            category = heading:get_category(),
-            priority = heading:get_priority(),
-            title = heading:get_title(),
-            level = heading:get_level(),
-            tags = heading:get_tags(),
-            original_time = date,
-            time = reminder.time,
-            reminder_type = reminder.reminder_type,
-            minutes = reminder.minutes,
-            humanized_duration = utils.humanize_minutes(reminder.minutes),
-            type = date.type,
-            range = heading:get_range(),
-          })
-        end
-      end
+  local day = 24 * 3600
+  for _, item in ipairs(self.source:planning(time.timestamp - day, time.timestamp + 400 * day)) do
+    local entry = item.entry
+    for _, reminder in ipairs(self:_check_reminders(item.date, time)) do
+      table.insert(tasks, {
+        file = entry.abs,
+        hollow = entry.hollow,
+        todo = entry:get_todo(),
+        category = entry:get_category(),
+        priority = entry:get_priority(),
+        title = entry:get_title(),
+        signature = entry.signature and vim.trim(entry.signature) or '',
+        tags = entry:get_tags(),
+        original_time = item.date,
+        time = reminder.time,
+        reminder_type = reminder.reminder_type,
+        minutes = reminder.minutes,
+        humanized_duration = utils.humanize_minutes(reminder.minutes),
+        type = item.date.type,
+        line = entry.line,
+      })
     end
   end
-
   return tasks
 end
 

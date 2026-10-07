@@ -20,6 +20,7 @@ local M = {}
 ---@class FeyVaultExtractOpts
 ---@field label_tags? string[]  tag names whose values are labels. Default { 'label', 'labels' }
 ---@field link_tags? string[]   tag names that reference another file/section. Default { 'link', 'section' }
+---@field clock_tag? string tag name of a clock (`{# clock, start; end: ..; dur: .. #}`). Default: `clock`
 ---@field date_tags? table<string, string> tag name -> kind (`date`, `scheduled`, `deadline`, `closed`) of the tags that hold a date. Default: those four names
 ---@field status_tag? string     name of the tag with the todo keyword and the priority. Default 'status'
 ---@field prop_tag? string       name of the tag with the properties of a heading. Default 'prop'
@@ -578,6 +579,7 @@ function M.extract(src, opts)
   local date_kinds = opts.date_tags or { date = 'date', scheduled = 'scheduled', deadline = 'deadline', closed = 'closed' }
   local status_name = opts.status_tag or 'status'
   local prop_name = opts.prop_tag or 'prop'
+  local clock_name = opts.clock_tag or 'clock'
   local ctx = { src = src, lines = vim.split(src, '\n', { plain = true }), errors = {}, opts = opts, meta_set = meta_set }
   local root = vim.treesitter.get_string_parser(src, 'fey'):parse()[1]:root()
   if root:has_error() then table.insert(ctx.errors, 'syntax errors in file') end
@@ -726,6 +728,27 @@ function M.extract(src, opts)
           })
         else
           err(ctx, node, ('not a date: %s'):format(tag.values[1] or ''))
+        end
+      end
+
+      -- a clock: a start, and an `end` key once it is stopped. It belongs to the heading it is written in
+      if tag.name == clock_name and heading_ord and tag.values[1] then
+        local started = Date.from_parts('date', { tag.values[1] }, { active = 'false' })[1]
+        if started then
+          local stopped = tag.attrs['end'] and Date.from_parts('date', { tag.attrs['end'] }, { active = 'false' })[1]
+          table.insert(meta.dates, {
+            heading_ord = heading_ord,
+            line = row + 1,
+            col = col + 1,
+            kind = 'clock',
+            active = false,
+            start_ts = started.timestamp,
+            start_time = started:has_time(),
+            end_ts = stopped and stopped.timestamp or nil,
+            end_time = stopped and stopped:has_time() or false,
+          })
+        else
+          err(ctx, node, ('not a date: %s'):format(tag.values[1]))
         end
       end
 

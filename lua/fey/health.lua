@@ -61,13 +61,11 @@ function M.check_setup()
     h.ok('Setup called')
   end
 
-  if not config.fey_agenda_files or #config.fey_agenda_files == 0 then
-    h.warn('No agenda files configured. Set `fey_agenda_files` in your config.')
-  else
-    h.ok('`fey_agenda_files` configured')
+  if config.fey_agenda_files and #config.fey_agenda_files > 0 then
+    h.info('`fey_agenda_files` is not used by the agenda any more: it reads the hollows of `fey_agenda_scope`')
   end
   if not config.fey_default_notes_file or config.fey_default_notes_file == '' then
-    h.warn('No default notes file configured. Set `fey_default_notes_file` in your config.')
+    h.info('No default notes file configured: captures go to `agenda/inbox.fey` of the court')
   else
     h.ok('`fey_default_notes_file` configured')
   end

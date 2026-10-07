@@ -125,18 +125,6 @@ function FeyFiles:unload()
   return self
 end
 
-function FeyFiles:get_clocked_heading()
-  -- TODO: Optimize
-  for _, file in ipairs(self:all()) do
-    for _, heading in ipairs(file:get_headings()) do
-      if heading:is_clocked_in() then
-        return heading
-      end
-    end
-  end
-  return nil
-end
-
 function FeyFiles:get_current_file()
   local filename = utils.current_file_path()
   local feyfile = self:load_file_sync(filename)

@@ -9,6 +9,7 @@ local Promise = require('fey.utils.promise')
 local AgendaTypes = require('fey.agenda.types')
 local Input = require('fey.ui.input')
 local FeyHyperlink = require('fey.fey.links.hyperlink')
+local Edit = require('fey.agenda.edit')
 
 ---@class FeyAgenda
 ---@field highlights table[]
@@ -43,9 +44,10 @@ end
 ---@param opts? table
 function Agenda:open_view(type, opts)
   self.filters:reset()
-  local view_opts = vim.tbl_extend('force', opts or {}, {
+  opts = opts or {}
+  local view_opts = vim.tbl_extend('force', opts, {
     files = self.files,
-    source = self.source,
+    source = opts.scope and self.source:with({ scope = opts.scope }) or self.source,
     agenda_filter = self.filters,
     highlighter = self.highlighter,
   })
@@ -367,11 +369,38 @@ function Agenda:change_todo_state()
   })
 end
 
-function Agenda:clock_in()
-  return self:_remote_edit({
-    action = 'clock.fey_clock_in',
-    redo = true,
-  })
+---The clock of the fey instance
+---@return FeyClock
+local function clock() return require('fey').instance().clock end
+
+---Run a clock action on the heading of the line under the cursor, then rebuild the view
+---@private
+---@param method string
+function Agenda:_clock(method)
+  local entry = self:_get_heading()
+  if method ~= 'clock_out' and method ~= 'clock_cancel' and not entry then return end
+  local source = entry and { abs = entry.abs, line = entry.line } or nil
+  local done = clock()[method](clock(), source)
+  return done:next(function()
+    return self:redo('remote_edit', true)
+  end, function(err)
+    if err and err ~= '' then utils.echo_error(type(err) == 'table' and (err.message or vim.inspect(err)) or tostring(err)) end
+  end)
+end
+
+function Agenda:clock_in() return self:_clock('clock_in') end
+
+function Agenda:clock_out() return self:_clock('clock_out') end
+
+function Agenda:clock_cancel() return self:_clock('clock_cancel') end
+
+function Agenda:set_effort() return self:_clock('set_effort') end
+
+---Open the clocked heading in another window, like `goto_item`
+function Agenda:clock_goto()
+  local active = require('fey.clock').active()
+  if not active then return utils.echo_info('No active clock') end
+  return self:_goto({ abs = active.abs, line = active.line })
 end
 
 function Agenda:add_note()
@@ -382,10 +411,23 @@ function Agenda:add_note()
 end
 
 function Agenda:refile()
-  return self:_remote_edit({
-    action = 'capture.refile_heading_to_destination',
-    redo = true,
-  })
+  return self:_move_entry('refile')
+end
+
+---Refile or archive the heading of the line under the cursor, then rebuild the view
+---@private
+---@param verb 'refile'|'archive'
+function Agenda:_move_entry(verb)
+  local entry = self:_get_heading()
+  if not entry then return end
+  local Refile = require('fey.refile')
+  local source = { abs = entry.abs, line = entry.line, hollow = entry.hollow }
+  local done = verb == 'archive' and Refile.archive(source) or Refile.refile(source)
+  return done:next(function(result)
+    if result then return self:redo('remote_edit', true) end
+  end, function(err)
+    if err and err ~= '' then utils.echo_error(type(err) == 'table' and (err.message or vim.inspect(err)) or tostring(err)) end
+  end)
 end
 
 function Agenda:preview_item()
@@ -410,36 +452,6 @@ function Agenda:preview_item()
   vim.api.nvim_set_option_value('filetype', 'fey', { buf = buf })
 end
 
-function Agenda:clock_out()
-  return self:_remote_edit({
-    action = 'clock.fey_clock_out',
-    redo = true,
-    getter = function()
-      local last_clocked = self.files:get_clocked_heading()
-      if last_clocked and last_clocked:is_clocked_in() then
-        return last_clocked
-      end
-    end,
-  })
-end
-
-function Agenda:clock_cancel()
-  return self:_remote_edit({
-    action = 'clock.fey_clock_cancel',
-    redo = true,
-    getter = function()
-      local last_clocked = self.files:get_clocked_heading()
-      if last_clocked and last_clocked:is_clocked_in() then
-        return last_clocked
-      end
-    end,
-  })
-end
-
-function Agenda:set_effort()
-  return self:_remote_edit({ action = 'clock.fey_set_effort' })
-end
-
 function Agenda:set_priority()
   return self:_remote_edit({
     action = 'fey_mappings.set_priority',
@@ -462,10 +474,7 @@ function Agenda:priority_down()
 end
 
 function Agenda:archive()
-  return self:_remote_edit({
-    action = 'fey_mappings.archive',
-    redo = true,
-  })
+  return self:_move_entry('archive')
 end
 
 function Agenda:toggle_archive_tag()
@@ -518,6 +527,12 @@ function Agenda:goto_item()
   if not item then
     return
   end
+  return self:_goto(item)
+end
+
+---@private
+---@param item { abs: string, line: integer }
+function Agenda:_goto(item)
   local target_window = nil
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     local ft = vim.api.nvim_get_option_value('filetype', {
@@ -581,37 +596,15 @@ function Agenda:_remote_edit(opts)
   if not heading then
     return
   end
-  local old_range = heading:get_range()
-
-  local update = heading.file:update(function(_)
-    vim.fn.cursor({ heading:get_range().start_line, 1 })
-    return Promise.resolve(require('fey').action(action)):next(function()
-      return self.files:get_closest_heading_or_nil()
-    end)
+  local edited = Edit.run(heading, function()
+    return require('fey').action(action)
   end)
 
-  update:next(function(updated_heading)
-    ---@cast updated_heading FeyHeading
-    if opts.redo then
-      return self:redo('remote_edit', true)
-    end
-    if not opts.update_in_place or not updated_heading then
-      return
-    end
-    local line_range_same = updated_heading:get_range():is_same_line_range(old_range)
-
-    local update_item_inline = function()
-      if not agenda_line or not view then
-        return
-      end
-      return view:rerender_agenda_line(agenda_line, updated_heading)
-    end
-
-    if line_range_same then
-      return update_item_inline()
-    end
-
+  -- the view is built from the index, which `Edit.run` brought up to date: a redraw shows the change
+  return edited:next(function()
     return self:redo('remote_edit', true)
+  end, function(err)
+    if err and err ~= '' then utils.echo_error(type(err) == 'table' and (err.message or vim.inspect(err)) or tostring(err)) end
   end)
 end
 

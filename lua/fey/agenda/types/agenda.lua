@@ -2,6 +2,7 @@ local Date = require('fey.objects.date')
 local config = require('fey.config')
 local AgendaFilter = require('fey.agenda.filter')
 local AgendaItem = require('fey.agenda.agenda_item')
+local Details = require('fey.agenda.details')
 local AgendaView = require('fey.agenda.view.init')
 local AgendaLine = require('fey.agenda.view.line')
 local AgendaLineToken = require('fey.agenda.view.token')
@@ -251,13 +252,9 @@ function FeyAgendaType:render(bufnr, current_line)
     hl_group = '@fey.agenda.header',
   }))
 
-  if config.fey_agenda_show_scope ~= false and self.source then
-    agendaView:add_line(AgendaLine:single_token({
-      content = 'Scope: ' .. self.source:describe(),
-      hl_group = '@fey.agenda.hollow',
-    }))
-  end
-  local show_hollow = self:_show_hollow()
+  local scope_line = Details.scope_line(self.source)
+  if scope_line then agendaView:add_line(scope_line) end
+  local show_hollow = Details.show_hollow(self.source)
 
   for _, agenda_day in ipairs(agenda_days) do
     local is_today = agenda_day.day:is_today()
@@ -279,7 +276,7 @@ function FeyAgendaType:render(bufnr, current_line)
       -- If there is an index value, this is an AgendaItem instance
       if agenda_item.index then
         agendaView:add_line(self:_build_line(agenda_item, agenda_day))
-        if show_hollow then agendaView:add_line(self:_build_hollow_line(agenda_item, agenda_day)) end
+        if show_hollow then agendaView:add_line(Details.hollow_line(agenda_item.heading, agenda_day)) end
       else
         agendaView:add_line(self:_build_time_grid_line(agenda_item, agenda_day))
       end
@@ -293,7 +290,7 @@ function FeyAgendaType:render(bufnr, current_line)
     local clock_report = ClockReport:new({
       from = self.from,
       to = self.to,
-      files = self.files,
+      source = self.source,
     }):get_table_report(agendaView.lines[#agendaView.lines].line_nr)
 
     for _, row in ipairs(clock_report.rows) do
@@ -555,38 +552,6 @@ function FeyAgendaType:_build_line(agenda_item, metadata)
     }))
   end
 
-  return line
-end
-
----Whether items get a line of their own saying which hollow (and file) they are in: `fey_agenda_show_hollow`
----is `always`, `never`, or `auto`, which is when the agenda looks at more than one hollow
----@return boolean
-function FeyAgendaType:_show_hollow()
-  local mode = config.fey_agenda_show_hollow
-  if mode == false or mode == 'never' or not self.source then return false end
-  if mode == true or mode == 'always' then return true end
-  return #self.source:hollows() > 1
-end
-
----The line under an item with its hollow and file; it belongs to the same heading, so the actions work on it
----@param agenda_item FeyAgendaItem
----@param metadata table<string, any>
----@return FeyAgendaLine
-function FeyAgendaType:_build_hollow_line(agenda_item, metadata)
-  local heading = agenda_item.heading
-  local line = AgendaLine:new({
-    hl_group = '@fey.agenda.hollow',
-    heading = heading,
-    metadata = {
-      agenda_item = agenda_item,
-      category_length = metadata.category_length,
-      label_length = metadata.label_length,
-      detail = true,
-    },
-  })
-  line:add_token(AgendaLineToken:new({
-    content = '  ' .. utils.pad_right('', metadata.category_length) .. ('%s · %s'):format(heading.hollow or '', heading.path or ''),
-  }))
   return line
 end
 

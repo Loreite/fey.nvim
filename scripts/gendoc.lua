@@ -1,11 +1,5 @@
-local files = {
-  'lua/fey/api/init.lua',
-  'lua/fey/api/file.lua',
-  'lua/fey/api/heading.lua',
-  'lua/fey/api/agenda.lua',
-  'lua/fey/api/position.lua',
-}
-local destination = 'doc/fey_api.txt'
-
-vim.fn.system(('lemmy-help %s > %s'):format(table.concat(files, ' '), destination))
-vim.cmd([[qa!]])
+-- doc/fey_api.txt is written by hand (it describes the API in terms of the vault and the court, which
+-- lemmy-help cannot). It is kept complete by tests/docs.lua: every public function of lua/fey/api has to be in it.
+--
+--   nvim --headless --clean -l tests/docs.lua
+print('doc/fey_api.txt is not generated: edit it, then run tests/docs.lua')

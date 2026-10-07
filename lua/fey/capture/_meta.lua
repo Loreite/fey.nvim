@@ -1,19 +1,5 @@
 ---@meta
 
----@class FeyProcessRefileOpts
----@field source_heading FeyHeading
----@field destination_file? FeyFile
----@field destination_heading? FeyHeading
----@field message? string
-
----@class FeyProcessCaptureOpts
----@field template FeyCaptureTemplate
----@field capture_window FeyCaptureWindow
----@field source_file FeyFile
----@field source_heading? FeyHeading
----@field destination_file FeyFile
----@field destination_heading? FeyHeading
-
 ---@class FeyDatetreeTreeItem
 ---@field format string - The lua date format to use for the tree item
 ---@field pattern string - Pattern to match important date parts the date format

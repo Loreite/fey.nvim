@@ -48,7 +48,7 @@ local alpha, child, beta = base .. '/alpha', base .. '/alpha/child', base .. '/b
 write(alpha .. '/.fey/x', {})
 write(alpha .. '/a.fey', {
   '{# table; category: Work #}',
-  '',
+  '{# labels, projectx #}',
   '  I. {# status, TODO, A #} Write report {# labels, office #}',
   '{# scheduled, ' .. stamp(0) .. ' #}',
   '{# deadline, ' .. stamp(2) .. ' #}',
@@ -66,9 +66,22 @@ write(alpha .. '/a.fey', {
   '',
 })
 write(child .. '/.fey/x', {})
-write(child .. '/c.fey', { '  I. {# status, TODO #} Child item {# labels, home #}', '{# scheduled, ' .. stamp(0) .. ' #}', '' })
+write(child .. '/c.fey', {
+  '  I. {# status, TODO #} Child item {# labels, home #}',
+  '{# scheduled, ' .. stamp(0) .. ' #}',
+  '',
+  '  II. Notes {# labels, parentlabel #}',
+  '',
+  'remember the milk',
+  '',
+  '  II.A. {# status, TODO, C #} Nested task',
+  '{# prop; effort: 2 #}',
+  '',
+  'nothing about dairy here',
+  '',
+})
 write(beta .. '/.fey/x', {})
-write(beta .. '/b.fey', { '  I. {# status, TODO #} Beta item', '{# deadline, ' .. stamp(0) .. ' #}', '' })
+write(beta .. '/b.fey', { '  I. {# status, TODO #} Beta item {# labels, big-ish #}', '{# deadline, ' .. stamp(0) .. ' #}', '' })
 for _, root in ipairs({ alpha, child, beta }) do
   tree.register_chain(root)
   scan(root)
@@ -105,7 +118,7 @@ check('title without the metadata tags', report ~= nil, true)
 check('todo', { report:get_todo() }, { 'TODO', nil, 'TODO', 1 })
 check('priority', report:get_priority(), 'A')
 check('priority sort value is set', report:get_priority_sort_value() > by_title['Weekly chore']:get_priority_sort_value(), true)
-check('labels are the tags', report:get_tags(), { 'office' })
+check('labels are the tags: own and of the document', report:get_tags(), { 'office', 'projectx' })
 check('has tag', { report:has_tag('office'), report:has_tag('home') }, { true, false })
 check('category of the document', report:get_category(), 'Work')
 check('category of a document without one is its name', by_title['Child item']:get_category(), 'c')
@@ -209,6 +222,163 @@ check('always', has(render_with({ fey_agenda_show_hollow = 'always' }, 'current'
 check('the scope of one hollow says which', render_with({}, 'current')[2], 'Scope: current (court:alpha)')
 check('the scope line can go', render_with({ fey_agenda_show_scope = false })[2]:find('Scope', 1, true), nil)
 
+-- the views that list headings -------------------------------------------------------------------------
+local AgendaTypes = require('fey.agenda.types')
+local function titles_of(entries)
+  local out = vim.tbl_map(function(e) return e:get_title() end, entries)
+  table.sort(out)
+  return out
+end
+local function type_view(kind, opts)
+  return AgendaTypes[kind]:new(vim.tbl_extend('force', { source = Source.new({ scope = 'court' }), agenda_filter = AgendaFilter:new() }, opts or {}))
+end
+
+local headings = Source.new({ scope = 'court' }):headings()
+check('every heading is an entry', #headings >= 9, true)
+local function entry_of(title)
+  for _, e in ipairs(headings) do
+    if e:get_title() == title then return e end
+  end
+end
+check('labels of the heading, of its parents and of the document',
+  { entry_of('Write report'):get_tags(), entry_of('Nested task'):get_tags(), entry_of('Child item'):get_tags() },
+  { { 'office', 'projectx' }, { 'parentlabel' }, { 'home' } })
+check('props of a heading', entry_of('Nested task').props.effort, '2')
+check('planning dates of an entry', { entry_of('Write report'):get_scheduled_date():is_today(), entry_of('Write report'):get_deadline_date():is_today(), entry_of('Finished thing'):get_closed_date() }, { true, false, nil })
+check('the level of a heading', entry_of('Nested task').level, 2)
+
+local todo_view = type_view('todo')
+check('todo: the open todo items of every hollow', titles_of(todo_view:get_entries()), { 'Beta item', 'Child item', 'Nested task', 'Old and unfinished', 'Weekly chore', 'Write report' })
+check('todo: not the done ones', vim.tbl_contains(titles_of(todo_view:get_entries()), 'Finished thing'), false)
+check('todo, current scope', titles_of(type_view('todo', { source = Source.new({ scope = 'current', root = beta }) }):get_entries()), { 'Beta item' })
+
+local function match(q, extra)
+  return titles_of(type_view('tags', vim.tbl_extend('force', { match_query = q }, extra or {})):get_entries())
+end
+check('match: a label', match('home'), { 'Child item' })
+check('match: a label of the document', #match('projectx'), 5)
+check('match: a label of a parent', match('parentlabel'), { 'Nested task', 'Notes' })
+check('match: and, exclude', vim.tbl_contains(match('projectx-office'), 'Write report'), false)
+check('match: and, exclude keeps the rest', vim.tbl_contains(match('projectx-office'), 'Weekly chore'), true)
+check('match: a quoted label with a dash', match('"big-ish"'), { 'Beta item' })
+check('match: unquoted, the dash excludes', vim.tbl_contains(match('big-ish'), 'Beta item'), false)
+check('match: a quoted label and a todo keyword', match('"projectx"/TODO'), { 'Old and unfinished', 'Weekly chore', 'Write report' })
+check('match: quoted label excluded', vim.tbl_contains(match('"projectx"-"office"'), 'Write report'), false)
+check('match: or', match('home|office'), { 'Child item', 'Write report' })
+check('match: todo keyword', match('/DONE'), { 'Finished thing' })
+check('match: todo keywords and labels', match('projectx/TODO'), { 'Old and unfinished', 'Weekly chore', 'Write report' })
+check('match: a string property', match('category="Work"/DONE'), { 'Finished thing' })
+check('match: a number property', match('effort>1'), { 'Nested task' })
+check('match: priority', match('priority="A"'), { 'Write report' })
+check('match: a date property', match('deadline<"<' .. stamp(5) .. '>"'), { 'Beta item', 'Write report' })
+check('match: level', match('level=2'), { 'Nested task' })
+check('a hollow line for each hollow', type_view('tags_todo', { match_query = 'projectx' }):get_entries()[1].hollow, 'court:alpha')
+check('ignore deadlines', vim.tbl_contains(titles_of(type_view('tags', { match_query = 'projectx', todo_ignore_deadlines = 'all' }):get_entries()), 'Write report'), false)
+check('ignore scheduled that are past', vim.tbl_contains(titles_of(type_view('tags', { match_query = 'projectx', todo_ignore_scheduled = 'past' }):get_entries()), 'Old and unfinished'), false)
+
+local function search(term)
+  return titles_of(type_view('search', { heading_query = term }):get_entries())
+end
+check('search: in the title', search('report'), { 'Write report' })
+check('search: in the text of a heading', search('milk'), { 'Notes' })
+check('search: only the text of that heading', search('dairy'), { 'Nested task' })
+check('search: case does not matter', search('CHILD'), { 'Child item' })
+check('search: plain text, not a pattern', search('(report'), {})
+
+-- rendering the views
+local function render_view(kind, opts)
+  vim.cmd('enew')
+  local b = vim.api.nvim_get_current_buf()
+  local v3 = type_view(kind, opts)
+  local okr, errr = pcall(v3.render, v3, b)
+  return okr and vim.api.nvim_buf_get_lines(b, 0, -1, false) or { tostring(errr) }
+end
+local todo_lines = render_view('todo')
+check('todo view: header, scope, items with a hollow line each', { todo_lines[1], todo_lines[2] }, { 'Global list of TODO items of type: ALL', 'Scope: court (4 hollows)' })
+local found
+for i, l in ipairs(todo_lines) do
+  if l:find('Child item', 1, true) then found = i end
+end
+check('todo view: the item and its hollow', { todo_lines[found]:find('TODO%s+Child item') ~= nil, todo_lines[found + 1]:find('court:alpha:child · c.fey', 1, true) ~= nil }, { true, true })
+check('tags view renders', render_view('tags', { match_query = 'home' })[1], 'Headings with TAGS match: home')
+check('search view renders', render_view('search', { heading_query = 'milk' })[1], 'Search words: milk')
+
+-- actions on an item -------------------------------------------------------------------------------------
+local Edit = require('fey.agenda.edit')
+local function fresh(title)
+  local list = Source.new({ scope = 'court' }):headings()
+  for _, e in ipairs(list) do
+    if e:get_title() == title then return e end
+  end
+end
+local function wait_for(p)
+  local done_, value_, err_
+  p:next(function(v) done_, value_ = true, v end, function(e) done_, err_ = true, e end)
+  vim.wait(3000, function() return done_ end, 10)
+  return value_, err_
+end
+local function action(name, args) return function() return require('fey').action(name, { args = args }) end end
+
+local function nwins() return #vim.api.nvim_list_wins() end
+local w0 = nwins()
+local before = vim.fn.readfile(alpha .. '/a.fey')
+local _, err1 = wait_for(Edit.run(fresh('Write report'), action('fey_mappings.priority_down')))
+check('priority action runs', err1, nil)
+check('and leaves no window', nwins(), w0)
+check('and is written to the file', vim.fn.readfile(alpha .. '/a.fey')[3]:find('status, TODO, B', 1, true) ~= nil, true)
+check('and the index knows', fresh('Write report'):get_priority(), 'B')
+check('no buffer is left behind', vim.fn.bufnr(alpha .. '/a.fey') == -1 or not vim.api.nvim_buf_is_loaded(vim.fn.bufnr(alpha .. '/a.fey')), true)
+check('the rest of the file is as it was', vim.list_slice(vim.fn.readfile(alpha .. '/a.fey'), 4), vim.list_slice(before, 4))
+
+local _, err2 = wait_for(Edit.run(fresh('Weekly chore'), action('fey_mappings.set_tags', { { 'errand', 'weekly' } })))
+check('set tags runs', err2, nil)
+check('labels changed in the index', fresh('Weekly chore'):get_tags(), { 'errand', 'weekly', 'projectx' })
+
+local _, err3 = wait_for(Edit.run(fresh('Finished thing'), action('fey_mappings.todo_next_state')))
+check('todo state runs', err3, nil)
+check('the keyword changed', fresh('Finished thing').state ~= 'DONE', true)
+
+-- an unsaved buffer is edited, not written
+vim.cmd('edit ' .. vim.fn.fnameescape(beta .. '/b.fey'))
+local bbuf = vim.api.nvim_get_current_buf()
+vim.api.nvim_buf_set_lines(bbuf, -1, -1, false, { 'unsaved line' })
+local disk = vim.fn.readfile(beta .. '/b.fey')
+local _, err4 = wait_for(Edit.run(fresh('Beta item'), action('fey_mappings.priority_up')))
+check('action on a file with an unsaved buffer', err4, nil)
+check('the buffer has the change', vim.api.nvim_buf_get_lines(bbuf, 0, 1, false)[1]:find('status, TODO', 1, true) ~= nil, true)
+check('and the unsaved line', vim.api.nvim_buf_get_lines(bbuf, -2, -1, false)[1], 'unsaved line')
+check('the disk is untouched', vim.fn.readfile(beta .. '/b.fey'), disk)
+check('and the buffer is still modified', vim.bo[bbuf].modified, true)
+vim.bo[bbuf].modified = false
+
+local _, err5 = wait_for(Edit.run({ abs = base .. '/nowhere.fey', line = 1 }, function() end))
+check('a missing file is an error', type(err5), 'string')
+
+-- the preview lines
+check('lines of an entry', fresh('Child item'):get_lines()[1]:find('Child item', 1, true) ~= nil, true)
+
+-- through the agenda window ---------------------------------------------------------------------------
+local AG = require('fey.agenda')
+local live = AG:new({ source = Source.new({ scope = 'court' }) })
+live:open_view('todo')
+vim.wait(300)
+local function line_of(text)
+  for i, l in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do
+    if l:find(text, 1, true) then return i end
+  end
+end
+check('the todo view is open', vim.bo.filetype, 'feyagenda')
+vim.api.nvim_win_set_cursor(0, { line_of('Weekly chore'), 0 })
+local before_line = vim.api.nvim_buf_get_lines(0, line_of('Weekly chore') - 1, line_of('Weekly chore'), false)[1]
+local pv = live:priority_up()
+local _, perr = wait_for(pv)
+check('the action finished without an error', perr, nil)
+vim.wait(1500, function() return vim.api.nvim_buf_get_lines(0, line_of('Weekly chore') - 1, line_of('Weekly chore'), false)[1] ~= before_line end, 20)
+local after_line = vim.api.nvim_buf_get_lines(0, line_of('Weekly chore') - 1, line_of('Weekly chore'), false)[1]
+check('priority up from the agenda redraws', { before_line:find('[#', 1, true), after_line:find('[#', 1, true) ~= nil }, { nil, true })
+check('the window is still the agenda', vim.bo.filetype, 'feyagenda')
+check('the file has it', table.concat(vim.fn.readfile(alpha .. '/a.fey'), '\n'):find('Weekly chore') ~= nil, true)
+
 -- the agenda object ---------------------------------------------------------------------------------------
 local A = require('fey.agenda')
 local agenda = A:new({ source = Source.new({ scope = 'court' }) })
@@ -226,6 +396,27 @@ for key, lhs in pairs({ fey_agenda = 'a', fey_hollow_init = 'vi', fey_vault_rein
 end
 conf:setup_mappings('global')
 check('and not only in a buffer', vim.fn.maparg('<Space>vi', 'n', false, true).buffer, 0)
+
+-- a leftover fey_agenda_files does not filter the agenda
+conf:extend({ fey_agenda_files = base .. '/nowhere/**/*' })
+check('fey_agenda_files is not a filter', Source.new().paths, nil)
+
+-- the agenda buffer: mappings, help, goto --------------------------------------------------------------
+local abuf = vim.api.nvim_create_buf(false, true)
+vim.api.nvim_set_current_buf(abuf)
+conf:setup_mappings('agenda', abuf)
+for _, lhs in ipairs({ 'f', 'b', '.', 'vd', 'vw', 'vm', 'vy', 'q', '<CR>', '<Tab>', 'J', 'r', '/', 'g?', 't', '+', '-', '<Space>,', '<Space>t', '<Space>id', '<Space>is', '<Space>A', 'K' }) do
+  check('agenda mapping ' .. lhs, vim.fn.maparg(lhs, 'n', false, true).buffer, 1)
+end
+local help = require('fey.objects.help')
+local lines_ = help.prepare_content('agenda')
+local text_ = table.concat(lines_, '\n')
+check('the help lists the agenda mappings', { text_:find('Close agenda', 1, true) ~= nil, text_:find('Show week view', 1, true) ~= nil, text_:find('Show this help', 1, true) ~= nil }, { true, true, true })
+local entry_ = by_title['Write report']
+vim.cmd('enew')
+require('fey.utils').goto_heading(entry_)
+check('goto opens the file of the entry', vim.api.nvim_buf_get_name(0), alpha .. '/a.fey')
+check('on its line', vim.fn.line('.'), 3)
 
 if failures > 0 then
   print(('%d of %d checks failed'):format(failures, total))

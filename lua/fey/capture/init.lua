@@ -1,17 +1,19 @@
+-- Capture: write a new piece of text into the notes. A template is expanded (see `fey.capture.template`),
+-- the text is edited in a small window, and `<C-c>` writes it where the template says: a file, a heading of
+-- it, the tree of a date, after a line that matches. The writing is `fey.refile.insert`: the text becomes a
+-- child of the destination heading (or a top level heading) at the right level, signatures are renumbered,
+-- and the file is saved and indexed again.
 local utils = require('fey.utils')
-local fs = require('fey.utils.fs')
 local config = require('fey.config')
 local Templates = require('fey.capture.templates')
 local Template = require('fey.capture.template')
 local Menu = require('fey.ui.menu')
-local Range = require('fey.files.elements.range')
 local CaptureWindow = require('fey.capture.window')
-local Date = require('fey.objects.date')
 local Datetree = require('fey.capture.template.datetree')
-local Input = require('fey.ui.input')
+local Refile = require('fey.refile')
 local Promise = require('fey.utils.promise')
 
----@alias FeyOnCaptureClose fun(capture:FeyCapture, opts:FeyProcessCaptureOpts)
+---@alias FeyOnCaptureClose fun(capture:FeyCapture, opts:table)
 ---@alias FeyOnCaptureCancel fun(capture:FeyCapture)
 
 ---@class FeyCapture
@@ -80,7 +82,7 @@ function Capture:open_template(template)
       return self:setup_mappings()
     end,
     on_close = function(capture_window)
-      return self:on_refile_close(capture_window)
+      return self:_on_window_closed(capture_window)
     end,
   })
 
@@ -96,373 +98,217 @@ function Capture:open_template_by_shortcut(shortcut)
   return self:open_template(template)
 end
 
----@param capture_window FeyCaptureWindow
-function Capture:on_refile_close(capture_window)
-  local opts = self:_get_refile_vars(capture_window)
-  if not opts then
-    return
-  end
-  if capture_window:is_modified() then
-    local choice =
-      vim.fn.confirm(string.format('Do you want to refile this to %s?', opts.destination_file.filename), '&Yes\n&No')
-    vim.cmd([[redraw!]])
-    if choice ~= 1 then
-      if self.on_cancel_refile then
-        self.on_cancel_refile(self)
-      end
-      return utils.echo_info('Canceled.')
-    end
-  end
-
-  vim.schedule(function()
-    self:_refile_from_capture_buffer(opts)
-  end)
-end
-
----Triggered when refiling from capture buffer
-function Capture:refile()
-  local capture_window = self._windows[vim.b.fey_capture_window_id]
-  local opts = self:_get_refile_vars(capture_window)
-  if not opts then
-    return
-  end
-
-  self:_refile_from_capture_buffer(opts)
-end
-
----Refile to destination from capture buffer
-function Capture:refile_to_destination()
-  local source_file = self.files:get_current_file()
-  local source_heading = source_file:get_headings()[1]
-  local capture_window = self._windows[vim.b.fey_capture_window_id]
-  return self:get_destination():next(function(destination)
-    if not destination then
-      return false
-    end
-    return self:_refile_from_capture_buffer({
-      template = capture_window.template,
-      capture_window = capture_window,
-      source_file = source_file,
-      source_heading = source_heading,
-      destination_file = destination.file,
-      destination_heading = destination.heading,
-    })
-  end)
-end
-
----Triggered from fey file when we want to refile heading
-function Capture:refile_heading_to_destination()
-  return self:_refile_from_fey_file({
-    source_heading = self.files:get_closest_heading(),
-  })
-end
-
+---The window was closed by hand (`:q`): a text that was changed is offered for writing, an untouched
+---template is dropped
 ---@private
----@param opts FeyProcessCaptureOpts
-function Capture:_refile_from_capture_buffer(opts)
-  if self.on_pre_refile then
-    self.on_pre_refile(self, opts)
+---@param capture_window FeyCaptureWindow
+function Capture:_on_window_closed(capture_window)
+  if capture_window.done or not self._windows[capture_window.id] then return end
+  local bufnr = capture_window:get_bufnr()
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) or capture_window:is_untouched() then
+    self._windows[capture_window.id] = nil
+    return
   end
-  local target_level = 0
-  local target_line = -1
-  local destination_file = opts.destination_file
-  local destination_heading = opts.destination_heading
-
-  if destination_heading then
-    target_line = destination_heading:get_range().end_line
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local choice = vim.fn.confirm('Do you want to write this capture?', '&Yes\n&No')
+  vim.cmd([[redraw!]])
+  if choice ~= 1 then
+    self._windows[capture_window.id] = nil
+    if self.on_cancel_refile then self.on_cancel_refile(self) end
+    return utils.echo_info('Canceled.')
   end
-
-  if opts.template.datetree then
-    destination_heading, target_line = Datetree:new({ files = self.files }):create(opts.template)
-  end
-
-  if destination_heading then
-    target_level = destination_heading:get_level()
-  end
-
-  local lines = opts.source_file.lines
-
-  if opts.source_heading then
-    lines = opts.source_heading:get_lines()
-    if destination_heading or opts.source_heading:get_level() > 1 then
-      lines = self:_adapt_heading_level(opts.source_heading, target_level, false)
-    end
-  end
-
-  lines = opts.template:apply_properties_to_lines(lines)
-
-  destination_file:update_sync(function(file)
-    if not destination_heading and opts.template.regexp then
-      local line = vim.fn.search(opts.template.regexp, 'ncw')
-      if line > 0 then
-        return vim.api.nvim_buf_set_lines(file:bufnr(), line, line, false, lines)
-      end
-    end
-
-    local range = self:_get_destination_range_without_empty_lines(Range.from_line(target_line))
-    vim.api.nvim_buf_set_lines(file:bufnr(), range.start_line, range.end_line, false, lines)
+  vim.schedule(function()
+    self:_write(capture_window, nil, lines)
   end)
+end
 
-  if self.on_post_refile then
-    self.on_post_refile(self, opts)
+---Write the capture to the destination of its template (the mapping `fey_capture_finalize`)
+function Capture:refile()
+  local window = self._windows[vim.b.fey_capture_window_id]
+  if not window then return end
+  return self:_write(window, nil)
+end
+
+---Write the capture to a place picked from the hollows (the mapping `fey_capture_refile`)
+function Capture:refile_to_destination()
+  local window = self._windows[vim.b.fey_capture_window_id]
+  if not window then return end
+  return Refile.pick({ prompt = 'Capture to' }):next(function(destination)
+    if not destination then return false end
+    return self:_write(window, destination)
+  end)
+end
+
+---The title of the first heading of a text, nil when it has none
+---@param lines string[]
+---@return string|nil
+local function first_title(lines)
+  local ok, meta = pcall(require('fey.vault.extract').extract, table.concat(lines, '\n') .. '\n')
+  return ok and meta.headings[1] and meta.headings[1].title or nil
+end
+
+---Make sure the file of the target exists
+---@private
+---@param path string
+---@return boolean
+function Capture:_ensure_file(path)
+  if vim.fn.filereadable(path) == 1 then return true end
+  local choice = vim.fn.confirm(('Capture destination %s does not exist. Create now?'):format(path), '&Yes\n&No')
+  if choice ~= 1 then
+    utils.echo_error('Cannot proceed without a valid capture destination')
+    return false
   end
-  utils.echo_info(('Wrote %s'):format(destination_file.filename))
-  self:kill(false, opts.capture_window.id)
+  vim.fn.mkdir(vim.fn.fnamemodify(path, ':h'), 'p')
+  vim.fn.writefile({}, path)
   return true
 end
 
----Refile a heading from a regular fey file (non-capture)
+---Find the destination heading of a template in the buffer of the file: by title or by signature
+---@param template FeyCaptureTemplate
+---@param path string
+---@return fun(): table resolve
+local function heading_resolver(template, path)
+  return function()
+    local wanted = template.heading
+    if type(wanted) == 'function' then wanted = wanted(path) end
+    if type(wanted) ~= 'string' then error('Capture template heading function must return a string', 0) end
+    local files = require('fey').instance().files
+    for _, heading in ipairs(files:get_current_file():get_headings()) do
+      local sig = vim.trim(vim.treesitter.get_node_text(heading:get_child_node('signature'), 0))
+      if heading:get_title():lower() == wanted:lower() or sig == vim.trim(wanted) then
+        local first, last = Refile.subtree(heading)
+        return { line = first, end_line = last, level = heading:get_level() }
+      end
+    end
+    error(('Capture heading "%s" does not exist in "%s"'):format(wanted, path), 0)
+  end
+end
+
+---The destination a template describes, with the file made sure of
 ---@private
----@param opts FeyProcessRefileOpts
----@return FeyPromise<number>
-function Capture:_refile_from_fey_file(opts)
-  local source_heading = opts.source_heading
-  local source_file = source_heading.file
-  local destination_file = opts.destination_file
-  local destination_heading = opts.destination_heading
+---@param template FeyCaptureTemplate
+---@return FeyRefileDestination|nil dest
+---@return table|nil opts  options for `Refile.insert`
+function Capture:_destination(template)
+  local path, err = template:get_target()
+  if not path then
+    utils.echo_error(err or 'No capture target')
+    return nil
+  end
+  if not self:_ensure_file(path) then return nil end
+  path = vim.uv.fs_realpath(path) or path
+  local dest = { abs = path }
+  local opts = { adapt = true, pad = template.properties.empty_lines }
+  if template.datetree then
+    local dt = template:get_datetree_opts()
+    dest.resolve = function() return Datetree.ensure(dt) end
+    opts.reversed = dt.reversed
+  elseif template.heading then
+    dest.resolve = heading_resolver(template, path)
+  elseif template.query then
+    local found = Capture.query_destination(template.query)
+    if not found then
+      utils.echo_error('The capture query found no heading: ' .. template.query)
+      return nil
+    end
+    dest = found
+  elseif template.regexp then
+    opts.regexp = template.regexp
+  end
+  return dest, opts
+end
 
-  return Promise.resolve()
-    :next(function()
-      if not opts.destination_file then
-        return self:get_destination():next(function(destination)
-          if not destination then
-            return false
-          end
-          destination_file = destination.file
-          destination_heading = destination.heading
-          return destination
-        end)
-      end
-    end)
-    :next(function()
-      if not destination_file then
-        return false
-      end
+---The heading a query selects: the first cell of the first row must be a section link (`FROM @section`)
+---@param src string
+---@return FeyRefileDestination|nil
+function Capture.query_destination(src)
+  local api = require('fey.api')
+  -- the query runs in the hollow of the working directory, over the scope
+  local own = api.vault(vim.fn.getcwd())
+  local ok, result = pcall(function()
+    if not own then error('No hollow here (run :FeyHollowInit)', 0) end
+    return own:run_query(src, { scope = config.fey_refile_scope or 'court' })
+  end)
+  local link = ok and result.rows and result.rows[1] and result.rows[1][1]
+  if type(link) ~= 'table' or not link.path then return nil end
 
-      local is_same_file = source_file.filename == destination_file.filename
-
-      local target_level = 0
-      local target_line = -1
-
-      if destination_heading then
-        target_level = destination_heading:get_level()
-        target_line = destination_heading:get_range().end_line
-      end
-
-      local lines = source_heading:get_lines()
-
-      if destination_heading or source_heading:get_level() > 1 then
-        lines = self:_adapt_heading_level(source_heading, target_level, is_same_file)
-      end
-
-      destination_file:update_sync(function()
-        if is_same_file then
-          local item_range = source_heading:get_range()
-          return vim.cmd(
-            string.format('silent! %d,%d move %s', item_range.start_line, item_range.end_line, target_line)
-          )
+  -- a link names the hollow it is in when it is not the hollow of the vault the query ran in
+  local tree = require('fey.hollow.tree')
+  local root = own and own.root
+  if link.hollow then
+    root = tree.resolve_ref(link.hollow, root)
+  end
+  if not root then return nil end
+  local abs = vim.fs.joinpath(root, link.path)
+  local signature = link.subpath
+  local dest = { abs = abs }
+  if signature and signature ~= '' then
+    dest.resolve = function()
+      local files = require('fey').instance().files
+      for _, heading in ipairs(files:get_current_file():get_headings()) do
+        local sig = vim.trim(vim.treesitter.get_node_text(heading:get_child_node('signature'), 0))
+        if sig == vim.trim(signature) then
+          local first, last = Refile.subtree(heading)
+          return { line = first, end_line = last, level = heading:get_level() }
         end
-
-        local range = self:_get_destination_range_without_empty_lines(Range.from_line(target_line))
-        target_line = range.start_line
-        vim.api.nvim_buf_set_lines(0, range.start_line, range.end_line, false, lines)
-      end)
-
-      if not is_same_file and source_file.filename == utils.current_file_path() then
-        local item_range = source_heading:get_range()
-        vim.api.nvim_buf_set_lines(0, item_range.start_line - 1, item_range.end_line, false, {})
       end
-
-      utils.echo_info(opts.message or ('Wrote %s'):format(destination_file.filename))
-      return target_line + 1
-    end)
+      error(('no heading %s in %s'):format(signature, abs), 0)
+    end
+  end
+  return dest
 end
 
----@param heading FeyHeading
-function Capture:refile_file_heading_to_archive(heading)
-  local file = heading.file
-
-  if file:is_archive_file() then
-    return utils.echo_warning('This file is already an archive file.')
+---Write the text of a capture window
+---@private
+---@param window FeyCaptureWindow
+---@param destination? FeyRefileDestination where, else what the template says
+---@param lines? string[] the text, else the buffer of the window
+---@return FeyPromise<boolean>
+function Capture:_write(window, destination, lines)
+  local template = window.template
+  lines = lines or vim.api.nvim_buf_get_lines(window:get_bufnr(), 0, -1, false)
+  local opts = { adapt = true, pad = template.properties.empty_lines }
+  if not destination then
+    destination, opts = self:_destination(template)
+    if not destination then return Promise.resolve(false) end
   end
 
-  local archive_location = file:get_archive_file_location()
-  if not archive_location then
-    return
-  end
-
-  local archive_directory = vim.fn.fnamemodify(archive_location, ':p:h')
-  if vim.fn.isdirectory(archive_directory) == 0 then
-    vim.fn.mkdir(archive_directory, 'p')
-  end
-  if not vim.uv.fs_stat(archive_location) then
-    vim.fn.writefile({}, archive_location)
-  end
-
-  local destination_file = self.files:get(archive_location)
-  local todo_state = heading:get_todo()
-  local heading_category = heading:get_category()
-  local outline_path = heading:get_outline_path()
-
-  return self
-    :_refile_from_fey_file({
-      source_heading = heading,
-      destination_file = destination_file,
-      message = ('Archived to %s'):format(destination_file.filename),
-    })
-    :next(function(target_line)
-      destination_file = self.files:get(archive_location)
-      return destination_file:update(function(archive_file)
-        local archived_heading = archive_file:get_closest_heading({ target_line, 0 })
-        archived_heading:set_property('ARCHIVE_TIME', Date.now():to_string())
-        archived_heading:set_property('ARCHIVE_FILE', file.filename)
-        if outline_path ~= '' then
-          archived_heading:set_property('ARCHIVE_OLPATH', outline_path)
-        end
-        archived_heading:set_property('ARCHIVE_CATEGORY', heading_category)
-        archived_heading:set_property('ARCHIVE_TODO', todo_state or '')
-      end)
-    end)
-end
-
----@param item FeyHeading
----@param target_level integer
----@param is_same_file boolean
-function Capture:_adapt_heading_level(item, target_level, is_same_file)
-  -- Refiling in same file just moves the lines from one position
-  -- to another,so we need to apply demote instantly
-  local level = item:get_level()
-  if target_level == 0 then
-    return item:promote(level - 1, true, not is_same_file)
-  end
-  if level <= target_level then
-    return item:demote(target_level - level + 1, true, not is_same_file)
-  end
-  return item:promote(level - target_level - 1, true, not is_same_file)
-end
-
---- Modify provided range to overwrite empty lines in the destination range
---- Example destination file:
---- ------------
---- * Heading 1
----
----
---- * Heading 2
---- ------------
---- Refiling "Heading 3" to "Heading 1" will remove empty line and we get this:
---- ------------
---- * Heading 1
---- ** Heading 3
---- * Heading 2
---- ------------
-function Capture:_get_destination_range_without_empty_lines(range)
-  local line_count = vim.api.nvim_buf_line_count(0)
-
-  local end_line = range.end_line
-  if end_line < 0 then
-    end_line = end_line + line_count + 1
-  end
-
-  local start_line = end_line - 1
-
-  local is_line_empty = function(row)
-    local line = vim.api.nvim_buf_get_lines(0, row, row + 1, true)[1]
-    line = vim.trim(line)
-    return #line == 0
-  end
-
-  while start_line >= 0 and is_line_empty(start_line) do
-    start_line = start_line - 1
-  end
-  start_line = start_line + 1
-
-  while end_line < line_count and is_line_empty(end_line) do
-    end_line = end_line + 1
-  end
-
-  range.start_line = start_line
-  range.end_line = end_line
-  return range
-end
-
---- Prompt for file (and heading) where to refile to
---- @return FeyPromise<{ file: FeyFile, heading?: FeyHeading}>
-function Capture:get_destination()
-  local valid_destinations = self:_get_autocompletion_files()
-
-  return Input.open('Enter destination: ', '', function(arg_lead)
-    return self:autocomplete_refile(arg_lead, valid_destinations)
-  end):next(function(destination)
-    if not destination then
-      return false
+  if template.unique then
+    local title = first_title(lines)
+    if title and Capture.title_exists(title) then
+      utils.echo_error(('There is already a heading "%s"'):format(title))
+      return Promise.resolve(false)
     end
+  end
 
-    local path = destination:match('^.*%.fey/?')
-    local heading_title = path and destination:sub(#path + 1) or ''
-
-    if not vim.endswith(path, '/') then
-      path = path .. '/'
-    end
-
-    if not valid_destinations[path] then
-      utils.echo_error(
-        ('"%s" is not a is not a file specified in the "fey_agenda_files" setting. Refiling cancelled.'):format(path)
-      )
-      return false
-    end
-
-    local destination_file = valid_destinations[path]
-    local result = {
-      file = destination_file,
-    }
-
-    if not heading_title or vim.trim(heading_title) == '' then
-      return result
-    end
-
-    local headings = vim.tbl_filter(function(item)
-      local pattern = '^' .. vim.pesc(heading_title:lower()) .. '$'
-      return item:get_title():lower():match(pattern)
-    end, destination_file:get_opened_unfinished_headings())
-
-    if not headings[1] then
-      utils.echo_error(
-        ("'%s' is not a valid heading in '%s'. Refiling cancelled."):format(heading_title, destination_file.filename)
-      )
-      return {}
-    end
-
-    return {
-      file = destination_file,
-      heading = headings[1],
-    }
+  local info = { template = template, capture_window = window, destination = destination, lines = lines }
+  if self.on_pre_refile then self.on_pre_refile(self, info) end
+  return Refile.insert(destination, lines, opts):next(function(result)
+    info.result = result
+    window.done = true
+    self._windows[window.id] = nil
+    if vim.api.nvim_buf_is_valid(window:get_bufnr() or -1) then window:kill() end
+    if self.on_post_refile then self.on_post_refile(self, info) end
+    utils.echo_info(('Wrote %s'):format(vim.fn.fnamemodify(destination.abs, ':t')))
+    return true
+  end, function(err)
+    utils.echo_error(tostring(type(err) == 'table' and err.message or err))
+    return false
   end)
 end
 
----@param arg_lead string
----@param files table<string, FeyFile>
----@return string[]
-function Capture:autocomplete_refile(arg_lead, files)
-  if not arg_lead or #arg_lead == 0 then
-    return vim.tbl_keys(files)
-  end
-
-  local filename = arg_lead:match('^.*%.fey/')
-
-  local selected_file = filename and files[filename]
-
-  if not selected_file then
-    return vim.fn.matchfuzzy(vim.tbl_keys(files), filename or arg_lead)
-  end
-
-  local headings = selected_file:get_opened_unfinished_headings()
-  local result = vim.tbl_map(function(heading)
-    return string.format('%s%s', filename, heading:get_title())
-  end, headings)
-
-  return vim.tbl_filter(function(item)
-    return item:match(string.format('^%s', vim.pesc(arg_lead)))
-  end, result)
+---Is there a heading with this title in the hollows of `fey_refile_scope`
+---@param title string
+---@return boolean
+function Capture.title_exists(title)
+  local scope = require('fey.hollow.scope')
+  local spec = config.fey_refile_scope or 'court'
+  if spec == 'court' and not require('fey.hollow.court').root() then spec = 'current' end
+  local root = require('fey.hollow.tree').hollow_root_of(vim.fn.getcwd())
+  local rows = scope.collect(spec, root, function(vault)
+    return vault:query('SELECT 1 FROM headings WHERE title = :t COLLATE NOCASE LIMIT 1', { t = title })
+  end)
+  return #rows > 0
 end
 
 function Capture:build_note_capture(title)
@@ -546,69 +392,10 @@ function Capture:kill(from_mapping, window_id)
     if from_mapping and self.on_cancel_refile then
       self.on_cancel_refile(self)
     end
-    window:kill()
+    window.done = true
     self._windows[window.id] = nil
+    window:kill()
   end
-end
-
----@private
----@param capture_window FeyCaptureWindow
----@return FeyProcessCaptureOpts | false
-function Capture:_get_refile_vars(capture_window)
-  local source_file = self.files:get(vim.api.nvim_buf_get_name(capture_window:get_bufnr()))
-  local source_heading = nil
-  if not capture_window.template.whole_file then
-    source_heading = source_file:get_headings()[1]
-  end
-
-  local opts = {
-    source_file = source_file,
-    source_heading = source_heading,
-    destination_file = nil,
-    destination_heading = nil,
-    template = capture_window.template,
-    capture_window = capture_window,
-  }
-
-  if self.on_pre_refile then
-    self.on_pre_refile(self, opts)
-  end
-
-  local file = opts.template:get_target()
-  if vim.fn.filereadable(file) == 0 then
-    local choice = vim.fn.confirm(('Refile destination %s does not exist. Create now?'):format(file), '&Yes\n&No')
-    if choice ~= 1 then
-      utils.echo_error('Cannot proceed without a valid refile destination')
-      return false
-    end
-    vim.fn.mkdir(vim.fn.fnamemodify(file, ':h'), 'p')
-    vim.fn.writefile({}, file)
-  end
-
-  opts.destination_file = self.files:get(file)
-  if opts.template.heading then
-    local template_heading = opts.template.heading
-    if type(template_heading) == 'function' then
-      local ok, resolved_heading = pcall(template_heading, opts.destination_file)
-      if not ok then
-        utils.echo_error('Failed to resolve capture template heading')
-        return false
-      end
-      template_heading = resolved_heading
-    end
-    if type(template_heading) ~= 'string' then
-      utils.echo_error('Capture template heading function must return a string')
-      return false
-    end
-
-    opts.destination_heading = opts.destination_file:find_heading_by_title(template_heading)
-    if not opts.destination_heading then
-      utils.echo_error(('Refile heading "%s" does not exist in "%s"'):format(template_heading, file))
-      return false
-    end
-  end
-
-  return opts
 end
 
 ---@deprecated
@@ -659,28 +446,6 @@ function Capture:_create_menu_items(templates)
     end
   end
   return menu_items
-end
-
----@private
----@return table<string, FeyFile>
-function Capture:_get_autocompletion_files()
-  local valid_destinations = {}
-  local filenames = {}
-  for _, file in ipairs(self.files:all()) do
-    if not file:is_archive_file() then
-      table.insert(valid_destinations, file)
-      table.insert(filenames, file.filename)
-    end
-  end
-
-  filenames = fs.trim_common_root(filenames)
-  local result = {}
-
-  for i, filename in ipairs(filenames) do
-    result[filename .. '/'] = valid_destinations[i]
-  end
-
-  return result
 end
 
 ---@private

@@ -32,6 +32,16 @@ function Source.new(opts)
   return self
 end
 
+---A source like this one with other settings (`scope`, `root`), sharing nothing that changes
+---@param opts { scope?: FeyScopeSpec, root?: string, paths?: string|string[] }
+---@return FeyAgendaSource
+function Source:with(opts)
+  local clone = Source.new({ scope = opts.scope or self.scope, root = opts.root or self.root })
+  clone.paths = opts.paths and nil or self.paths
+  if opts.paths then clone:set_paths(opts.paths) end
+  return clone
+end
+
 ---The scope of the agenda: the configured one unless given. Falls back to `current` when the court is off.
 ---@return FeyScopeSpec
 function Source:get_scope()
@@ -83,6 +93,22 @@ function Source:describe()
   local name = type(spec) == 'table' and table.concat(spec, ' ') or spec
   if #hollows == 1 then return ('%s (%s)'):format(name, hollows[1]) end
   return ('%s (%d hollows)'):format(name, #hollows)
+end
+
+---The headings with a running clock, as a set of `hollow \0 path \0 ord`
+---@return table<string, boolean>
+function Source:clocked()
+  local rows = scope.collect(self:get_scope(), self:get_root(), function(vault)
+    return vault:query(
+      [[SELECT f.path, d.heading_ord FROM dates d JOIN files f ON f.id = d.file_id
+        WHERE d.kind = 'clock' AND d.end_ts IS NULL AND d.heading_ord IS NOT NULL]]
+    )
+  end)
+  local set = {}
+  for _, r in ipairs(rows) do
+    set[r.hollow .. '\0' .. r.path .. '\0' .. r.heading_ord] = true
+  end
+  return set
 end
 
 ---@param abs string
@@ -146,6 +172,8 @@ local function dates_of(row)
   return { start_date }
 end
 
+Source.dates_of = dates_of
+
 ---The dates of a heading the agenda looks at (the rules of `FeyHeading:get_valid_dates_for_agenda`)
 ---@param row table
 ---@return FeyDate[]
@@ -176,6 +204,7 @@ function Source:dates(from, to)
   add(scope.dates(spec, root, { kinds = { 'date' }, active = true, from = from.timestamp - margin, to = to_ts }))
 
   local entries, files, out = {}, {}, {}
+  local clocked = self:clocked()
   for _, row in ipairs(rows) do
     if row.heading_ord and self:accepts(row.abs) then
       local file_key = row.hollow .. '\0' .. row.path
@@ -184,13 +213,123 @@ function Source:dates(from, to)
       local entry = entries[key]
       if not entry then
         entry = Entry.from_row(row, files[file_key])
+        entry._clocked = clocked[key] or false
         entries[key] = entry
       end
-      for _, date in ipairs(valid_dates(row)) do
+      local skip = entry:is_archived() and require('fey.config').fey_agenda_skip_archived ~= false
+      for _, date in ipairs(skip and {} or valid_dates(row)) do
         date.row = { hollow = row.hollow, abs = row.abs, path = row.path, line = row.line, col = row.col, kind = row.kind }
         out[#out + 1] = { date = date, entry = entry }
       end
     end
+  end
+  return out
+end
+
+---Open planning dates (deadline and scheduled) of the headings, for reminders: whatever starts between the
+---two times (epoch seconds), and everything that repeats
+---@param from integer
+---@param to integer
+---@return { date: FeyDate, entry: FeyAgendaEntry }[]
+function Source:planning(from, to)
+  local rows = scope.dates(
+    self:get_scope(),
+    self:get_root(),
+    { kinds = { 'scheduled', 'deadline' }, active = true, open_only = true, from = from, to = to }
+  )
+  local out, entries = {}, {}
+  for _, row in ipairs(rows) do
+    if row.heading_ord and self:accepts(row.abs) then
+      local key = row.hollow .. '\0' .. row.path .. '\0' .. row.heading_ord
+      local entry = entries[key]
+      if not entry then
+        entry = Entry.from_row(row, 1)
+        entries[key] = entry
+      end
+      if not entry:is_archived() then
+        local date = dates_of(row)[1]
+        if date then out[#out + 1] = { date = date, entry = entry } end
+      end
+    end
+  end
+  return out
+end
+
+---Every heading of the scope as an entry, for the views that list headings
+---@param opts? { todo_only?: boolean } `todo_only` keeps the open todo items (a keyword that is not a done one)
+---@return FeyAgendaEntry[]
+function Source:headings(opts)
+  opts = opts or {}
+  local rows = scope.collect(self:get_scope(), self:get_root(), function(vault) return vault:agenda_headings() end)
+  local files, out = {}, {}
+  local clocked = self:clocked()
+  for _, row in ipairs(rows) do
+    if self:accepts(row.abs) then
+      local file_key = row.hollow .. '\0' .. row.path
+      files[file_key] = files[file_key] or (vim.tbl_count(files) + 1)
+      local entry = Entry.from_row(row, files[file_key])
+      entry._clocked = clocked[file_key .. '\0' .. row.ord] or false
+      local archived = entry:is_archived() and require('fey.config').fey_agenda_skip_archived ~= false
+      if not archived and (not opts.todo_only or entry:is_todo()) then
+        entry.index = #out + 1
+        out[#out + 1] = entry
+      end
+    end
+  end
+  return out
+end
+
+---The labels in use in the scope, sorted, for completion
+---@return string[]
+function Source:labels()
+  local seen, out = {}, {}
+  for _, item in ipairs(scope.labels(self:get_scope(), self:get_root())) do
+    seen[item.label] = true
+    out[#out + 1] = item.label
+  end
+  table.sort(out)
+  return out
+end
+
+---Headings whose title or text has the term (a Lua pattern, lower case), with the text of the heading read
+---from the buffer when it is loaded, else from the file
+---@param term string
+---@return FeyAgendaEntry[]
+function Source:search(term)
+  term = term:lower()
+  local cache = {}
+  local function lines_of(abs)
+    if cache[abs] == nil then
+      local buf = vim.fn.bufnr(abs)
+      if buf > 0 and vim.api.nvim_buf_is_loaded(buf) then
+        cache[abs] = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      elseif vim.fn.filereadable(abs) == 1 then
+        cache[abs] = vim.fn.readfile(abs)
+      else
+        cache[abs] = {}
+      end
+    end
+    return cache[abs]
+  end
+  local out = {}
+  local all = self:headings()
+  for i, entry in ipairs(all) do
+    local ok = pcall(function()
+      if entry:get_title():lower():match(term) then
+        out[#out + 1] = entry
+      else
+        -- the text of the heading itself, up to the next heading
+        local lines = lines_of(entry.abs)
+        local following = all[i + 1]
+        local last = (following and following.abs == entry.abs) and (following.line - 1) or #lines
+        local body = table.concat(lines, '\n', math.min(entry.line + 1, #lines + 1), math.min(last, #lines))
+        if body:lower():match(term) then out[#out + 1] = entry end
+      end
+    end)
+    if not ok then return {} end
+  end
+  for i, entry in ipairs(out) do
+    entry.index = i
   end
   return out
 end

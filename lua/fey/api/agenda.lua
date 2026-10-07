@@ -10,7 +10,7 @@ local function get_date(date, name)
   if not date then
     return nil
   end
-  if type(date) == Date then
+  if Date.is_date_instance(date) then
     return date
   end
   if type(date) == 'string' then
@@ -28,6 +28,7 @@ local function get_shared_opts(options)
   end
   opts.header = options.header
   opts.agenda_files = options.fey_agenda_files
+  opts.scope = options.scope
   opts.sorting_strategy = options.fey_agenda_sorting_strategy
   opts.tag_filter = options.fey_agenda_tag_filter_preset
   opts.category_filter = options.fey_agenda_category_filter_preset
@@ -46,7 +47,8 @@ end
 ---@class FeyApiAgendaOpts
 ---@field filters? FeyApiAgendaFilter
 ---@field header? string
----@field fey_agenda_files? string[]
+---@field scope? FeyScopeSpec Hollows the view reads: 'current', 'tree', 'court' or a list of references. Default: `fey_agenda_scope`
+---@field fey_agenda_files? string[] Limit the view to these files and directories (globs work)
 ---@field fey_agenda_tag_filter_preset? string
 ---@field fey_agenda_category_filter_preset? string
 ---@field fey_agenda_sorting_strategy? FeyAgendaSortingStrategy[]
@@ -105,12 +107,10 @@ end
 ---Get the heading at the cursor position in the agenda view
 ---@return FeyApiHeading | nil
 function FeyAgenda.get_heading_at_cursor()
-  local heading = fey.agenda:get_heading_at_cursor()
-
-  if heading then
-    local file = require('fey.api').load(heading.file.filename)
-    return file:get_heading_on_line(heading:get_range().start_line)
-  end
+  local entry = fey.agenda:get_heading_at_cursor()
+  if not entry or not entry.abs then return nil end
+  local file = require('fey.api').file(entry.abs)
+  return file and file:heading_at(entry.line) or nil
 end
 
 return FeyAgenda

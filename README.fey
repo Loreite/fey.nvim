@@ -47,8 +47,9 @@ had to begin from scratch.
 
   I.A.i. Plugin Documentation
 
-You can read up on Fey.nvim in the :help documentation, however, please
-remember that it may be out of sync, as a rough pass of project-wide
+This README is the current description of what works: section II. below. The
+:help documentation is behind it (see `doc/fey_api.txt` for the Lua API, which
+is up to date), as a rough pass of project-wide
 find-and-replace was done to update all references to 'org' and 'orgmode' to
 'fey'. This means that sometimes words like 'organization' are currently
 'feyanaization' which is humorous but will be updated eventually.
@@ -192,49 +193,485 @@ search `:h fey-fey_edit_special` for more information.
 
 
 
-  II.E. Currently Available Default Mappings
+  II.E. Headings that know things: tags, status, labels, properties
 
-This subsection won't always be present here in the README, as you can check the
-repo file `/lua/fey/config/defaults.lua` to see what mappings are not commented
-out for the list of supported mappings.
+Phase one of turning this plugin from an org-mode clone into a Fey one was to stop
+borrowing org's way of writing metadata (stars, drawers, `:TAGS:`, `SCHEDULED:`
+lines) and use what Fey already has: tags.
 
-The in-editor documentation will be a work in progress for some time as fey
-slowly alters the nvim-orgmode/orgmode plguin to fit the fey specification
-(which is also updating from time to time itself, based on what works and does
-not work for the grammar).
+A tag is a small piece of structure inside the text: a name, plain values, and
+key-value pairs. The scope form is written with the hash sigil and is used for
+metadata, the reference form with the at sigil is used for things that point or
+refer, such as links and dates.
 
-  -  fey_change_all_delimiters_from_start = '<prefix>hds',
-  -  fey_change_all_delimiters_from_end = '<prefix>hde',
+    ###  src fey
+      I. {# status, TODO, A #} Hand in the essay {# labels, school, csci/103 #}
+    {# scheduled, 2026-10-08 Thu 18:00 #}
+    {# deadline, 2026-10-09 Fri 23:59 #}
+    {# prop; effort: 2h; category: Coursework #}
 
-  -  fey_enumerate_heading_from_start = '<prefix>hes',
-  -  fey_enumerate_heading_from_end = '<prefix>hee',
-  -  fey_enumerate_heading = '<prefix>hef',
+    Some text, and a date inside it {@ date, 2026-10-07 Wed 10:00-11:00 @}.
+    ###
 
-  -  fey_anonymize_heading_from_start = '<prefix>has',
-  -  fey_anonymize_heading_from_end = '<prefix>hae',
-  -  fey_anonymize_heading = '<prefix>haf',
+The metadata of a heading is the tags in its title line plus the tag-only lines
+right under it. That region is what the plugin reads and what it edits in place,
+so setting a priority or a label changes just that tag and leaves the rest of
+your line alone.
 
-  -  fey_fix_indentation = '<prefix>fi',
-  -  fey_reindex_headings_or_list = '<prefix>fI',
+  II.E.i. Status: the todo keyword and the priority
 
-  -  fey_do_promote = '<>',
-  -  fey_do_demote = '><',
-  -  fey_promote_subtree = '<prefix>H',
-  -  fey_demote_subtree = '<prefix>L',
-  -  fey_move_subtree_up = '<prefix>K',
-  -  fey_move_subtree_down = '<prefix>J',
+The status tag holds the todo keyword first and an optional priority second. The
+keywords are the ones of `fey_todo_keywords`. Without a keyword the priority
+goes in a key: a status tag with a priority key and no values.
 
-  -  fey_meta_return = '<Leader><CR>',
-     -- Add heading, listitem, or row (context-dependent)
+    ###  src fey
+      I. {# status, TODO #} A task
+      II. {# status, DONE #} A finished task
+      III. {# status, NEXT, B #} A task with a priority
+      IV. {# status; priority: C #} A priority and no keyword
+    ###
 
-  -  fey_meta_sub_return = '<Leader><S-CR>',
-     -- Add subheading, sublistitem, or row (context-dependent)
+  -  `cit` and `ciT` change the keyword forward and backward
+  -  `cir` and `ciR` lower and raise the priority, `<prefix>,` asks for one
+  -  when the keyword moves to a done state a closed date is written, and moving it back removes it
+  -  `fey_todo_keywords`, `fey_todo_keyword_faces`, `fey_priority_highest`,
+     `fey_priority_default` and `fey_priority_lowest` work as they did
 
-  -  fey_insert_heading_respect_content = '<prefix>ih',
-     -- Add new heading after current heading block (same level)
+  II.E.ii. Labels
 
-  -  fey_insert_subheading_respect_content = '<prefix>iH',
-     -- Add new subheading after current heading block (next level)
+Org's tag lists are called labels in Fey: the word tag is reserved for the syntax.
+Labels are written with a labels tag, in the title line, right under a heading,
+anywhere in a section, or above the first heading for the whole file. They can be
+nested with a slash, and searching for `design` finds `design/ui`.
+
+A label in the title line stays out of the title: the title of the first heading
+above is Hand in the essay. A heading counts its own labels, the labels of the
+headings above it and the labels of the file, as org tags were inherited.
+
+  -  `<prefix>sl` edits the labels of the heading under the cursor, with completion
+     from the labels of the hollows you can see
+  -  the index remembers what held each label (title, body, text, document or
+     data), so a database can tell a label of a file from a label of a heading
+
+The tag syntax around the status and the labels is concealed by default so a
+heading reads as a heading: only the keyword and the label names show. Turn it
+off with `fey_conceal_task_tags = false`, or toggle it with `<prefix>Tc`.
+
+  II.E.iii. Properties
+
+A prop tag turns its keys into properties of the heading. The agenda reads
+`category` from it, the match language and the query language read any of them,
+and `effort` is ready for the clock work that comes with phase two.
+
+The names of all of these tags can be changed: `fey_status_tag_name`,
+`fey_labels_tag_name`, `fey_property_tag_name`, `fey_date_tag_name` and the ones
+for scheduled, deadline and closed.
+
+
+  II.F. Dates and planning
+
+A date is a date tag. The value is a timestamp with an optional weekday, time or
+time range, repeater and warning delay. The same text works in the three planning
+tags that live on the lines under a heading.
+
+    ###  src fey
+    {# scheduled, 2026-10-06 Tue 09:00-10:15 +1w #}
+    {# deadline, 2026-10-09 Fri 23:59 -3d #}
+    {# closed, 2026-10-02 Fri 21:10 #}
+    {@ date, 2026-10-12 Mon--2026-10-13 Tue @}
+    {@ date, 2026-10-06 Tue; active: false @}
+    ###
+
+  -  a repeater is `+1w` (every week), `.+1d` (a day after it was done) or `++2m`
+     (the next time in the future)
+  -  a delay `-3d` on a deadline starts warning three days ahead, otherwise
+     `fey_deadline_warning_days` decides
+  -  a range is two dates joined by two dashes. An inactive date is for the record: it never shows in the
+     agenda
+  -  `<prefix>is` schedules and `<prefix>id` sets the deadline through a calendar popup that can also
+     clear the date
+  -  `<prefix>i.` inserts a date, `<prefix>i!` an inactive one, `cid` changes the date under the cursor
+  -  `<C-a>` and `<C-x>` change the part of the date under the cursor (year, month, day, hour, minute),
+     `<S-UP>` and `<S-DOWN>` move it a day, `<prefix>d!` toggles active and inactive
+  -  one scheduled date, one deadline and one closed date per heading; the date tag can appear any number
+     of times anywhere in the text
+
+
+  II.G. Hollows, vaults and the court
+
+A hollow is a directory that contains a `.fey` folder. Its vault is the database in
+that folder: the index of every Fey file below it (headings, tags, links, labels,
+properties, dates, tasks), kept current while you edit, even before saving.
+Hollows can sit inside hollows. The court is the top: one directory, by default
+`~/feyhollow`, with a registry of every hollow and a merged view of all of them.
+
+    ###  src lua
+    require('fey').setup({
+      fey_court_dir = '~/feyhollow',   -- the court, created when missing
+      court = {
+        enabled = true,
+        agenda_dirname = 'agenda',     -- a directory of the court for notes that belong to no project
+        refresh_on_start = true,       -- bring every vault up to date in the background
+        jump_cwd = true,               -- jumping to a hollow changes the working directory
+        jump_tab = false,              -- or opens it in a new tab
+      },
+    })
+    ###
+
+  -  `<prefix>vi` (or `:FeyHollowInit [name]`) makes the working directory a hollow and asks for its name.
+     It registers with the nearest hollow above it, else with the court
+  -  `<prefix>vr` brings the index up to date, `:FeyHollowsPrune` forgets hollows that are gone
+  -  a hollow can opt out of merged views with `merge: false` in `.fey/hollow.fey`, `:FeyHollowMerge` flips it
+  -  a hollow is named `court:notes:history` (the court, the hollow `notes`, its hollow `history`) and a file
+     in it `court:notes:history/a.fey`. `current:sub/b.fey` is relative to the hollow you are in. Links, the
+     query language, the capture targets and the refile picker understand these names
+
+Views take a scope, which says which hollows they read: `current` (this hollow),
+`tree` (it and the hollows below), `court` (all of them that did not opt out), or a
+list of references, where `court:notes:*` means a hollow and everything below it.
+The agenda, the query tag (`scope: court`), the database views (`gs`), refile and the
+reminders all use scopes.
+
+
+  II.H. The navigator
+
+The navigator is the Yazi style picker. `<prefix>;` opens it on the current file,
+`<prefix>:` where you left it. It starts on the contents of the file (headings,
+lists, tables, blocks and tags), and `h` keeps going up: out of the document into its
+directory, up the directories to the root of the hollow, on through the hollows above
+it, and finally to the court. `l` goes back down. A thin pane on the left shows the
+level above so you can see where you are.
+
+  -  `j`, `k` move, `l` or `<Tab>` goes in (`<Tab>` also enters the directory of a hollow), `h` goes up
+  -  `<CR>` jumps to the object, file or hollow under the cursor, `<C-t>` does it in a new tab
+  -  `H` switches to a picker of hollows only, `<prefix>vj` and `<prefix>vJ` open it directly
+  -  `/` filters, `<C-u>` and `<C-d>` scroll the preview, `q` or `<Esc>` closes
+  -  the preview is the file, the directory or the hollow, with syntax highlighting
+
+
+  II.I. The agenda
+
+`<prefix>a` opens the agenda prompt: `a` the week (or day), `t` all open tasks, `m` a match
+query, `M` a match query of open tasks only and `s` a text search. The agenda
+reads the vaults, so it needs no list of files, and it shows the hollows of
+`fey_agenda_scope` (`court` by default). A project keeps its own agenda in its own
+hollow and it shows up in the global one.
+
+  -  items come from the scheduled and deadline tags, the date tags and ranges, and repeaters; overdue
+     scheduled items stay on the agenda and deadlines warn ahead of time
+  -  a line under the title says where the agenda reads from, and when more than one hollow is read each
+     item gets a dimmed line with its hollow and file (`fey_agenda_show_scope`, `fey_agenda_show_hollow`)
+  -  the match language is the one of org: `work-home` (labels), `priority="A"`, `deadline<"<today>"`, `effort>2`
+     for properties, `/TODO|NEXT` for keywords, `|` for or. A label with a dash is written in quotes,
+     `"csci-210"/TODO`
+  -  `fey_agenda_files` is no longer used by the agenda. Use a scope; the agenda files of a custom command
+     still limit that command
+  -  archived headings stay out (`fey_agenda_skip_archived`)
+
+Everything you do to an item is done to the heading in its file, through the same
+code as the mappings in a document, and the view is rebuilt from the index:
+`t` todo state, `<prefix>,` `+` `-` priority, `<prefix>t` labels,
+`<prefix>id` and `<prefix>is` dates, `<prefix>r` refile, `<prefix>$` archive,
+`<prefix>A` toggle the archive label. `<CR>` opens the item here, `<Tab>` in another window, `K` previews,
+`f` and `b` move by a span, `.` is today, `vd` `vw` `vm` `vy` change the view, `J` jumps to a date, `/`
+filters, `q` closes and `g?` lists the keys. If the file of the item has unsaved changes the
+change is made in the buffer and left for you to save.
+
+
+  II.J. Refile and archive
+
+Refile moves a heading and its subtree under another heading, or to the end of
+any file of the hollows in `fey_refile_scope`. `<prefix>r`, in a document or in the
+agenda, asks for the destination with a fuzzy picker over every file and every
+heading, written like `court:notes/a.fey  I.A. Title`.
+
+The levels of the moved headings are adapted and the signatures are renumbered
+in the destination and in the source. The destination is written before the
+source is touched. `fey_refile_leave_link = true` leaves a link to the new place.
+Links that pointed at the old place are counted and reported, not rewritten (yet).
+
+Archive, `<prefix>$`, is a refile to the archive file of the document: `a.fey` goes
+to `a.fey_archive` (`fey_archive_location` is a template). The heading is put at the top level of the
+archive file with props that say where it came from: `archived_from`,
+`archived_path`, `archived_at` and `archived_state`.
+
+
+  II.K. Capture
+
+`<prefix>c` opens a menu of capture templates. A template is Fey text with
+expansions, written in a small window; `<C-c>` writes it, `<prefix>r` writes it to
+a place you pick, `<prefix>k` throws it away.
+
+    ###  src lua
+    require('fey').setup({
+      fey_capture_templates = {
+        t = {
+          description = 'Task',
+          template = '  I. {# status, TODO #} %?\n{# scheduled, %t #}',
+          target = 'court:notes/inbox.fey',
+          heading = 'Inbox',                 -- a title or a signature like I.A.
+        },
+        j = {
+          description = 'Journal',
+          template = '  I. %<%H:%M> %?',
+          target = '~/journal/journal.fey',
+          datetree = true,                   -- year, month and day headings, in date order
+        },
+      },
+    })
+    ###
+
+  -  `%?` is where the cursor goes, `%t` and `%T` are today and now written for a tag, `%u` an inactive date
+     tag, `%a` a link to where you were, `%^{prompt|default}` asks, `%<format>` is `os.date`
+  -  a target is a path or a name like `court:notes/inbox.fey`; the default is `fey_default_notes_file`,
+     else `agenda/inbox.fey` in the court
+  -  where in the file: `heading`, `datetree`, `regexp` or `query`, or the end
+  -  `unique = true` refuses a title that already exists
+
+
+  II.L. Notifications
+
+With `notifications = { enabled = true }` a popup appears when a scheduled item or a
+deadline is due (`reminder_time` minutes ahead, 10 by default; repeaters and
+deadline warnings have their own times). The reminders come from the index, for
+the hollows of `notifications.scope`. `require('fey').cron()` runs the same thing
+headless for a cron job, with a system notification.
+
+
+  II.M. The clock
+
+A clock is a tag in the logbook of a heading, a pair tag in its own text. Clocking
+in adds one, with no end; clocking out writes the end and the time it ran. The
+vault indexes them as dates of the kind clock, so the running clock is found in
+any file of any hollow and the time spent is a query.
+
+    ###  src fey
+      I. {# status, TODO #} Write the report
+    [ logbook #]
+    {# clock, 2026-10-06 Tue 13:00 #}
+    {# clock, 2026-10-06 Tue 10:00; end: 2026-10-06 Tue 11:30; dur: 1:30 #}
+    [# logbook ]
+    ###
+
+  -  `<prefix>xi` clocks in on the heading under the cursor, stopping the clock that runs; `<prefix>xo` clocks
+     out, `<prefix>xq` throws the running clock away, `<prefix>xj` jumps to the clocked heading and
+     `<prefix>xe` sets the effort (the prop `effort`, like `2h`)
+  -  in the agenda `I` `O` `X` do the same on the item, `<prefix>xj` jumps, `R` shows a clock report for
+     the span and the clocked item is highlighted
+  -  marking a task done clocks it out
+  -  `fey.statusline()` gives `(Fey) [1:20/2h] (Write the report)` while a clock runs
+  -  quitting with a clock running says so; it keeps running in the file
+  -  `fey_clock_tag_name` and `fey_logbook_tag_name` rename the tags
+
+
+  II.N. Queries and databases
+
+Notes can hold queries (a Dataview style language, with TABLE, LIST and TASK) and
+database views (Obsidian Bases style) that are computed from the vault. The
+tutorial in the test vault, `README.fey` in the vault directory, is both the
+manual and the fixture for them. Their mappings are `<prefix>qq` and `<prefix>qa`
+to run queries, `<prefix>bn` `<prefix>bs` `<prefix>bv` `<prefix>bt` and
+`<prefix>bl` for databases.
+
+
+  II.O. Currently Available Default Mappings
+
+This list is made from `lua/fey/config/defaults.lua` by `scripts/gen_mappings.lua`,
+so it is always what is actually mapped. Mappings that are commented out or empty
+there do not appear.
+
+-- begin generated: mappings (scripts/gen_mappings.lua) --
+
+`<prefix>` is `<Leader>;` unless `mappings.prefix` says otherwise. A mapping is changed or turned off in
+the setup, under the name in the last column: `mappings = { fey = { fey_refile = "<prefix>R" } }`, or
+`false` to turn it off.
+
+Anywhere:
+
+| keys       | does                                                                   | name                |
++============+========================================================================+=====================+
+| <prefix>a  | Open the agenda prompt                                                 | fey_agenda          |
+| <prefix>c  | Capture a new note or task                                             | fey_capture         |
+| <prefix>bn | Open a new database view of all files in the vault                     | fey_db_new          |
+| <prefix>bc | Open a new database view in the current window, full screen            | fey_db_new_current  |
+| <prefix>bs | Open a new database view in a horizontal split                         | fey_db_new_split    |
+| <prefix>bt | Open a new database view in a new tab                                  | fey_db_new_tab      |
+| <prefix>bv | Open a new database view in a vertical split                           | fey_db_new_vsplit   |
+| <prefix>bl | Pick an existing database to open                                      | fey_db_pick         |
+| <prefix>bL | Pick an existing database and open it in the current window            | fey_db_pick_current |
+| <prefix>vi | Make the cwd a hollow (create its .fey folder) and index its Fey files | fey_hollow_init     |
+| <prefix>vj | Browse the hollows from the court down and jump to one                 | fey_hollow_jump     |
+| <prefix>vJ | Browse the hollows and open the one you pick in a new tab              | fey_hollow_jump_tab |
+| <prefix>vr | Update the vault index                                                 | fey_vault_reindex   |
+
+In Fey files:
+
+| keys           | does                                                                                   | name                                    |
++================+========================================================================================+=========================================+
+| <prefix>haf    | make all segments of signature anonymous                                               | fey_anonymize_heading                   |
+| <prefix>hae    | make {count} segments of signature from end anonymous                                  | fey_anonymize_heading_from_end          |
+| <prefix>has    | make {count} segments of signature from start anonymous                                | fey_anonymize_heading_from_start        |
+| <prefix>$      | Archive subtree to archive file                                                        | fey_archive_subtree                     |
+| [[             | Go to previous heading at the same level                                               | fey_backward_heading_same_level         |
+| <prefix>hde    | update all delimiters to prompted value from end                                       | fey_change_all_delimiters_from_end      |
+| <prefix>hds    | update all delimiters to prompted value from start                                     | fey_change_all_delimiters_from_start    |
+| cid            | Change date under cursor via calendar popup                                            | fey_change_date                         |
+| <prefix>ld     | update all delimiters of current list (not sublists) to prompted value                 | fey_change_list_delimiters              |
+| <prefix>xq     | Cancel active clock on current heading                                                 | fey_clock_cancel                        |
+| <prefix>xj     | Jump to currently clocked in heading                                                   | fey_clock_goto                          |
+| <prefix>xi     | Clock in current heading                                                               | fey_clock_in                            |
+| <prefix>xo     | Clock out current heading                                                              | fey_clock_out                           |
+| <TAB>          | Toggle folding                                                                         | fey_cycle                               |
+| <prefix>id     | Insert/Update deadline date                                                            | fey_deadline                            |
+| <prefix>L      | Demote whole subtree                                                                   | fey_demote_subtree                      |
+| ><             | Demote heading                                                                         | fey_do_demote                           |
+| <>             | Promote heading                                                                        | fey_do_promote                          |
+| <prefix>'      | Edit the source block under the cursor in another buffer                               | fey_edit_special                        |
+| <prefix>hef    | make all segments of signature enumerated                                              | fey_enumerate_heading                   |
+| <prefix>hee    | make {count} segments of signature from end indexed                                    | fey_enumerate_heading_from_end          |
+| <prefix>hes    | make {count} segments of signature from start indexed                                  | fey_enumerate_heading_from_start        |
+| <prefix>fi     | Assert indentation for subsection                                                      | fey_fix_indentation                     |
+| ]]             | Go to next heading at the same level                                                   | fey_forward_heading_same_level          |
+| <S-TAB>        | Toggle folding (whole file)                                                            | fey_global_cycle                        |
+| <prefix><c-k>  | move the cursor to the cell above                                                      | fey_goto_to_cell_above                  |
+| <prefix><c-j>  | move the cursor the cell below                                                         | fey_goto_to_cell_below                  |
+| <prefix><c-l>  | move the curosr to the next cell                                                       | fey_goto_to_cell_next                   |
+| <prefix><c-h>  | move the cursor to the previous cell                                                   | fey_goto_to_cell_prev                   |
+| <prefix>ih     | Add new heading after current subtree                                                  | fey_insert_heading_respect_content      |
+| <prefix>iH     | Add new subheading after current subtree                                               | fey_insert_subheading_respect_content   |
+| <Leader><CR>   | Add heading at {count} level, list item or checkbox (context aware)                    | fey_meta_return                         |
+| <Leader><S-CR> | Add subheading at curr+{1 or count} level, list item or checkbox (context aware)       | fey_meta_sub_return                     |
+| <prefix>J      | Move subtree down                                                                      | fey_move_subtree_down                   |
+| <prefix>K      | Move subtree up                                                                        | fey_move_subtree_up                     |
+| }              | Go to next heading (any level)                                                         | fey_next_visible_heading                |
+| <prefix>o      | Follow the link or section tag under the cursor                                        | fey_open_at_point                       |
+| {              | Go to previous heading (any level)                                                     | fey_previous_visible_heading            |
+| <prefix>,      | Change the priority of the current heading                                             | fey_priority                            |
+| cir            | Decrease priority of heading                                                           | fey_priority_down                       |
+| ciR            | Increase priority of heading                                                           | fey_priority_up                         |
+| <prefix>H      | Promote whole subtree                                                                  | fey_promote_subtree                     |
+| <prefix>qa     | Run every query tag in the buffer and write their results                              | fey_query_run_all                       |
+| <prefix>qq     | Run the query tag under the cursor and write its result as a table or list below it    | fey_query_run_at_tag                    |
+| <prefix>r      | Refile heading to specific destination                                                 | fey_refile                              |
+| <prefix>fI     | triggers and automatic reindex of a list or headings                                   | fey_reindex_headings_or_list            |
+| <CR>           | Insert mode: move through a table, keep the indentation of a paragraph or list item    | fey_return                              |
+| <prefix>is     | Insert/Update scheduled date                                                           | fey_schedule                            |
+| <prefix>xe     | Set effort estimate on current heading                                                 | fey_set_effort                          |
+| <prefix>sl     | Change tags of current heading                                                         | fey_set_tags_command                    |
+| <prefix>tc     | insert table after current line using count or obtained input. default 2x2             | fey_table_create_after                  |
+| <prefix>tC     | insert table before curent line using count or obtained input. default 2x2             | fey_table_create_before                 |
+| <prefix>tdc    | delete the current col under cursor                                                    | fey_table_delete_col                    |
+| <prefix>tdr    | delete the current row under curosr                                                    | fey_table_delete_row                    |
+| <prefix>tie    | inserts a logical row bounary end line after the current row                           | fey_table_insert_boundary_end_after     |
+| <prefix>tiE    | inserts a logical row bounary end line before the current row                          | fey_table_insert_boundary_end_before    |
+| <prefix>tii    | inserts a logical row inner boundary line after the current row                        | fey_table_insert_boundary_inner_after   |
+| <prefix>tiI    | inserts a logical row inner boundary line before the current row                       | fey_table_insert_boundary_inner_before  |
+| <prefix>tis    | inserts a logical row bounary start line after the current row                         | fey_table_insert_boundary_start_after   |
+| <prefix>tiS    | inserts a logical row bounary start line before the current row                        | fey_table_insert_boundary_start_before  |
+| <prefix>tic    | insert a blank col after the current col under cursor                                  | fey_table_insert_col_after              |
+| <prefix>tiC    | insert a blank col befre the current col under curosr                                  | fey_table_insert_col_before             |
+| <prefix>tir    | insert a blank row after the current row under cursor                                  | fey_table_insert_row_after              |
+| <prefix>tiR    | insert a blank row before the current row under cursor                                 | fey_table_insert_row_before             |
+| <prefix>tid    | inserts a section divider line after the current row                                   | fey_table_insert_section_divider_after  |
+| <prefix>tiD    | inserts a section divider line before the current row                                  | fey_table_insert_section_divider_before |
+| <prefix>tmS    | Merge the content of the cell above into this cell                                     | fey_table_merge_cell_content_from_above |
+| <prefix>tms    | Merge the content of the cell below into this cell                                     | fey_table_merge_cell_content_from_below |
+| <prefix>tmV    | Merge the content of the cell to the left into this cell                               | fey_table_merge_cell_content_from_left  |
+| <prefix>tmv    | Merge the content of the cell to the right into this cell                              | fey_table_merge_cell_content_from_right |
+| <prefix>tmd    | combine current cell under cursor with cell below                                      | fey_table_merge_cell_down               |
+| <prefix>tmR    | combine current cell under cursor with cell to the left                                | fey_table_merge_cell_left               |
+| <prefix>tmr    | combine current cell under cursor with cell to the right                               | fey_table_merge_cell_right              |
+| <prefix>tmD    | combine current cell under cursor with cell above                                      | fey_table_merge_cell_up                 |
+| <prefix>tj     | swap current cell under cursor with cell below                                         | fey_table_move_cell_down                |
+| <prefix>th     | swap current cell under cursor with cell to the left                                   | fey_table_move_cell_left                |
+| <prefix>tl     | swap current cell under cursor with cell to the right                                  | fey_table_move_cell_right               |
+| <prefix>tk     | swap current cell under curosr with cell above                                         | fey_table_move_cell_up                  |
+| <prefix>tmh    | move the current table col under curosr left                                           | fey_table_move_col_left                 |
+| <prefix>tml    | move the current table col under curosr right                                          | fey_table_move_col_right                |
+| <prefix>tmj    | move the current table row under cursor down                                           | fey_table_move_row_down                 |
+| <prefix>tmk    | move the current table row under cursor up                                             | fey_table_move_row_up                   |
+| <prefix>tf     | reformat table, reflowing text and aligning to a grid                                  | fey_table_reformat                      |
+| <prefix>tu     | break apart combined cells into individual cells                                       | fey_table_unmerge_cells                 |
+| <prefix>i.     | Insert date under cursor                                                               | fey_time_stamp                          |
+| <prefix>i!     | Insert/Update inactive date under cursor                                               | fey_time_stamp_inactive                 |
+| <C-x>          | Decrease date part under cursor (year/month/day/hour/minute/repeater/active\|inactive) | fey_timestamp_down                      |
+| <S-DOWN>       | Decrease timestamp by one day                                                          | fey_timestamp_down_day                  |
+| <C-a>          | Increase date part under cursor (year/month/day/hour/minute/repeater/active\|inactive) | fey_timestamp_up                        |
+| <S-UP>         | Increase timestamp by one day                                                          | fey_timestamp_up_day                    |
+| cit            | Forward change TODO state of current heading                                           | fey_todo                                |
+| ciT            | Backward change TODO state of current heading                                          | fey_todo_prev                           |
+| <prefix>A      | Toggle "ARCHIVE" tag on current heading                                                | fey_toggle_archive_tag                  |
+| <prefix>Tc     | Show or hide the tag syntax around the todo keyword, priority and labels of headings   | fey_toggle_conceal_task_tags            |
+| <prefix>d!     | Toggle timestamp active/inactive type                                                  | fey_toggle_timestamp_type               |
+| g}             | Go to last child heading                                                               | last_child_heading                      |
+| g{             | Go to parent heading                                                                   | outline_up_heading                      |
+
+In the agenda:
+
+| keys       | does                                                                     | name                          |
++============+==========================================================================+===============================+
+| <prefix>$  | Archive heading to archive file                                          | fey_agenda_archive            |
+| X          | Cancel clocking on currently active clocked item                         | fey_agenda_clock_cancel       |
+| <prefix>xj | Jump to currently active clock item                                      | fey_agenda_clock_goto         |
+| I          | Clock in item under cursor                                               | fey_agenda_clock_in           |
+| O          | Clock out currently active clocked item                                  | fey_agenda_clock_out          |
+| R          | Toggle clock report for current agenda time range                        | fey_agenda_clockreport_mode   |
+| vd         | Show day view                                                            | fey_agenda_day_view           |
+| <prefix>id | Insert/Update deadline date on current heading                           | fey_agenda_deadline           |
+| b          | Go backward one span                                                     | fey_agenda_earlier            |
+| /          | Open prompt that allows filtering by category, tags and title(vim regex) | fey_agenda_filter             |
+| <TAB>      | Open in another window                                                   | fey_agenda_goto               |
+| J          | Jump to specific date                                                    | fey_agenda_goto_date          |
+| .          | Go to today's span                                                       | fey_agenda_goto_today         |
+| f          | Go forward one span                                                      | fey_agenda_later              |
+| vm         | Show month view                                                          | fey_agenda_month_view         |
+| K          | Preview agenda item in floating window                                   | fey_agenda_preview            |
+| <prefix>,  | Set priority for current item                                            | fey_agenda_priority           |
+| -          | Decrease priority for current item                                       | fey_agenda_priority_down      |
+| +          | Increase priority for current item                                       | fey_agenda_priority_up        |
+| q          | Close agenda                                                             | fey_agenda_quit               |
+| r          | Rebuild the agenda from the index (asks again in a match or search view) | fey_agenda_redo               |
+| <prefix>r  | Refile heading to specific destination                                   | fey_agenda_refile             |
+| <prefix>is | Insert/Update scheduled date on current heading                          | fey_agenda_schedule           |
+| <prefix>xe | Set effort estimate for item under cursor                                | fey_agenda_set_effort         |
+| <prefix>t  | Change tags of current heading                                           | fey_agenda_set_tags           |
+| g?         | Show this help                                                           | fey_agenda_show_help          |
+| <CR>       | Open in current window                                                   | fey_agenda_switch_to          |
+| t          | Change TODO state of an item                                             | fey_agenda_todo               |
+| <prefix>A  | Toggle "ARCHIVE" tag on current heading                                  | fey_agenda_toggle_archive_tag |
+| vw         | Show week view                                                           | fey_agenda_week_view          |
+| vy         | Show year view                                                           | fey_agenda_year_view          |
+
+In the capture window:
+
+| keys      | does                                                          | name                  |
++===========+===============================================================+=======================+
+| <C-c>     | Write to the destination of the template and close the window | fey_capture_finalize  |
+| <prefix>k | Close without saving                                          | fey_capture_kill      |
+| <prefix>r | Write to a destination you pick                               | fey_capture_refile    |
+| g?        | Show this help                                                | fey_capture_show_help |
+
+In the closing note window:
+
+| keys      | does                           | name              |
++===========+================================+===================+
+| <C-c>     | Save note and close the window | fey_note_finalize |
+| <prefix>k | Close without saving           | fey_note_kill     |
+
+Text objects:
+
+| keys | does                                    | name                     |
++======+=========================================+==========================+
+| ah   | Select around heading                   | around_heading           |
+| OH   | Select around heading from root heading | around_heading_from_root |
+| ar   | Select around subtree                   | around_subtree           |
+| OR   | Select around subtree from root heading | around_subtree_from_root |
+| ih   | Select inner heading                    | inner_heading            |
+| Oh   | Select inner heading from root heading  | inner_heading_from_root  |
+| ir   | Select inner subtree                    | inner_subtree            |
+| Or   | Select inner subtree from root heading  | inner_subtree_from_root  |
+
+-- end generated: mappings --
 
 
   III. Disclaimer

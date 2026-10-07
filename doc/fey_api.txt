@@ -8,8 +8,10 @@ Contents                                                      *fey-api-contents*
 3. FeyApiVault ............................................... |fey-api-vault|
 4. FeyApiFile ................................................. |fey-api-file|
 5. FeyApiHeading ........................................... |fey-api-heading|
-6. Events ................................................... |fey-api-events|
-7. The index schema ........................................ |fey-api-schema|
+6. FeyApiCourt ............................................... |fey-api-court|
+7. FeyApiAgenda ............................................. |fey-api-agenda|
+8. Events ................................................... |fey-api-events|
+9. The index schema ........................................ |fey-api-schema|
 
 ==============================================================================
 1. Overview                                                   *fey-api-overview*
@@ -31,7 +33,9 @@ the index follows.
 <
 
 Terminology: a "tag" is always a Fey syntactic tag. Topical categories are called
-"labels".
+"labels". A "hollow" is a directory with a `.fey` folder, its "vault" is the
+database in it, and the "court" is the top of the tree of hollows, with a merged
+view of all their vaults (|fey-api-court|).
 
 ==============================================================================
 2. Module functions                                             *fey-api-module*
@@ -48,6 +52,10 @@ current_vault()                                         *fey.api.current_vault()
 init_vault({dir?})                                        *fey.api.init_vault()*
     Create a `.fey` directory in `dir` (default: the cwd) and index it.
 
+court()                                                        *fey.api.court()*
+    The court as a |FeyApiCourt| module: the registry of every hollow and the
+    merged view of their vaults.
+
 file({path})                                                    *fey.api.file()*
     A |FeyApiFile| by vault relative or absolute path, or nil.
 
@@ -56,9 +64,11 @@ current()                                                    *fey.api.current()*
 
 query({src}, {opts?})                                          *fey.api.query()*
     Run a query-language query in the current vault and return its result:
-    `type` ("table" or "list"), `count`, and `headers` and `rows` (table) or
-    `items` (list). `opts.this` is the vault relative path of the note the query
-    lives in.
+    `type` ("table", "list" or "task"), `count`, and `headers` and `rows` (table)
+    or `items` (list and task). `opts.this` is the vault relative path of the
+    note the query lives in. `opts.scope` is `current` (default), `tree`,
+    `court` or a list of hollow references (`court:notes`, `court:notes:*`):
+    the query then reads those hollows and each row knows its `hollow`.
 
 query_lines({src}, {opts?})                              *fey.api.query_lines()*
     The query as the lines of Fey source that a `query` tag writes.
@@ -122,11 +132,31 @@ FeyApiVault:files_with_property({name}, {value?})
                                               *FeyApiVault:files_with_property()*
     Files whose document data has the property (and the given value).
 
-FeyApiVault:labels()                                     *FeyApiVault:labels()*
+FeyApiVault:labels({opts?})                              *FeyApiVault:labels()*
     Every label with the number of files using it: `{ label, count }`.
+    `opts.level` is `file` (labels of the document) or `heading` (labels given
+    inside headings); `opts.container` limits to what held the label: `title`,
+    `body`, `text`, `document` or `data`.
 
 FeyApiVault:tags({name})                                   *FeyApiVault:tags()*
     Every use of a tag name: `path`, `line`, `kind`, `vals`, `attrs`.
+
+FeyApiVault:dates({opts?})                                *FeyApiVault:dates()*
+    The dates written in the notes (the date tag and the planning tags) with the
+    heading and task they belong to, ordered by start. Rows: `path`, `line`,
+    `col`, `heading_ord`, `heading_title`, `signature`, `kind` (`date`,
+    `scheduled`, `deadline`, `closed`, `clock`), `active`, `start_ts`, `start_time`,
+    `end_ts`, `end_time`, `repeater`, `warn`, `state`, `done`, `priority`,
+    `heading_line`, `end_line`, `props`, `category` and `labels`. `opts`: `from`
+    and `to` (epoch seconds; a date counts when it overlaps the range, and a
+    repeating date when it started before `to`), `kinds`, `active`, `open_only`
+    (leave out done tasks) and `path`.
+
+FeyApiVault:tasks({opts?})                                *FeyApiVault:tasks()*
+    The headings with a todo keyword or a priority. Rows: `path`, `line`,
+    `heading_ord`, `title`, `signature`, `state`, `done`, `priority`, `labels`.
+    `opts`: `state` (string or list), `done`, `priority`, `label` (matches
+    nested labels too) and `path`.
 
 FeyApiVault:headings({path})                           *FeyApiVault:headings()*
     The heading rows of a file, `data` decoded.
@@ -146,7 +176,7 @@ FeyApiVault:database({name}, {view?})                  *FeyApiVault:database()*
     `rows` holds query-language values (dates, links, lists ...).
 
 FeyApiVault:run_query({src}, {opts?})                  *FeyApiVault:run_query()*
-    Same as |fey.api.query()| for this vault.
+    Same as |fey.api.query()| for this vault (`opts.this`, `opts.scope`).
 
 ==============================================================================
 4. FeyApiFile                                                    *fey-api-file*
@@ -162,11 +192,17 @@ Fields: ~
 
 Lazy fields (read from the index on first access): ~
     {data}       the document data value (usually a table)
-    {labels}     (string[])
+    {labels}     (string[])    labels of the file itself (document and data)
+    {heading_labels}  (string[])  labels given inside its headings
+    {label_rows} every label with `heading_ord`, `label`, `container`, `line`
     {headings}   (FeyApiHeading[])
     {tags}       every tag of the file
     {links}      links and section tags written in the file
     {backlinks}  links from other files to this file
+
+FeyApiFile:heading_at({line})                          *FeyApiFile:heading_at()*
+    The deepest |FeyApiHeading| that holds a line (a heading line or a line of
+    its text), or nil.
 
 FeyApiFile:property({key})                              *FeyApiFile:property()*
     A top level property (key of the document data).
@@ -212,7 +248,88 @@ FeyApiHeading:jump({mode?})                              *FeyApiHeading:jump()*
     Open the file and put the cursor on the heading.
 
 ==============================================================================
-6. Events                                                      *fey-api-events*
+6. FeyApiCourt                                                  *fey-api-court*
+
+`require('fey.api').court()`. The rows of the merged functions carry `hollow`
+(the id, `court:notes`) and `abs` (the file to write to).
+
+root()                                                  *FeyApiCourt.root()*
+    The court directory, nil when the court is switched off.
+
+agenda_dir()                                      *FeyApiCourt.agenda_dir()*
+    The agenda directory of the court.
+
+vault()                                                *FeyApiCourt.vault()*
+    The vault of the court itself, a |FeyApiVault|.
+
+list()                                                  *FeyApiCourt.list()*
+    The hollows registered with the court: `name`, `root`, the registry link
+    and whether the directory is still there.
+
+hollows()                                            *FeyApiCourt.hollows()*
+    Every hollow of the tree, the court first: `{ id, root, court, vault }`.
+
+get({name})                                              *FeyApiCourt.get()*
+    The |FeyApiVault| of a hollow by id (`court:notes`) or by its name.
+
+register({root}, {name?})                           *FeyApiCourt.register()*
+unregister({name})                                *FeyApiCourt.unregister()*
+prune()                                                *FeyApiCourt.prune()*
+    Add or remove registrations. `prune` forgets the hollows whose directory is
+    gone and returns their ids. Hollows register themselves when they are
+    attached.
+
+dates({opts?})                                          *FeyApiCourt.dates()*
+tasks({opts?})                                          *FeyApiCourt.tasks()*
+labels({opts?})                                        *FeyApiCourt.labels()*
+query({sql}, {params?})                                 *FeyApiCourt.query()*
+    The same as the |FeyApiVault| functions, over every hollow. `labels` rows
+    are `{ label, count, hollows }`.
+
+abs({name}, {path})                                       *FeyApiCourt.abs()*
+    Absolute path of a file of a hollow.
+
+refresh({on_done?})                                  *FeyApiCourt.refresh()*
+    Bring the index of every hollow up to date, one after the other, in the
+    background.
+
+jump({name}, {opts?})                                    *FeyApiCourt.jump()*
+    Open a hollow. `opts.cwd` sets the working directory, `opts.tab` opens a
+    tab.
+
+==============================================================================
+7. FeyApiAgenda                                                *fey-api-agenda*
+
+`require('fey.api.agenda')`. The agenda reads the vaults of `fey_agenda_scope`.
+Options shared by the functions: `filters`, `header`, `scope` (as in
+|fey.api.query()|), `fey_agenda_files` (limit the view to files and
+directories), `fey_agenda_tag_filter_preset`, `fey_agenda_category_filter_preset`,
+`fey_agenda_sorting_strategy` and `fey_agenda_remove_tags`.
+
+agenda({options?})                                      *FeyApiAgenda.agenda()*
+    The week (or day) agenda. `options.from` is a date or a string, and
+    `options.span` is `day`, `week`, `month`, `year` or a number of days.
+
+todos({options?})                                        *FeyApiAgenda.todos()*
+    The list of open tasks.
+
+tags({options?})                                          *FeyApiAgenda.tags()*
+tags_todo({options?})                                *FeyApiAgenda.tags_todo()*
+    The headings that match `options.match_query` (labels, properties and
+    keywords, see the agenda section of the README), all of them or only the
+    open tasks. `fey_agenda_todo_ignore_scheduled` and
+    `fey_agenda_todo_ignore_deadlines` leave out items by their dates.
+
+open_by_key({key})                                  *FeyApiAgenda.open_by_key()*
+    What a key of the agenda prompt does, for example `a`, `t`, `m`, `M`, `s` or
+    the key of a custom command.
+
+get_heading_at_cursor()                    *FeyApiAgenda.get_heading_at_cursor()*
+    The |FeyApiHeading| of the agenda line under the cursor, nil outside an
+    agenda.
+
+==============================================================================
+8. Events                                                      *fey-api-events*
 
 `User` autocmds (`vim.api.nvim_create_autocmd('User', ...)`, or |fey.api.on()|):
 
@@ -220,18 +337,30 @@ FeyApiHeading:jump({mode?})                              *FeyApiHeading:jump()*
     `FeyVaultFileIndexed`  one file was re-indexed. `data = { root, path }`
 
 ==============================================================================
-7. The index schema                                            *fey-api-schema*
+9. The index schema                                            *fey-api-schema*
 
 All `path` columns are relative to the vault root; JSON columns hold JSON text.
 
     files       id, path, mtime, size, title, data (JSON), errors (JSON), indexed_at
     headings    file_id, ord, parent_ord, level, signature, title, path, line,
-                end_line, data (JSON)
-    tags        file_id, heading_ord, kind, name, line, vals (JSON), attrs (JSON)
-    links       file_id, heading_ord, kind, target, target_file, target_sig,
-                description, line, meta (JSON)
-    labels      file_id, heading_ord, label
+                end_line, data (JSON), props (JSON map of the prop tags)
+    tags        file_id, heading_ord, kind, name, line, region, vals (JSON),
+                attrs (JSON)
+    links       file_id, heading_ord, kind, target, target_ref, target_file,
+                target_sig, description, line, meta (JSON)
+    labels      file_id, heading_ord, label, container, line
     properties  file_id, name, value (JSON): the top level keys of the data
+    dates       file_id, heading_ord, line, col, kind, active, start_ts,
+                start_time, end_ts, end_time, repeater, warn
+    tasks       file_id, heading_ord, line, kind, state, done, priority, title
+
+`region` says where a tag sits: `title`, `body` (a tag line right under a
+heading), `text` or `document`. `container` of a label is `title`, `body`,
+`text`, `document` or `data`. `target_ref` of a link is the hollow it names
+(`court:notes`, `current`) and is NULL for a link inside the hollow. Times are
+epoch seconds in local time; `start_time` is 1 when the date has a time of day.
+The index version is 5 (a clock is a `dates` row with `kind` `clock` and no end while it runs): a vault written by an older version is rebuilt when
+it is opened.
 
 `heading_ord` is NULL for entries outside any section. `target_sig` is the
 signature as tokens joined by dots (`I.A.` is stored as `I.A`).

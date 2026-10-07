@@ -20,6 +20,8 @@ local utils = require('fey.utils')
 ---@field state? string todo keyword
 ---@field priority? string
 ---@field labels string[]
+---@field level? integer
+---@field end_line? integer
 ---@field props table<string, any>
 ---@field file { index: integer, get_category: fun(): string }
 local Entry = {}
@@ -42,6 +44,9 @@ function Entry.from_row(row, index)
     priority = row.priority,
     labels = row.labels or {},
     props = row.props or {},
+    level = row.level,
+    end_line = row.end_line,
+    _plan = row.plan,
     _category = row.category,
   }, Entry)
   self.file = {
@@ -126,14 +131,77 @@ function Entry:tags_to_string(sorted) return utils.tags_to_string(self.labels, s
 
 ---@return boolean
 function Entry:is_archived()
+  if self.path and self.path:match('%.fey_archive$') then return true end
   for _, label in ipairs(self.labels) do
     if label:upper() == 'ARCHIVE' then return true end
   end
   return false
 end
 
--- The clock arrives with II.O, the logbook is not read from the vault yet
+---@param kind 'deadline'|'scheduled'|'closed'
+---@return FeyDate|nil
+function Entry:_plan_date(kind)
+  local row = self._plan and self._plan[kind]
+  if not row then return nil end
+  self._plan_dates = self._plan_dates or {}
+  if self._plan_dates[kind] == nil then
+    self._plan_dates[kind] = require('fey.agenda.source').dates_of(row)[1] or false
+  end
+  return self._plan_dates[kind] or nil
+end
+
+---@return FeyDate|nil
+function Entry:get_deadline_date() return self:_plan_date('deadline') end
+
+---@return FeyDate|nil
+function Entry:get_scheduled_date() return self:_plan_date('scheduled') end
+
+---@return FeyDate|nil
+function Entry:get_closed_date() return self:_plan_date('closed') end
+
+---What the match language (`+work-home/TODO`, `priority="A"`, `deadline<"<today>"`) looks at
+---@return FeySearchable
+function Entry:search_item()
+  local props = {}
+  for key, value in pairs(self.props) do
+    if type(value) == 'table' then value = value[1] end
+    props[key:lower()] = tostring(value)
+  end
+  local deadline, scheduled, closed = self:get_deadline_date(), self:get_scheduled_date(), self:get_closed_date()
+  local todo = self:get_todo() or ''
+  return {
+    props = vim.tbl_extend('keep', props, {
+      category = self:get_category(),
+      deadline = deadline and deadline:to_wrapped_string(true),
+      scheduled = scheduled and scheduled:to_wrapped_string(true),
+      closed = closed and closed:to_wrapped_string(false),
+      priority = self.priority or '',
+      todo = todo,
+      level = self.level,
+    }),
+    tags = self.labels,
+    todo = todo,
+  }
+end
+
+---The lines of the heading and everything below it (from the buffer when it is loaded)
+---@return string[]
+function Entry:get_lines()
+  local buf = vim.fn.bufnr(self.abs)
+  local lines
+  if buf > 0 and vim.api.nvim_buf_is_loaded(buf) then
+    lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  elseif self.abs and vim.fn.filereadable(self.abs) == 1 then
+    lines = vim.fn.readfile(self.abs)
+  else
+    return { self.title }
+  end
+  local last = math.min(self.end_line or #lines, #lines)
+  return vim.list_slice(lines, self.line, last)
+end
+
+---Does a clock run on this heading (set when the source builds the entry)
 ---@return boolean
-function Entry:is_clocked_in() return false end
+function Entry:is_clocked_in() return self._clocked == true end
 
 return Entry

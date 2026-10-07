@@ -67,10 +67,9 @@ function Fey:init()
     })
     :load_sync(true, 20000)
   self.links = require('fey.fey.links'):new({ files = self.files })
-  local agenda_files = require('fey.config').fey_agenda_files
   self.agenda = require('fey.agenda'):new({
     files = self.files,
-    source = require('fey.agenda.source').new({ paths = agenda_files }),
+    source = require('fey.agenda.source').new(),
     highlighter = self.highlighter,
     links = self.links,
   })
@@ -225,15 +224,7 @@ function Fey.setup(opts)
   vim.keymap.set('n', prefix .. ':', function() require('fey.ui.navigator').resume() end, { desc = 'reopen fey navigator' })
   vim.defer_fn(function()
     if config.notifications.enabled and #vim.api.nvim_list_uis() > 0 then
-      Fey.files:load():next(vim.schedule_wrap(
-        function()
-          instance.notifications = require('fey.notifications')
-            :new({
-              files = Fey.files,
-            })
-            :start_timer()
-        end
-      ))
+      instance.notifications = require('fey.notifications'):new():start_timer()
     end
     config:setup_mappings('global')
   end, 1)
@@ -294,12 +285,14 @@ function Fey.cron(opts)
   local ok, result = pcall(function()
     local config = require('fey.config'):extend(opts or {})
     if not config.notifications.cron_enabled then return vim.cmd([[qa!]]) end
-    -- Fey.files:load_sync(true, 20000)
-    instance.notifications = require('fey.notifications')
-      :new({
-        files = Fey.files,
-      })
-      :cron()
+    -- the index is brought up to date first, nothing else is loaded
+    local court = require('fey.hollow.court')
+    if court.root() then
+      local done = false
+      court.refresh(function() done = true end)
+      vim.wait(30000, function() return done end, 20)
+    end
+    require('fey.notifications'):new():cron()
   end)
 
   if not ok then

@@ -86,12 +86,14 @@ function Help._generate_tree()
 end
 
 function Help._generate_mappings(buffer_type, title)
+  if not Help.tree then Help._generate_tree() end
   local content = {
     ('  __%s__'):format(title),
   }
   local mappings = config.mappings
   for _, item in ipairs(Help.tree[buffer_type]) do
-    local maps = mappings[buffer_type][item.key]
+    local maps = (mappings[buffer_type] or {})[item.key]
+    if maps == nil then goto continue end
     if type(maps) == 'table' then
       maps = table.concat(maps, ', ')
     end

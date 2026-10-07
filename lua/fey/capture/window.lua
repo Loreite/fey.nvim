@@ -41,6 +41,7 @@ function CaptureWindow:open()
     self._window = utils.open_tmp_fey_window(16, config.win_split_mode, config.win_border, self:_on_close())
     vim.api.nvim_buf_set_lines(0, 0, -1, true, content)
     self.template:setup()
+    self._initial = vim.api.nvim_buf_get_lines(0, 0, -1, false)
     vim.b.fey_capture = true
     vim.b.fey_capture_window_id = self.id
     self._bufnr = vim.api.nvim_get_current_buf()
@@ -88,6 +89,13 @@ end
 ---@return boolean
 function CaptureWindow:is_modified()
   return vim.bo[self._bufnr].modified
+end
+
+---Is the text what the template made of it, nothing typed
+---@return boolean
+function CaptureWindow:is_untouched()
+  if not self._bufnr or not vim.api.nvim_buf_is_valid(self._bufnr) then return true end
+  return vim.deep_equal(vim.api.nvim_buf_get_lines(self._bufnr, 0, -1, false), self._initial or {})
 end
 
 ---@return number

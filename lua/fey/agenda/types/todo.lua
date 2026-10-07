@@ -1,6 +1,6 @@
 local config = require('fey.config')
 local AgendaView = require('fey.agenda.view.init')
-local Files = require('fey.files')
+local Details = require('fey.agenda.details')
 local AgendaLine = require('fey.agenda.view.line')
 local AgendaFilter = require('fey.agenda.filter')
 local AgendaLineToken = require('fey.agenda.view.token')
@@ -12,6 +12,7 @@ local Promise = require('fey.utils.promise')
 
 ---@class FeyAgendaTodosTypeOpts
 ---@field files FeyFiles
+---@field source FeyAgendaSource
 ---@field highlighter FeyHighlighter
 ---@field agenda_filter FeyAgendaFilter
 ---@field filter? string
@@ -27,6 +28,7 @@ local Promise = require('fey.utils.promise')
 
 ---@class FeyAgendaTodosType:FeyAgendaViewType
 ---@field files FeyFiles
+---@field source FeyAgendaSource
 ---@field highlighter FeyHighlighter
 ---@field agenda_filter FeyAgendaFilter
 ---@field filter? FeyAgendaFilter
@@ -48,6 +50,7 @@ FeyAgendaTodosType.__index = FeyAgendaTodosType
 function FeyAgendaTodosType:new(opts)
   local this = setmetatable({
     files = opts.files,
+    source = opts.source or require('fey.agenda.source').new(),
     highlighter = opts.highlighter,
     agenda_filter = opts.agenda_filter,
     filter = opts.filter and AgendaFilter:new():parse(opts.filter, true) or nil,
@@ -79,21 +82,17 @@ function FeyAgendaTodosType:prepare()
   return Promise.resolve(self)
 end
 
+---`agenda_files` of a custom command limits the source to those files and directories
 function FeyAgendaTodosType:_setup_agenda_files()
   if not self.agenda_files then
     return
   end
-  self.files = Files:new({
-    paths = self.agenda_files,
-    cache = true,
-  }):load_sync(true)
+  self.source = setmetatable({ paths = nil }, { __index = self.source })
+  self.source:set_paths(self.agenda_files)
 end
 
-function FeyAgendaTodosType:redo()
-  if self.agenda_files then
-    self.files:load_sync(true)
-  end
-end
+-- the headings are read from the index each time the view is built, there is nothing to reload
+function FeyAgendaTodosType:redo() end
 
 function FeyAgendaTodosType:_get_header()
   if self.header then
@@ -119,6 +118,8 @@ function FeyAgendaTodosType:render(bufnr)
     content = self:_get_header(),
     hl_group = '@fey.agenda.header',
   }))
+  local scope_line = Details.scope_line(self.source)
+  if scope_line then agendaView:add_line(scope_line) end
   if self.subheader then
     agendaView:add_line(AgendaLine:single_token({
       content = self.subheader,
@@ -126,8 +127,11 @@ function FeyAgendaTodosType:render(bufnr)
     }))
   end
 
+  local show_hollow = Details.show_hollow(self.source)
   for _, heading in ipairs(headings) do
-    agendaView:add_line(self:_build_line(heading, { category_length = category_length }))
+    local metadata = { category_length = category_length }
+    agendaView:add_line(self:_build_line(heading, metadata))
+    if show_hollow then agendaView:add_line(Details.hollow_line(heading, metadata)) end
   end
 
   self.view = agendaView:render()
@@ -197,34 +201,25 @@ function FeyAgendaTodosType:rerender_agenda_line(agenda_line, heading)
   self.view:replace_line(agenda_line, line)
 end
 
----@param file FeyFile
----@return FeyHeading[]
-function FeyAgendaTodosType:get_file_headings(file)
-  if self.todo_only then
-    return file:get_unfinished_todo_entries()
-  end
-
-  return file:get_headings()
+---The headings the view is about, before the filters: the open todo items, or every heading
+---@return FeyAgendaEntry[]
+function FeyAgendaTodosType:get_entries()
+  return self.source:headings({ todo_only = self.todo_only })
 end
 
----@return FeyHeading[], number
+---@return FeyAgendaEntry[], number
 function FeyAgendaTodosType:_get_headings()
   local items = {}
   local category_length = 0
 
-  for _, feyfile in ipairs(self.files:all()) do
-    local headings = self:get_file_headings(feyfile)
-    for i, heading in ipairs(headings) do
-      if self:_matches_filters(heading) then
-        category_length = math.max(category_length, vim.api.nvim_strwidth(heading:get_category()))
-        ---@diagnostic disable-next-line: inject-field
-        heading.index = i
-        table.insert(items, heading)
-      end
+  for _, heading in ipairs(self:get_entries()) do
+    if self:_matches_filters(heading) then
+      category_length = math.max(category_length, vim.api.nvim_strwidth(heading:get_category()))
+      table.insert(items, heading)
     end
   end
 
-  self:_sort(items)
+  items = self:_sort(items)
   return items, category_length + 1
 end
 

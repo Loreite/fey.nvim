@@ -10,7 +10,7 @@
 --   links       file_id, heading_ord, kind, target, target_ref, target_file, target_sig, description, line, meta (JSON)
 --   labels      file_id, heading_ord, label, container, line
 --   properties  file_id, name, value (JSON): top level keys of the document data
---   dates       file_id, heading_ord, line, col, kind, active, start_ts, start_time, end_ts, end_time, repeater, warn
+--   dates       file_id, heading_ord, line, col, kind (date, scheduled, deadline, closed, clock), active, start_ts, start_time, end_ts, end_time, repeater, warn
 --   tasks       file_id, heading_ord, line, kind, state, done, priority, title
 --
 -- `heading_ord` is NULL for document level entries. `links.target_file` and
@@ -21,7 +21,7 @@ local extract = require('fey.vault.extract')
 local fs = require('fey.utils.fs')
 local uv = vim.uv
 
-local SCHEMA_VERSION = 4
+local SCHEMA_VERSION = 5
 
 local SCHEMA = [[
 CREATE TABLE files (
@@ -99,7 +99,7 @@ CREATE TABLE dates (
   heading_ord INTEGER,
   line INTEGER,
   col INTEGER,
-  kind TEXT NOT NULL,        -- date|scheduled|deadline|closed
+  kind TEXT NOT NULL,        -- date|scheduled|deadline|closed|clock (a clock has no end while it runs)
   active INTEGER NOT NULL,
   start_ts INTEGER,          -- epoch seconds, local time
   start_time INTEGER,        -- 1 when the date has a time of day
@@ -433,6 +433,7 @@ local function extract_opts(self)
     },
     status_tag = config.fey_status_tag_name,
     prop_tag = config.fey_property_tag_name,
+    clock_tag = config.fey_clock_tag_name,
     -- the keywords of the file (the `todo` key of its data) or the configured ones
     todo_lookup = function(data_todo)
       local sequences
@@ -761,6 +762,87 @@ function Vault:files_with_property(name, value)
   return out
 end
 
+---Labels of a heading as the agenda sees them: its own, those of the headings above it and those of the
+---document (`{# labels #}` outside of any heading)
+---@return fun(file_id: integer, ord: integer): string[]
+function Vault:_label_index()
+  local own, parent = {}, {}
+  for _, l in ipairs(self:query('SELECT file_id, heading_ord, label FROM labels')) do
+    local key = l.file_id .. ':' .. (l.heading_ord or 'file')
+    own[key] = own[key] or {}
+    table.insert(own[key], l.label)
+  end
+  for _, h in ipairs(self:query('SELECT file_id, ord, parent_ord FROM headings')) do
+    parent[h.file_id .. ':' .. h.ord] = h.parent_ord
+  end
+  return function(file_id, ord)
+    local out, seen = {}, {}
+    local function add(key)
+      for _, label in ipairs(own[key] or {}) do
+        if not seen[label:lower()] then
+          seen[label:lower()] = true
+          out[#out + 1] = label
+        end
+      end
+    end
+    local at, guard = ord, 0
+    while at and guard < 64 do
+      add(file_id .. ':' .. at)
+      at = parent[file_id .. ':' .. at]
+      guard = guard + 1
+    end
+    add(file_id .. ':file')
+    return out
+  end
+end
+
+---Headings for the agenda views that list headings (todo, match, search): each with the labels it has
+---(own, inherited and of the document), its props, todo state and priority, and its planning dates
+---@param opts? { todo_only?: boolean, path?: string } `todo_only` keeps the headings with an open todo state
+---@return table[] rows path, ord, line, end_line, level, signature, title, props, state, done, priority, labels, category, plan (kind to date row: deadline, scheduled, closed)
+function Vault:agenda_headings(opts)
+  opts = opts or {}
+  local where, params = {}, {}
+  if opts.path then
+    where[#where + 1] = 'f.path = :path'
+    params.path = opts.path
+  end
+  local rows = self:query(
+    [[SELECT f.path, h.file_id, h.ord, h.line, h.end_line, h.level, h.signature, h.title, h.props,
+        t.state, t.done, t.priority,
+        (SELECT p.value FROM properties p WHERE p.file_id = h.file_id AND p.name = 'category') AS category
+      FROM headings h JOIN files f ON f.id = h.file_id
+      LEFT JOIN tasks t ON t.file_id = h.file_id AND t.heading_ord = h.ord AND t.kind = 'heading'
+      ]] .. (#where > 0 and ('WHERE ' .. table.concat(where, ' AND ')) or '') .. [[
+
+      ORDER BY f.path, h.ord]],
+    params
+  )
+  local labels_of = self:_label_index()
+  local plan = {}
+  for _, d in ipairs(self:query(
+    [[SELECT file_id, heading_ord, kind, active, start_ts, start_time, end_ts, end_time, repeater, warn, line, col
+      FROM dates WHERE kind IN ('deadline', 'scheduled', 'closed') AND heading_ord IS NOT NULL ORDER BY start_ts]]
+  )) do
+    local key = d.file_id .. ':' .. d.heading_ord
+    plan[key] = plan[key] or {}
+    plan[key][d.kind] = plan[key][d.kind] or d
+  end
+  local out = {}
+  for _, row in ipairs(rows) do
+    row.props = decode(row.props) or {}
+    row.category = decode(row.category)
+    row.labels = labels_of(row.file_id, row.ord)
+    row.plan = plan[row.file_id .. ':' .. row.ord] or {}
+    row.done = row.done == 1
+    row.heading_ord = row.ord
+    row.heading_title = row.title
+    row.heading_line = row.line
+    out[#out + 1] = row
+  end
+  return out
+end
+
 ---Dates of the vault with the heading and the task they belong to, ordered by start
 ---@param opts? { from?: integer, to?: integer, kinds?: string[], active?: boolean, open_only?: boolean, path?: string } `from`/`to` are epoch seconds: a date counts when it starts before `to` and ends after `from` (a repeating date counts when it started before `to`); `open_only` leaves out the dates of headings whose task is done; `path` limits to one file
 ---@return table[] rows path, line, col, heading_ord, heading_title, signature, kind, active, start_ts, start_time, end_ts, end_time, repeater, warn, state, done, priority, heading_line, props (map of the prop tags of the heading), category (the `category` of the document), labels (of the heading)
@@ -804,7 +886,7 @@ function Vault:dates(opts)
   local rows = self:query(
     [[SELECT f.path, d.line, d.col, d.heading_ord, h.title AS heading_title, h.signature, d.kind, d.active,
         d.start_ts, d.start_time, d.end_ts, d.end_time, d.repeater, d.warn, t.state, t.done, t.priority,
-        h.line AS heading_line, h.props, d.file_id,
+        h.line AS heading_line, h.end_line, h.props, h.parent_ord, d.file_id,
         (SELECT p.value FROM properties p WHERE p.file_id = d.file_id AND p.name = 'category') AS category
       FROM dates d JOIN files f ON f.id = d.file_id
       LEFT JOIN headings h ON h.file_id = d.file_id AND h.ord = d.heading_ord
@@ -815,14 +897,9 @@ function Vault:dates(opts)
     params
   )
   if #rows == 0 then return rows end
-  local labels = {}
-  for _, l in ipairs(self:query('SELECT file_id, heading_ord, label FROM labels WHERE heading_ord IS NOT NULL')) do
-    local key = l.file_id .. ':' .. l.heading_ord
-    labels[key] = labels[key] or {}
-    table.insert(labels[key], l.label)
-  end
+  local labels_of = self:_label_index()
   for _, row in ipairs(rows) do
-    row.labels = row.heading_ord and labels[row.file_id .. ':' .. row.heading_ord] or {}
+    row.labels = row.heading_ord and labels_of(row.file_id, row.heading_ord) or {}
     row.props = decode(row.props) or {}
     row.category = decode(row.category)
     row.file_id = nil

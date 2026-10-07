@@ -28,6 +28,7 @@ vim.opt_local.omnifunc = 'v:lua.fey.omnifunc'
 vim.opt_local.commentstring = '# %s'
 vim.bo.indentkeys = ('%s,%s'):format(vim.bo.indentkeys, '=~end_src,=~end_example,<:>')
 
+_G.fey = _G.fey or {}
 _G.fey.omnifunc = function(findstart, base) return require('fey').completion:omnifunc(findstart, base) end
 
 local abbreviations = {

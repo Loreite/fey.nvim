@@ -17,18 +17,26 @@ function FeyAgendaSearchType:new(opts)
   setmetatable(self, { __index = FeyAgendaTodosType })
   local obj = FeyAgendaTodosType:new(opts)
   setmetatable(obj, self)
-  obj.heading_query = self.heading_query
+  obj.heading_query = opts.heading_query
   return obj
+end
+
+function FeyAgendaSearchType:_get_header()
+  if self.header then return self.header end
+  return 'Search words: ' .. (self.heading_query or '')
 end
 
 function FeyAgendaSearchType:prepare()
   if not self.heading_query or self.heading_query == '' then
     return self:get_search_term()
   end
+  return self
 end
 
-function FeyAgendaSearchType:get_file_headings(file)
-  return file:find_headings_matching_search_term(self.heading_query or '', false, true)
+---The headings whose title or text has the term
+---@return FeyAgendaEntry[]
+function FeyAgendaSearchType:get_entries()
+  return self.source:search(vim.pesc(self.heading_query or ''))
 end
 
 function FeyAgendaSearchType:get_search_term()
