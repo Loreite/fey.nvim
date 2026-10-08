@@ -195,9 +195,13 @@ is not listed.
   VII.W. Import (from III.T)
 -  Formats beyond the two (reStructuredText, plain HTML, Logseq and Roam pages, Joplin and Notion exports), org's inline footnotes, radio targets, `#+include`, `#+results:` blocks and table formulas (VI.A), and org links
    to a heading or a custom id of the same file (kept as their text; they could become `section` links once the signatures are known).
--  Markdown: highlights (no Fey form), nested YAML in the front matter, wikilinks to a heading (`Note#Heading` becomes a link to the note with the heading in the description, because the signature of the heading is
-   not known when the file is read; resolving it needs the vault), block ids (`^id`, dropped), embeds of notes (a link, not the transcluded text), Dataview queries (kept as code blocks; they could become `query` tags),
+-  Markdown: highlights (no Fey form), wikilinks to a heading (`Note#Heading` becomes a link to the note with the heading in the description, because the signature of the heading is
+   not known when the file is read; resolving it needs the vault), block ids (`^id`, dropped), embeds of notes (a link, not the transcluded text),
    and a list of one kind next to a list of another kind, which Fey reads as one list.
+-  Obsidian plugins (archive import): the Dataview queries and Database Folder views are converted (`fey.import.obsidian`; the folders they read from are found by name in `opts.root`), but `dataviewjs` blocks, Tasks and
+   Templater blocks stay source blocks. A dbfolder column keeps its property and width, but the types of the inputs (select options and their colours, checkbox, calendar), the sorting by `sortIndex` and the settings
+   of the plugin (cell size, templates folder, pagination) have no place in a database file yet. The Multi-Column plugin (`start-multi-column` fences and the `--- column-end ---` lines) stay as they were: a tag
+   that lays text out in columns is to be supported with the export. A Dataview inline field is moved into the table data of the document only before the first heading, and only a field alone on its line.
 -  A report mode for a whole folder (a table of the notes, the warnings and the files that did not parse), `--jobs` for large batches, `.fey` files that exist as a reason to skip rather than fail, and rewriting the
    links between the imported files (a link to `a.md` becomes `a.fey` already; a link to a note by its title, the way Obsidian resolves them, does not).
 -  tree-sitter-fey: nothing is left of III.T. The unit tests of the scanner (`test/scanner_test.c`) and the stress test (`test/stress_test.py`, it needs the python module `tree_sitter` and tag names without a hyphen) pass again;

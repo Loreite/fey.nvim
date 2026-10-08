@@ -108,8 +108,15 @@ local function inlines(ctx, node, from, to)
         flush()
         local url = child:field('url')[1]
         local desc = child:field('desc')[1]
-        local href = url and target_of(ctx, node_text(ctx, url))
+        local raw_url = url and node_text(ctx, url) or ''
         local children = descr(ctx, desc)
+        -- `[[target \| words]]`, the way Obsidian writes a link with words, in an org file
+        local alias_of, alias = raw_url:match('^(.-)%s*\\?|%s*(.*)$')
+        if not desc and alias_of and alias ~= '' then
+          raw_url = alias_of
+          children = { { t = 'text', s = alias } }
+        end
+        local href = url and target_of(ctx, raw_url)
         if not href then
           ctx.dropped.internal = true
           vim.list_extend(items, #children > 0 and children or { { t = 'text', s = url and node_text(ctx, url) or '' } })
@@ -442,6 +449,9 @@ function M.parse(src, opts)
   local ok, err = M.available(opts.parser)
   if not ok then return nil, err end
   if src:sub(-1) ~= '\n' then src = src .. '\n' end
+  -- a YAML front matter at the top (notes written by other tools put one in org files too) is the data of the document
+  local yaml, after = src:match('^%-%-%-\n(.-)\n%-%-%-[ \t]*\n()')
+  if yaml then src = src:sub(after) end
   local parser = vim.treesitter.get_string_parser(src, 'org')
   local root = parser:parse()[1]:root()
   local config = require('fey.config')
@@ -453,6 +463,7 @@ function M.parse(src, opts)
     todo = vim.deepcopy(config.fey_todo_keywords or { 'TODO', '|', 'DONE' }),
   }
   local doc = { data = {}, labels = {}, blocks = {}, sections = {}, warnings = {} }
+  if yaml then require('fey.import.markdown').front_matter(ctx, yaml, doc) end
 
   local body = root:field('body')[1]
   if body then

@@ -173,6 +173,25 @@ function Writer:inlines(items)
       else
         out[#out + 1] = '#[ math ] ' .. tex .. ' #'
       end
+    elseif t == 'html' then
+      -- an HTML element is a pair tag with its name, the attributes as its keys
+      local keys, order = {}, {}
+      for _, a in ipairs(item.attrs) do
+        if keys[a[1]] == nil then order[#order + 1] = a[1] end
+        keys[a[1]] = a[2] ~= '' and a[2] or 'true'
+      end
+      local head = self:build(item.name, nil, keys, { order = order, bracket = '[' })
+      if head and not head:sub(1, -3):find('#]', 1, true) then
+        out[#out + 1] = head:gsub('^%[#', '[', 1) .. self:inlines(item.children) .. '[# ' .. item.name .. ' ]'
+      else
+        out[#out + 1] = self:inlines({ { t = 'hraw', raw = item.raw_open } }) .. self:inlines(item.children) .. self:inlines({ { t = 'hraw', raw = item.raw_close } })
+      end
+    elseif t == 'hraw' then
+      out[#out + 1] = '#[ html ] ' .. item.raw:gsub(' #', ' \\#') .. ' #'
+    elseif t == 'comment' then
+      -- kept: the line tag ends at ` #` (`\#` is a hash in its body) and is one line
+      local text = vim.trim(item.s):gsub('%s*\n%s*', ' '):gsub(' #', ' \\#')
+      if text ~= '' then out[#out + 1] = '#[ comment ] ' .. text .. ' #' end
     elseif t == 'date' then
       out[#out + 1] = self:tag('date', { item.value }, { active = item.active == false and 'false' or nil }, { sigil = '@' })
     elseif t == 'label' then
@@ -232,7 +251,15 @@ function Writer:blocks(blocks) return render_blocks(self, blocks) end
 function Writer:block(block)
   local t = block.t
   if t == 'paragraph' then
-    return vim.split(self:inlines(block.inlines), '\n', { plain = true })
+    local lines = vim.split(self:inlines(block.inlines), '\n', { plain = true })
+    for i, l in ipairs(lines) do
+      -- a line that starts with a bar is a row of a table
+      -- (so is a line of only dashes, which the scanner takes for a rule when another line follows)
+      -- (a tab in the indent of a line is spaces: the scanner reads `\t\ts[x` wrongly)
+      l = l:gsub('^\t+', function(t) return string.rep(' ', 8 * #t) end)
+      lines[i] = l:gsub('^(%s*)|', '%1\\|'):gsub('^(%s*)(%-%-%-+)%s*$', '%1\\%2')
+    end
+    return lines
   elseif t == 'list' then
     local lines = {}
     for n, item in ipairs(block.items) do
@@ -266,7 +293,7 @@ function Writer:block(block)
     for _, l in ipairs(vim.split(block.text, '\n', { plain = true })) do
       -- a line that is the fence itself would end the block; a blank line inside it keeps the indent of whatever holds the block (marked here,
       -- the marker goes in `render`)
-      lines[#lines + 1] = l:match('^%s*###%s*$') and (' ' .. l) or l == '' and BLANK or l
+      lines[#lines + 1] = l:match('^%s*###') and (' ' .. l) or l == '' and BLANK or l
     end
     lines[#lines + 1] = '###'
     return lines
@@ -460,12 +487,50 @@ function M.render(doc)
 
   local lines = {}
   if doc.data and #doc.data > 0 then
-    local keys, order = {}, {}
+    local nested = false
     for _, kv in ipairs(doc.data) do
-      if keys[kv[1]] == nil then order[#order + 1] = kv[1] end
-      keys[kv[1]] = kv[2]
+      nested = nested or type(kv[2]) == 'table'
     end
-    lines[#lines + 1] = self:tag('table', nil, keys, { order = order })
+    if nested then
+      -- nested data is the body of a block tag: a keyed bullet (`key_:  value`) for each key, the sublists indented under it
+      local body = {}
+      local function put(v, pad)
+        if v.list then
+          for _, x in ipairs(v.list) do
+            if type(x) == 'string' then
+              body[#body + 1] = pad .. '-  ' .. self:text(x)
+            else
+              body[#body + 1] = pad .. '-'
+              put(x, pad .. '   ')
+            end
+          end
+        else
+          for _, kv in ipairs(v.map) do
+            local x = kv[2]
+            if type(x) == 'string' then
+              if x ~= '' then body[#body + 1] = pad .. kv[1] .. '_:  ' .. self:text(x) end
+            else
+              body[#body + 1] = pad .. kv[1] .. '_:'
+              put(x, pad .. '   ')
+            end
+          end
+        end
+      end
+      local map, at = { map = {} }, {}
+      for _, kv in ipairs(doc.data) do
+        local n = at[kv[1]] or #map.map + 1
+        at[kv[1]], map.map[n] = n, kv
+      end
+      put(map, '')
+      vim.list_extend(lines, block_tag('table', body))
+    else
+      local keys, order = {}, {}
+      for _, kv in ipairs(doc.data) do
+        if keys[kv[1]] == nil then order[#order + 1] = kv[1] end
+        keys[kv[1]] = kv[2]
+      end
+      lines[#lines + 1] = self:tag('table', nil, keys, { order = order })
+    end
   end
   if doc.labels and #doc.labels > 0 then lines[#lines + 1] = self:tag(self.names.labels, doc.labels) end
   local body = render_blocks(self, doc.blocks)

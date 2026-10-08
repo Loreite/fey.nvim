@@ -73,8 +73,10 @@ local function target_of(ctx, target)
 end
 
 local function wikilink(ctx, inner, embed)
-  local target, alias = inner:match('^(.-)|(.*)$')
-  target = target or inner
+  -- in a table cell the bar is written `\|`
+  local target, alias = inner:match('^(.-)\\?|(.*)$')
+  target = vim.trim(target or inner)
+  alias = alias and vim.trim(alias)
   local file, heading = target:match('^([^#]*)#(.*)$')
   file = file or target
   heading = heading and heading:gsub('^%^.*$', '') or nil
@@ -116,10 +118,7 @@ local function rich(ctx, text)
     end
     do
       local s, e, a = text:find('%%%%(.-)%%%%', pos)
-      try(s, e, function()
-        ctx.dropped.comments = true
-        return nil
-      end)
+      try(s, e, function() return { t = 'comment', s = a } end)
     end
     do
       local s, e, a = text:find('~~([^~\n]+)~~', pos)
@@ -192,6 +191,8 @@ local function rich(ctx, text)
   end
   return items
 end
+
+local HTML_VOID = { img = true, hr = true, input = true, meta = true, link = true, wbr = true, col = true, area = true, source = true }
 
 local HTML_ENTITIES = { ['&amp;'] = '&', ['&lt;'] = '<', ['&gt;'] = '>', ['&quot;'] = '"', ['&nbsp;'] = ' ', ['&#39;'] = "'" }
 
@@ -316,10 +317,31 @@ convert = function(ctx, node, from, to)
           push({ t = 'text', s = s })
         elseif t == 'html_tag' then
           local raw = node_text(ctx, child)
+          local comment = raw:match('^<!%-%-(.-)%-%->$')
+          local close = raw:match('^</%s*([%w:_-]+)%s*>$')
+          local name, rest = raw:match('^<([%w:_-]+)(.-)>$')
           if raw:match('^<br%s*/?>$') then
             push({ t = 'br' })
+          elseif comment then
+            push({ t = 'comment', s = comment })
+          elseif close then
+            push({ t = 'hclose', name = close:lower(), raw = raw })
+          elseif name then
+            local attrs = {}
+            local selfclosed = rest:match('/%s*$') ~= nil
+            for k, q, v in rest:gmatch('([%w:_-]+)%s*=%s*(["\']?)([^"\'%s>]*)%2') do
+              attrs[#attrs + 1] = { k, v }
+            end
+            for k, q, v in rest:gmatch('([%w:_-]+)%s*=%s*(["\'])(.-)%2') do
+              local seen = false
+              for _, a in ipairs(attrs) do
+                seen = seen or a[1] == k
+              end
+              if not seen then attrs[#attrs + 1] = { k, v } end
+            end
+            push({ t = 'hopen', name = name:lower(), attrs = attrs, raw = raw, void = selfclosed or HTML_VOID[name:lower()] })
           else
-            ctx.dropped.html = true
+            push({ t = 'hraw', raw = raw })
           end
         elseif t == 'latex_block' then
           local tex = node_text(ctx, child):gsub('^%$+', ''):gsub('%$+$', '')
@@ -337,6 +359,47 @@ convert = function(ctx, node, from, to)
     end
   end
   gap(to)
+  -- an opening and a closing HTML tag with the same name are a pair, the words between them its children; the others are kept as they are
+  do
+    local stack, out = {}, {}
+    for _, item in ipairs(items) do
+      if item.t == 'hopen' and not item.void then
+        stack[#stack + 1] = #out + 1
+        out[#out + 1] = item
+      elseif item.t == 'hclose' then
+        local at
+        for n = #stack, 1, -1 do
+          if out[stack[n]].name == item.name then
+            at = n
+            break
+          end
+        end
+        if at then
+          local first = stack[at]
+          local open = out[first]
+          local children = {}
+          for n = first + 1, #out do
+            children[#children + 1] = out[n]
+          end
+          for n = #out, first + 1, -1 do
+            out[n] = nil
+          end
+          for n = #stack, at, -1 do
+            stack[n] = nil
+          end
+          out[first] = { t = 'html', name = open.name, attrs = open.attrs, children = children, raw_open = open.raw, raw_close = item.raw }
+        else
+          out[#out + 1] = { t = 'hraw', raw = item.raw }
+        end
+      else
+        out[#out + 1] = item.t == 'hopen' and { t = 'hraw', raw = item.raw } or item
+      end
+    end
+    for _, n in ipairs(stack) do
+      if out[n] and out[n].t == 'hopen' then out[n] = { t = 'hraw', raw = out[n].raw } end
+    end
+    items = out
+  end
   -- text next to text is one text (a bracket that was no link, the words around it)
   local merged = {}
   for _, item in ipairs(items) do
@@ -561,6 +624,9 @@ blocks_of = function(ctx, node)
       local comment = raw:match('^<!%-%-(.-)%-%->$')
       if comment then
         made = { { t = 'comment', s = comment } }
+      elseif raw:match('^<br%s*/?>$') then
+        -- only a line break: spacing, which the blank line between blocks already is
+        made = nil
       else
         ctx.dropped.html_block = true
         made = { { t = 'code', lang = 'html', text = raw } }
@@ -585,65 +651,139 @@ end
 
 local function key_of(k) return (k:lower():gsub('[^%w_]', '_'):gsub('^(%d)', '_%1')) end
 
----The front matter of a note: `key: value`, `key: [a, b]`, and `key:` followed by a list. Nested maps are left out.
+local function unquote(v)
+  local d = v:match('^"(.*)"$')
+  if d then return (d:gsub('\\(["\\])', '%1')) end
+  return (v:gsub("^'(.*)'$", '%1'))
+end
+
+---The YAML of a front matter, the part of it that notes use: maps, lists (with maps in them), `[flow, lists]`, quoted values and `|`/`>` blocks.
+---A map is `{ map = { { key, value }... } }`, a list `{ list = { value... } }`, anything else a string.
+---@param text string
+---@return table|nil node nil when the text is not a map
+local function parse_yaml(text)
+  local lines = {}
+  for _, l in ipairs(vim.split(text, '\n', { plain = true })) do
+    l = l:gsub('\t', '  '):gsub('%s+$', '')
+    if l ~= '' and not l:match('^%s*#') then lines[#lines + 1] = l end
+  end
+  local i = 1
+  local function indent_of(l) return #l:match('^( *)') end
+  local function is_dash(l) return l:match('^ *%-$') or l:match('^ *%- ') end
+  local parse_node
+
+  local function value_of(v, indent, same_ok)
+    if v == '' then
+      local nxt = lines[i]
+      if nxt and (indent_of(nxt) > indent or same_ok and indent_of(nxt) == indent and is_dash(nxt)) then return parse_node(indent_of(nxt)) end
+      return ''
+    elseif v:match('^[|>]') then
+      local parts = {}
+      while lines[i] and indent_of(lines[i]) > indent do
+        parts[#parts + 1] = vim.trim(lines[i])
+        i = i + 1
+      end
+      return table.concat(parts, ' ')
+    elseif v:match('^%[.*%]$') then
+      local list = {}
+      for item in v:sub(2, -2):gmatch('[^,]+') do
+        list[#list + 1] = unquote(vim.trim(item))
+      end
+      return { list = list }
+    end
+    return unquote(v)
+  end
+
+  local function parse_list(indent)
+    local list = {}
+    while lines[i] and indent_of(lines[i]) == indent and is_dash(lines[i]) do
+      local line = lines[i]
+      local gap, content = line:match('^ *%-( *)(.*)$')
+      if content:match('^[^%s"\'%[{][^:]*:%s') or content:match('^[^%s"\'%[{][^:]*:$') then
+        -- a map that starts on the line of the dash
+        lines[i] = string.rep(' ', indent + 1 + #gap) .. content
+        list[#list + 1] = parse_node(indent + 1 + #gap)
+      else
+        i = i + 1
+        list[#list + 1] = value_of(content, indent)
+      end
+    end
+    return { list = list }
+  end
+
+  local function parse_map(indent)
+    local map = {}
+    while lines[i] and indent_of(lines[i]) >= indent do
+      local line = lines[i]
+      if indent_of(line) > indent or is_dash(line) then
+        i = i + 1
+      else
+        local key, v = line:match('^ *([^:]-):%s+(.*)$')
+        if not key then key, v = line:match('^ *([^:]-):$'), '' end
+        i = i + 1
+        if key and key ~= '' then map[#map + 1] = { unquote(vim.trim(key)), value_of(v, indent, true) } end
+      end
+    end
+    return { map = map }
+  end
+
+  function parse_node(indent)
+    if lines[i] and is_dash(lines[i]) then return parse_list(indent) end
+    return parse_map(indent)
+  end
+
+  if #lines == 0 then return nil end
+  local root = parse_map(indent_of(lines[1]))
+  return root
+end
+
+---The front matter of a note: its YAML as the data of the document. A list of plain values is one value (joined), a map or a list of maps stays
+---as it is, and the writer makes a block of it.
 ---@param ctx table
 ---@param text string
 ---@param doc table
 local function front_matter(ctx, text, doc)
-  local current
-  local function put(key, value)
+  local root = parse_yaml(text)
+  if not root then return end
+  local function plain_list(v)
+    if type(v) ~= 'table' or not v.list then return nil end
+    local out = {}
+    for _, x in ipairs(v.list) do
+      if type(x) ~= 'string' then return nil end
+      out[#out + 1] = x
+    end
+    return out
+  end
+  -- keys are made into names, in the whole tree
+  local function named(v)
+    if type(v) ~= 'table' then return v end
+    if v.list then
+      for n, x in ipairs(v.list) do
+        v.list[n] = named(x)
+      end
+    else
+      for _, kv in ipairs(v.map) do
+        kv[1], kv[2] = key_of(kv[1]), named(kv[2])
+      end
+    end
+    return v
+  end
+  for _, kv in ipairs(root.map) do
+    local key, value = kv[1], kv[2]
+    local list = plain_list(value)
     if key == 'tags' or key == 'tag' then
-      local list = type(value) == 'table' and value or vim.split(value, '[,%s]+', { trimempty = true })
+      list = list or (type(value) == 'string' and vim.split(value, '[,%s]+', { trimempty = true })) or {}
       for _, l in ipairs(list) do
         l = l:gsub('^#', ''):gsub('%s+', '-')
         if l ~= '' then doc.labels[#doc.labels + 1] = l end
       end
-      return
+    elseif list then
+      if #list > 0 then doc.data[#doc.data + 1] = { key_of(key), table.concat(list, ', ') } end
+    elseif type(value) == 'table' then
+      doc.data[#doc.data + 1] = { key_of(key), named(value) }
+    elseif value ~= '' then
+      doc.data[#doc.data + 1] = { key_of(key), value }
     end
-    if type(value) == 'table' then value = table.concat(value, ', ') end
-    if value ~= '' then doc.data[#doc.data + 1] = { key_of(key), value } end
-  end
-  local lines = vim.split(text, '\n', { plain = true })
-  local i = 1
-  while i <= #lines do
-    local line = lines[i]
-    local key, value = line:match('^([%w_%- ]+):%s*(.-)%s*$')
-    if key then
-      key = vim.trim(key)
-      if value == '' then
-        local list = {}
-        local j = i + 1
-        while lines[j] and lines[j]:match('^%s*%-%s+') do
-          list[#list + 1] = (lines[j]:gsub('^%s*%-%s+', ''):gsub('^["\'](.*)["\']$', '%1'))
-          j = j + 1
-        end
-        if #list > 0 then
-          put(key, list)
-          i = j - 1
-        elseif lines[i + 1] and lines[i + 1]:match('^%s+%S') then
-          ctx.dropped.yaml = true
-          while lines[i + 1] and lines[i + 1]:match('^%s+%S') do
-            i = i + 1
-          end
-        end
-      elseif value:match('^[|>]') then
-        local parts = {}
-        while lines[i + 1] and lines[i + 1]:match('^%s+%S') do
-          i = i + 1
-          parts[#parts + 1] = vim.trim(lines[i])
-        end
-        put(key, table.concat(parts, ' '))
-      elseif value:match('^%[.*%]$') then
-        local list = {}
-        for item in value:sub(2, -2):gmatch('[^,]+') do
-          list[#list + 1] = (vim.trim(item):gsub('^["\'](.*)["\']$', '%1'))
-        end
-        put(key, list)
-      else
-        put(key, (value:gsub('^["\'](.*)["\']$', '%1')))
-      end
-    end
-    i = i + 1
   end
 end
 
@@ -765,12 +905,35 @@ function M.parse(src, opts)
   end
   sections(ctx, root, doc)
 
+  -- Dataview inline fields before the first heading (`parent:: [[note]]`) are data of the document; a link is its target
+  local keep = {}
+  for _, b in ipairs(doc.blocks) do
+    local first = b.t == 'paragraph' and b.inlines and b.inlines[1]
+    local key = first and first.t == 'text' and first.s:match('^(%a[%w_-]*):: *$')
+    local values, ok = {}, key and #b.inlines > 1
+    for n = 2, key and #b.inlines or 0 do
+      local item = b.inlines[n]
+      if item.t == 'link' and not item.embed then
+        values[#values + 1] = item.href
+      elseif item.t == 'text' and item.s:match('^[%s,]*$') then
+        -- the gap between links
+      else
+        ok = false
+      end
+    end
+    if key and #b.inlines == 1 then
+      -- a field with no value: nothing to keep
+    elseif ok and #values > 0 then
+      doc.data[#doc.data + 1] = { key_of(key), table.concat(values, ', ') }
+    else
+      keep[#keep + 1] = b
+    end
+  end
+  doc.blocks = keep
+
   local names = {
     highlight = '==highlights== have no Fey form and were kept as plain text',
-    comments = 'Obsidian %%comments%% inside a paragraph were dropped',
-    html = 'inline HTML tags were dropped',
     html_block = 'HTML blocks were kept as code blocks',
-    yaml = 'nested YAML in the front matter was dropped',
   }
   for key, msg in pairs(names) do
     if ctx.dropped[key] then doc.warnings[#doc.warnings + 1] = msg end
@@ -778,5 +941,7 @@ function M.parse(src, opts)
   table.sort(doc.warnings)
   return doc
 end
+
+M.parse_yaml, M.key_of, M.front_matter = parse_yaml, key_of, front_matter
 
 return M

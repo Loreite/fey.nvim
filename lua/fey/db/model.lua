@@ -198,11 +198,15 @@ end
 
 ---@return table<string, string>
 function Model:type_map()
-  local map = {}
-  for _, p in ipairs(self:properties()) do
-    map[p.id] = self:prop_type(p.id)
-  end
-  return map
+  -- a type is found when a filter asks for it: sampling every property of the vault costs a scan of all rows each
+  return setmetatable({}, {
+    __index = function(map, prop)
+      if type(prop) ~= 'string' then return nil end
+      local ty = self:prop_type(prop)
+      rawset(map, prop, ty)
+      return ty
+    end,
+  })
 end
 
 -- Compute ---------------------------------------------------------------------------------

@@ -57,7 +57,7 @@ end
 ---Fey text from a Markdown or org text
 ---@param src string
 ---@param format FeyImportFormat
----@param opts? { link_extension?: boolean, parser?: string, check?: boolean } `link_extension` (default true) turns links to `.md` and `.org` files into links to `.fey` files; `check` (default true) reads the result back and warns about syntax errors
+---@param opts? { link_extension?: boolean, parser?: string, check?: boolean, root?: string, db_dir?: string } `root` is the directory of the vault and `db_dir` where the database files of Database Folder views go (`.fey/dbs`): with either, dataview queries and those views are converted; `link_extension` (default true) turns links to `.md` and `.org` files into links to `.fey` files; `check` (default true) reads the result back and warns about syntax errors
 ---@return string|nil text
 ---@return string[]|string warnings the things that did not come across, or the reason for the failure when there is no text
 function M.text(src, format, opts)
@@ -81,6 +81,12 @@ function M.text(src, format, opts)
   end
   if not doc then return nil, err end
   local text, warnings = require('fey.import.writer').render(doc)
+  if format == 'markdown' and (opts.root or opts.db_dir) then
+    -- Obsidian's plugins: dataview queries and Database Folder views
+    local fixed, more = require('fey.import.obsidian').fix_text(text, { root = opts.root, db_dir = not opts.dry_run and opts.db_dir or nil })
+    text = fixed
+    vim.list_extend(warnings, more)
+  end
   if opts.check ~= false then
     local line = first_error(text)
     if line then warnings[#warnings + 1] = ('the result has a syntax error near line %d'):format(line) end

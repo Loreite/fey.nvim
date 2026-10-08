@@ -47,6 +47,10 @@ local md = table.concat({
   '  - yard',
   '  - plot',
   '---',
+  'parent:: [[Garden Index|index]]',
+  '',
+  'empty:: ',
+  '',
   '# Vegetables *and* fruit',
   '',
   'Some **bold**, *italic*, ~~gone~~, `code`, a [link](notes/other.md#top) and [[Other Note|the note]], [[Plain]] and ![[pic.png]].',
@@ -68,6 +72,12 @@ local md = table.concat({
   '| kale | 3 |',
   '| a \\| b | 4 |',
   '',
+  '| Link |',
+  '|------|',
+  '| [[Other \\| the cell]] |',
+  '',
+  '<br>',
+  '',
   '```lua',
   'print(1)',
   '```',
@@ -77,6 +87,10 @@ local md = table.concat({
   '$$',
   '',
   '%% hidden note %%',
+  '',
+  'Words <u>under</u> and <span class="big" id=x>**bold** inside</span> and <i>lone, <img src="a.png"> then <!-- note --> end.',
+  '',
+  'Before %%an inline\nnote with a # sign%% after.',
   '',
   '## Roots',
   '',
@@ -94,7 +108,52 @@ local md = table.concat({
 local text, warnings = Import.text(md, 'markdown')
 check('markdown: no warnings', warnings, {})
 parses('markdown: parses', text)
-has('md: data tag', text, '{# table; title: Garden; aliases: yard\\, plot #}')
+has('md: block comment', text, '#[ comment ] hidden note #')
+has('md: inline comment is kept', text, 'Before #[ comment ] an inline note with a \\# sign # after.')
+do
+  local nest = table.concat({
+    '---',
+    'title: Nested',
+    'tags: [a]',
+    'ghost:',
+    '  aliases:',
+    '    - one',
+    '    - two',
+    '  meta:',
+    '    k: v',
+    '    n: 3',
+    'people:',
+    '  - name: A',
+    '    role: x',
+    '  - name: B',
+    'after: "q: 1"',
+    '---',
+    'Body.',
+    '',
+  }, '\n')
+  local ntext, nwarn = Import.text(nest, 'markdown')
+  check('md nested yaml: no warnings', nwarn, {})
+  parses('md nested yaml: parses', ntext)
+  local meta = require('fey.vault.extract').extract(ntext)
+  check('md nested yaml: the data', vim.json.decode(vim.json.encode(meta.data)), {
+    title = 'Nested',
+    ghost = { aliases = { 'one', 'two' }, meta = { k = 'v', n = 3 } },
+    people = { { name = 'A', role = 'x' }, { name = 'B' } },
+    after = 'q: 1',
+  })
+  check('md nested yaml: no errors', meta.errors, {})
+end
+has('md: inline field is data', text, 'parent: Garden Index.fey')
+lacks('md: inline field is not text', text, 'parent::')
+lacks('md: empty inline field is dropped', text, 'empty::')
+has('md: wikilink in a cell', text, '{@ link, Other.fey; desc: the cell @}')
+lacks('md: lone br is no block', text, '<br>')
+has('md: html pair', text, 'Words [ u #]under[# u ] and')
+has('md: html attributes', text, '[ span; class: big; id: x #]!bold! inside[# span ]')
+has('md: html unmatched is kept', text, '#[ html ] <i> #')
+has('md: html void is kept', text, '#[ html ] <img src="a.png"> #')
+has('md: html comment', text, '#[ comment ] note #')
+has('md: data tag', text, '{# table; title: Garden; aliases: yard\\, plot; parent: Garden Index.fey #}')
 has('md: front matter labels', text, '{# labels, plants, to-do #}')
 has('md: first heading', text, '  I. Vegetables /and/ fruit')
 has('md: second level', text, '  I.A. Roots')
@@ -144,7 +203,107 @@ local t3, w3 = Import.text(
 has('md: task date', t3, '{@ date, 2026-10-10 @}')
 has('md: reference link', t3, '{@ link, http://r.example; desc: ref @}')
 has('md: html comment', t3, '#[ comment ] aside #')
-check('md: inline html warns', w3, { 'inline HTML tags were dropped' })
+check('md: inline html does not warn', w3, {})
+
+-- lines of a paragraph that the scanner would read as something else, and a YAML front matter in an org file
+do
+  local src = table.concat({
+    'See the manual',
+    '|usr_20.txt|.',
+    '',
+    '\t\ts[earch] or x',
+    '',
+    '```',
+    '### Title in code',
+    '```',
+    '',
+  }, '\n')
+  local t = Import.text(src, 'markdown')
+  parses('odd lines: parse', t)
+  has('odd lines: a bar', t, '\\|usr_20.txt|.')
+  local d = Import.text('* H\n\nA line\n---\n\n--- more text)\n', 'org')
+  parses('odd lines: dashes parse', d)
+  has('odd lines: dashes', d, '\\---')
+  local o = Import.text('---\ntitle: In org\ntags: [a]\n---\n* Heading\ntext\n', 'org')
+  has('org: yaml front matter is data', o, '{# table; title: In org #}')
+  has('org: yaml front matter labels', o, '{# labels, a #}')
+  parses('org: yaml front matter parses', o)
+  has('org: a piped link', (Import.text('[[_IPOM \\| Structures]]\n', 'org')), '{@ link, _IPOM; desc: Structures @}')
+end
+
+-- Obsidian plugins: dataview queries and Database Folder views
+do
+  local vault = vim.fn.tempname()
+  vim.fn.mkdir(vault .. '/internal/DEV-GAME Games/transfer/src', 'p')
+  local src = table.concat({
+    '---',
+    'type: View',
+    '---',
+    '```dataview',
+    'table arch-ive-title as title',
+    'from "lPbteyo/Games_/src"',
+    'where startswith(arch-ive-path, "zp")',
+    '```',
+    '',
+    '```yaml:dbfolder',
+    'name: ALL Games',
+    'description: Every game note',
+    'columns:',
+    '  __file__:',
+    '    key: __file__',
+    '    label: File',
+    '    position: 2',
+    '    width: 120',
+    '  genre:',
+    '    key: genre',
+    '    label: Genre',
+    '    position: 1',
+    '  hidden:',
+    '    key: hidden',
+    '    isHidden: true',
+    'config:',
+    '  source_form_result: "FROM \\"lPbteyo/Games_/src\\" WHERE type = \\"Game\\""',
+    'filters:',
+    '  enabled: true',
+    '  conditions:',
+    '    - condition: AND',
+    '      filters:',
+    '        - field: genre',
+    '          operator: STARTS_WITH',
+    '          value: "RPG"',
+    '```',
+    '',
+  }, '\n')
+  local otext, owarn = Import.text(src, 'markdown', { root = vault, db_dir = vault .. '/.fey/dbs' })
+  check('obsidian: no warnings', owarn, {})
+  parses('obsidian: parses', otext)
+  has('obsidian: dataview is a query tag', otext, '[ query ]#\n   table arch_ive_title as title\n   FROM "internal/DEV-GAME Games/transfer/src"')
+  has('obsidian: dbfolder is a feydb tag', otext, '{# feydb, 10; db: ALL Games #}')
+  local fh = io.open(vault .. '/.fey/dbs/ALL Games.fey', 'rb')
+  check('obsidian: the database file is written', fh ~= nil, true)
+  if fh then
+    local data = fh:read('*a')
+    fh:close()
+    local base = require('fey.db.serialize').decode(data)
+    check('obsidian: the database', base and {
+      name = base.name,
+      columns = vim.tbl_map(function(c) return c.prop end, base.views[1].columns),
+      first = base.filters.items[1],
+      second = base.filters.items[2],
+      third = base.filters.items[3].items[1].op,
+    }, {
+      name = 'ALL Games',
+      columns = { 'genre', 'file.name' },
+      first = { kind = 'cond', prop = 'file.path', op = 'infolder', value = 'internal/DEV-GAME Games/transfer/src' },
+      second = { kind = 'expr', expr = 'type = "Game"' },
+      third = 'startswith',
+    })
+  end
+  local second = Import.text(src, 'markdown', { root = vault, db_dir = vault .. '/.fey/dbs' })
+  has('obsidian: a second database of the same name', second, 'db: ALL Games (2)')
+  local dry = Import.text(src, 'markdown', { root = vault, db_dir = vault .. '/.fey/dbs', dry_run = true })
+  has('obsidian: a dry run writes no database', dry, 'yaml:dbfolder')
+end
 
 -- what a tag head can hold: a closing bracket at the start of a word is fine in the scope tag of a link, a sign and a closing bracket (`->`) is not
 local t4, w4 = Import.text('A [a > b](x.md) and [go -> there](y.md) and [c ) d](z.md).\n', 'markdown')

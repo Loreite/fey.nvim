@@ -27,6 +27,8 @@ import: Markdown (Obsidian's too) or org into Fey
   --force                    write over a file that exists
   --dry-run                  convert and report, write nothing
   --no-link-rewrite          keep the .md and .org targets of links as they are
+  --root DIR                 the directory of the vault: dataview queries (their FROM folders) and Database Folder views are converted
+  --db-dir DIR               where the databases of those views are written (the `.fey/dbs` of the vault)
 
 export: Fey into another format, always as a new file; the Fey file is kept
   --format FORMAT            markdown, html, ics, latex, pdf, docx, odt, epub or rst (pandoc writes all but the first three)
@@ -65,6 +67,10 @@ while i <= #args do
     opts.dry_run = true
   elseif a == '--quiet' or a == '-q' then
     opts.quiet = true
+  elseif a == '--root' then
+    opts.root = value()
+  elseif a == '--db-dir' then
+    opts.db_dir = value()
   elseif a == '--no-link-rewrite' then
     opts.link_extension = false
   elseif a:sub(1, 2) == '--' then
