@@ -174,8 +174,8 @@ has('md: Obsidian mark', text, '-  [/] under way')
 has('md: nested item', text, '   -  child item')
 has('md: ordered list', text, '1.  first\n2.  second')
 has('md: callout', text, '[ blockquote; class: callout callout-warning ]#\n   !Careful!\n\n   hot soil')
-has('md: table', text, '| Name   | Count |\n+========+=======+\n| kale   | 3     |')
-has('md: table cell with a bar', text, '| a \\| b | 4     |')
+has('md: table', text, '| Name   | Count |\n+========+:=====:+\n| kale   |   3   |')
+has('md: table cell with a bar', text, '| a \\| b |   4   |')
 has('md: fenced code', text, '###  src lua\nprint(1)\n###')
 has('md: display math', text, '[ math ]#\n   a = b')
 has('md: Obsidian comment', text, '#[ comment ] hidden note #')
@@ -194,6 +194,16 @@ has('md: quoted title', t2, 'title: Quoted: yes')
 has('md: labels from a plain list', t2, '{# labels, one, two #}')
 has('md: link kept', t2, '{@ link, a.md; desc: x @}')
 parses('md: second parses', t2)
+
+-- a TOML front matter, in markdown and in org
+local tm = Import.text('+++\ntitle = "Toml note"\ntags = ["a", "b"]\ndraft = false # c\n\n[author]\nname = "Jo"\n+++\nBody.\n', 'markdown')
+has('md: toml title', tm, 'title_:  Toml note')
+has('md: toml labels', tm, '{# labels, a, b #}')
+has('md: toml value', tm, 'draft')
+has('md: toml table', tm, 'name')
+parses('md: toml parses', tm)
+local to = Import.text('+++\ntitle = "Toml org"\n+++\n* Heading\ntext\n', 'org')
+has('org: toml front matter is data', to, 'title: Toml org')
 
 -- Tasks emoji dates, a link reference, html
 local t3, w3 = Import.text(
@@ -522,6 +532,20 @@ check('cli export: needs a format', code5, 1)
 has('cli export: says so', err5, '--format')
 local code6, out6 = cli('help')
 check('cli help', { code6, out6:find('usage: fey import', 1, true) ~= nil }, { 0, true })
+
+-- the alignment of a column is a mark in the rule row ---------------------------------------------------------------
+do
+  local mdt = Import.text('| a | b | c | d |\n|:--|--:|:-:|---|\n| 1 | 2 | 3 | 4 |\n', 'markdown')
+  has('md: alignment is kept in the rule row', mdt, '+:==+==:+:=:+===+')
+  has('md: right and centred cells are padded', mdt, '| 1 |')
+  local mdr = Import.text('| name | n |\n|:-----|--:|\n| apple | 10 |\n| fig | 2 |\n', 'markdown')
+  has('md: a right aligned column is padded on the left', mdr, '| fig   |  2 |')
+  parses('md: the aligned table parses', mdt)
+  local ot = Import.text(table.concat({ '* H', '| name | n |', '| <l> | <r5> |', '|------+---|', '| a | 1 |' }, '\n'), 'org')
+  has('org: cookies are the alignment', ot, '+:')
+  lacks('org: the cookie row is not data', ot, '<r5>')
+  parses('org: the aligned table parses', ot)
+end
 
 print(('import: %d checks, %d failures'):format(total, failures))
 vim.cmd(failures == 0 and 'qa!' or 'cquit 1')

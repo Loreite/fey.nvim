@@ -38,16 +38,19 @@ local function escape(s) return (s:gsub('\\', '\\\\'):gsub(',', '\\,'):gsub(';',
 function M.read(node, src)
   local head = node:type() == 'pair_tag' and node:field('open')[1] or node
   if not head then return nil end
+  local vars = require('fey.vars')
+  local var_opts = type(src) == 'number' and { bufnr = src } or { src = src }
   local function text(n) return vim.treesitter.get_node_text(n, src) end
+  local function resolved(n) return vars.interpolate(unescape(trim(text(n))), var_opts) end
 
   local plain = {}
   for _, v in ipairs(head:field('value')) do
-    plain[#plain + 1] = { node = v, text = unescape(trim(text(v))) }
+    plain[#plain + 1] = { node = v, text = resolved(v) }
   end
   local attrs = {}
   for _, kv in ipairs(head:field('key_value')) do
     local k, v = kv:field('key')[1], kv:field('value')[1]
-    if k and v then attrs[trim(text(k)):lower()] = { node = v, text = unescape(trim(text(v))) } end
+    if k and v then attrs[trim(text(k)):lower()] = { node = v, text = resolved(v) } end
   end
 
   local ref = { nodes = {} }
@@ -78,8 +81,11 @@ end
 function M.read_link(node, src)
   local head = node:type() == 'pair_tag' and node:field('open')[1] or node
   if not head then return nil end
-  local function text(n) return unescape(trim(vim.treesitter.get_node_text(n, src))) end
+  local vars = require('fey.vars')
+  local var_opts = type(src) == 'number' and { bufnr = src } or { src = src }
+  local function text(n) return vars.interpolate(unescape(trim(vim.treesitter.get_node_text(n, src))), var_opts) end
   local ref = { nodes = {} }
+  local fallback_file
   for _, kv in ipairs(head:field('key_value')) do
     local k, v = kv:field('key')[1], kv:field('value')[1]
     if k and v then
@@ -88,11 +94,13 @@ function M.read_link(node, src)
         ref.signature, ref.nodes.signature = text(v), v
       elseif key == 'n' then
         ref.n, ref.nodes.n = tonumber(text(v)), v
+      elseif key == 'url' or key == 'file' then
+        fallback_file = text(v)
       end
     end
   end
   local target = head:field('value')[1]
-  ref.file = target and text(target) or nil
+  ref.file = (target and text(target)) or fallback_file or nil
   if not ref.signature or ref.signature == '' then return nil end
   return ref
 end

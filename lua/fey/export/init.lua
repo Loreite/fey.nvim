@@ -127,7 +127,7 @@ function Export.file(format, bufnr)
     return target
   end
   if format == 'markdown' or format == 'html' then
-    local content = Export[format](src)
+    local content = Export[format](src, { path = path })
     if not content then
       utils.echo_warning('Nothing to export: everything is commented')
       return nil
@@ -146,7 +146,7 @@ function Export.file(format, bufnr)
     utils.echo_error('pandoc executable not found. Make sure pandoc is in $PATH.')
     return nil
   end
-  local content = Export.markdown(src, { extension = spec.extension })
+  local content = Export.markdown(src, { extension = spec.extension, path = path })
   if not content then
     utils.echo_warning('Nothing to export: everything is commented')
     return nil
@@ -188,13 +188,13 @@ function Export.convert(format, path, opts)
     return nil, 'could not write ' .. target
   end
   if format == 'markdown' or format == 'html' then
-    local content = Export[format](src)
+    local content = Export[format](src, { path = path })
     if not content then return nil, 'nothing to export: everything is commented' end
     if write(target, content) then return target end
     return nil, 'could not write ' .. target
   end
   if vim.fn.executable('pandoc') ~= 1 then return nil, 'pandoc executable not found. Make sure pandoc is in $PATH.' end
-  local content = Export.markdown(src, { extension = ext })
+  local content = Export.markdown(src, { extension = ext, path = path })
   if not content then return nil, 'nothing to export: everything is commented' end
   local middle = vim.fn.tempname() .. '.md'
   write(middle, content)
@@ -222,7 +222,7 @@ function Export.label(label, format, root)
     if fh then
       local src = fh:read('*a')
       fh:close()
-      local content = Export[format](src)
+      local content = Export[format](src, { path = abs })
       if content then
         local target = vim.fn.fnamemodify(abs, ':r') .. (format == 'markdown' and '.md' or '.html')
         write(target, content)

@@ -31,12 +31,16 @@ end
 
 ---@param s string
 ---@param w integer
----@param align? 'left'|'right'
+---@param align? 'left'|'center'|'right'
 ---@return string
 function M.pad(s, w, align)
   local gap = w - dw(s)
   if gap <= 0 then return s end
   if align == 'right' then return (' '):rep(gap) .. s end
+  if align == 'center' then
+    local left = math.floor(gap / 2)
+    return (' '):rep(left) .. s .. (' '):rep(gap - left)
+  end
   return s .. (' '):rep(gap)
 end
 

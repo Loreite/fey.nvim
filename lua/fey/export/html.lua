@@ -108,8 +108,10 @@ render_blocks = function(blocks, out)
       out[#out + 1] = '<table>'
       local function row(cells, cell_tag)
         local tds = {}
-        for _, c in ipairs(cells) do
-          tds[#tds + 1] = ('<%s>%s</%s>'):format(cell_tag, render_inlines(c), cell_tag)
+        for i, c in ipairs(cells) do
+          local a = block.align and block.align[i]
+          local style = a and (' style="text-align:%s"'):format(a) or ''
+          tds[#tds + 1] = ('<%s%s>%s</%s>'):format(cell_tag, style, render_inlines(c), cell_tag)
         end
         return '<tr>' .. table.concat(tds) .. '</tr>'
       end

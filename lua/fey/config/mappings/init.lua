@@ -556,6 +556,17 @@ return {
       'fey_mappings.table_reformat',
       { opts = { desc = 'reformat table', help_desc = 'reformat table, reflowing text and aligning to a grid' } }
     ),
+    fey_table_recalculate = m.action(
+      'fey_mappings.table_recalculate',
+      { opts = { desc = 'compute table formulas', help_desc = 'compute the formulas of the table under the cursor and write the results into its cells' } }
+    ),
+    fey_table_recalculate_all = m.action(
+      'fey_mappings.table_recalculate',
+      {
+        args = { 'all' },
+        opts = { desc = 'compute all table formulas', help_desc = 'compute the formulas of every table of the note and write the results into their cells' },
+      }
+    ),
     fey_table_insert_row_before = m.action('fey_mappings.table_insert_row', {
       args = { 'before' },
       opts = { desc = 'insert row before', help_desc = 'insert a blank row before the current row under cursor' },

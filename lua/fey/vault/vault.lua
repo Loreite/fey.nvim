@@ -12,6 +12,7 @@
 --   properties  file_id, name, value (JSON): top level keys of the document data
 --   dates       file_id, heading_ord, line, col, kind (date, scheduled, deadline, closed, clock), active, start_ts, start_time, end_ts, end_time, repeater, warn
 --   tasks       file_id, heading_ord, line, kind (heading, item), state, done, priority, title
+--   vars        file_id, heading_ord, line, name, value
 --
 -- `heading_ord` is NULL for document level entries. `links.target_file` and
 -- `links.target_sig` hold the resolved destination, so the backlinks of a file or
@@ -140,9 +141,19 @@ CREATE TABLE blocks (
 );
 CREATE INDEX blocks_file ON blocks(file_id);
 CREATE INDEX blocks_tangle ON blocks(tangle);
+CREATE TABLE vars (
+  id INTEGER PRIMARY KEY,
+  file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+  heading_ord INTEGER,
+  line INTEGER,
+  name TEXT NOT NULL,
+  value TEXT NOT NULL
+);
+CREATE INDEX vars_file ON vars(file_id);
+CREATE INDEX vars_name ON vars(name);
 ]]
 
-local TABLES = { 'blocks', 'tasks', 'dates', 'properties', 'labels', 'links', 'tags', 'headings', 'files' }
+local TABLES = { 'vars', 'blocks', 'tasks', 'dates', 'properties', 'labels', 'links', 'tags', 'headings', 'files' }
 
 ---@class FeyVaultOpts
 ---@field dirname string name of the vault directory. Default '.fey'
@@ -240,6 +251,19 @@ function Vault:open()
       db:exec(SCHEMA)
       db:exec(('PRAGMA user_version = %d'):format(SCHEMA_VERSION))
     end)
+  else
+    db:exec([[
+      CREATE TABLE IF NOT EXISTS vars (
+        id INTEGER PRIMARY KEY,
+        file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+        heading_ord INTEGER,
+        line INTEGER,
+        name TEXT NOT NULL,
+        value TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS vars_file ON vars(file_id);
+      CREATE INDEX IF NOT EXISTS vars_name ON vars(name);
+    ]])
   end
   self.db = db
   return true
@@ -444,6 +468,20 @@ function Vault:_store(rel, entry, meta, errors)
     )
   end
 
+  for _, v in ipairs(meta.vars or {}) do
+    db:run(
+      [[INSERT INTO vars(file_id, heading_ord, line, name, value)
+        VALUES(:file_id, :heading_ord, :line, :name, :value)]],
+      {
+        file_id = file_id,
+        heading_ord = v.heading_ord,
+        line = v.line,
+        name = v.name,
+        value = v.value,
+      }
+    )
+  end
+
   local names = vim.tbl_keys(meta.properties)
   table.sort(names)
   for _, name in ipairs(names) do
@@ -456,8 +494,9 @@ end
 
 ---What the indexer needs to know that is not in the file: the names of the tags and the todo keywords
 ---@param self FeyVault
+---@param rel? string
 ---@return FeyVaultExtractOpts
-local function extract_opts(self)
+local function extract_opts(self, rel)
   local config = require('fey.config')
   return {
     label_tags = self.opts.label_tags,
@@ -472,6 +511,8 @@ local function extract_opts(self)
     status_tag = config.fey_status_tag_name,
     prop_tag = config.fey_property_tag_name,
     clock_tag = config.fey_clock_tag_name,
+    var_tag = config.fey_var_tag_name,
+    path = rel and vim.fs.joinpath(self.root, rel) or nil,
     -- the keywords of the file (the `todo` key of its data) or the configured ones
     todo_lookup = function(data_todo)
       local sequences
@@ -501,7 +542,7 @@ function Vault:_index_source(rel, entry, src)
     return false
   end
 
-  local ok, meta = pcall(extract.extract, src, extract_opts(self))
+  local ok, meta = pcall(extract.extract, src, extract_opts(self, rel))
   if not ok then
     self:_store(rel, entry, nil, { 'extraction failed: ' .. tostring(meta) })
     return false
@@ -526,6 +567,47 @@ end
 local function parser_available()
   local ok, err = pcall(vim.treesitter.language.add, 'fey')
   return ok, not ok and tostring(err) or nil
+end
+
+---Synchronously index any new, modified, or removed files on disk.
+---@return boolean changed
+function Vault:sync()
+  local ok = self:open()
+  if not ok then return false end
+  local parser_ok = parser_available()
+  if not parser_ok then return false end
+
+  local db = assert(self.db)
+  local found = fs.scan_fey_files(self.root, { ignore = self.opts.ignore, vault_dirname = self.opts.dirname })
+  local existing = {}
+  for _, row in ipairs(db:run('SELECT path, mtime, size FROM files')) do
+    existing[row.path] = row
+  end
+
+  local queue, removed = {}, {}
+  for rel, entry in pairs(found) do
+    local old = existing[rel]
+    if not old or old.mtime ~= entry.mtime or old.size ~= entry.size then table.insert(queue, entry) end
+  end
+  for rel in pairs(existing) do
+    if not found[rel] then table.insert(removed, rel) end
+  end
+  if #queue == 0 and #removed == 0 then
+    if self.state == 'idle' then self.state = 'ready' end
+    return false
+  end
+  table.sort(queue, function(a, b) return a.path < b.path end)
+  pcall(db.transaction, db, function()
+    for _, rel in ipairs(removed) do
+      db:run('DELETE FROM files WHERE path = :path', { path = rel })
+    end
+    for _, entry in ipairs(queue) do
+      self:_index_entry(entry.path, entry)
+    end
+    self.revision = (self.revision or 0) + 1
+  end)
+  if self.state == 'idle' then self.state = 'ready' end
+  return true
 end
 
 ---Bring the index up to date: new and changed files are parsed, deleted ones dropped.
@@ -1241,6 +1323,25 @@ function Vault:links(path)
       WHERE f.path = :path ORDER BY l.line]],
     { path = path }
   )
+end
+
+---Variables defined in the vault (`var` line, block, and pair tags).
+---@param opts? { name?: string, path?: string }
+---@return { path: string, heading_ord?: integer, line: integer, name: string, value: string }[]
+function Vault:vars(opts)
+  opts = opts or {}
+  local sql = [[SELECT f.path, v.heading_ord, v.line, v.name, v.value
+    FROM vars v JOIN files f ON f.id = v.file_id WHERE 1 = 1]]
+  local params = {}
+  if opts.name then
+    sql = sql .. ' AND v.name = :name'
+    params.name = opts.name
+  end
+  if opts.path then
+    sql = sql .. ' AND f.path = :path'
+    params.path = opts.path
+  end
+  return self:query(sql .. ' ORDER BY f.path, v.line', params)
 end
 
 return Vault

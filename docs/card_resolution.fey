@@ -1,0 +1,437 @@
+{# table; title: Card Resolution Engine Mechanics; date: 2026-10-14; scope: docs/; author: Rocco Ruscitti; system: C.A.R.D.S.; project: OETH #}
+{# labels, oeth, cards, mechanics, resolution, combat, ttrpg, report #}
+
+A mechanical report specifying core resolution engines for the C.A.R.D.S. (Character Action Resolution
+and Decision System) tabletop framework in the OETH ruleset. This document addresses the core systemic
+gaps identified in {@ link, content-report.fey; desc: the OETH Content Audit @} (Sections II.A and XIII.3),
+specifically defining deterministic criticals, target number orientation, skill check resolution, and
+damage mechanics using a standard 54-card deck (52 suited cards plus Red and Black Jokers).
+
+
+  I. Executive Summary & Design Constraints
+
+Traditional tabletop roleplaying games rely predominantly on independent polyhedral dice rolls (such as
+the d20 system or multi-d6 pools). While familiar, dice generate flat or static probability distributions
+where each roll is memoryless: rolling a natural 1 does not alter the likelihood of the next roll being a
+natural 20.
+
+C.A.R.D.S. replaces dice with physical cards to realize five fundamental gameplay pillars:
+
+  -  *Deterministic Criticals*: In a 54-card deck, critical success and critical failure frequencies
+     are mathematically guaranteed per deck cycle. A player cannot go an entire campaign arc without a
+     critical triumph, nor can they suffer statistically impossible runs of endless fumbles.
+  -  *Dynamic Probability & Card Counting*: Every card drawn alters the remaining composition of the
+     deck. Drawing three low cards increases the probability that upcoming draws will yield high cards,
+     giving players meaningful tactical foreknowledge.
+  -  *Classified Multi-Dimensional Data*: A single card carries Rank (numerical magnitude), Suit (narrative
+     faculty/elemental affinity), and Color (binary state). A single draw can simultaneously resolve
+     accuracy, damage, hit location, and secondary status conditions without rolling multiple disparate dice.
+  -  *Deterministic Critical Spectrum*: The two Jokers serve as absolute boundaries:
+     -  #[ hl; fg: red; bold: true ] Red Joker #: !Critical Success! (Ultimate triumph, maximum damage,
+        tactical surge, bonus action, or instant recovery).
+     -  #[ hl; fg: black; bg: white; bold: true ] Black Joker #: !Critical Failure! (Catastrophic fumble,
+        weapon malfunction, environmental reversal, or severe tactical complication).
+  -  *Deck Reshuffle Trigger*: The moment either Joker is drawn and its action resolves, the discard pile
+     is gathered, shuffled, and reset at the end of the current combat round. This preserves the 1-per-cycle
+     critical guarantee while preventing degenerate deck exhaustion exploits.
+
+This report presents three distinct, mathematically rigorous, and table-tested resolution mechanics.
+Each model handles both general Skill Checks (action difficulty / saves) and Combat Damage Resolution,
+balancing table speed against tactical player agency.
+
+
+  II. Deck Architecture & Mathematical Baseline
+
+A standard poker deck with two distinct Jokers contains exactly 54 cards:
+
+| Card Category     | Count | Rank / Value                | Probability (Fresh Deck) | Mechanical Role                                  |
++===================+=======+=============================+==========================+==================================================+
+| Red Joker         | 1     | Wild / Maximum              | 1 / 54 (1.85%)           | Critical Success (deterministic triumph)         |
+| Black Joker       | 1     | Catastrophe / Zero          | 1 / 54 (1.85%)           | Critical Failure (deterministic fumble)          |
+| Aces              | 4     | 1 or 14 (System-dependent)  | 4 / 54 (7.41%)           | Extreme values; high burst or critical edge      |
+| Numbered (2-10)   | 36    | 2 through 10 face value     | 36 / 54 (66.67%)         | Predictable standard task progression            |
+| Court / Face Cards| 12    | J = 11, Q = 12, K = 13     | 12 / 54 (22.22%)         | Heroic competence, tactical procs, weapon DO     |
++-------------------+-------+-----------------------------+--------------------------+--------------------------------------------------+
+| Total Deck        | 54    | Average Value: ~7.5 - 8.0   | 100.0%                   | 26 Red (Hearts/Diamonds), 26 Black (Spades/Clubs)|
++===================+=======+=============================+==========================+==================================================+
+
+  II.A. Direction of Target Numbers (Meet-or-Beat Standard)
+
+To eliminate the contradiction identified in `damage.org` (where adding to the TN made subsequent actions
+counter-intuitively easier), all systems in this report adhere to the universal *Meet-or-Beat* convention:
+
+  -  Target Numbers (TN) represent task difficulty. Higher numbers are strictly harder.
+  -  Player bonuses (Skill, Attribute, Weapon Quality, High Ground) are added to the card's rank value.
+  -  Penalties (Multi-action fatigue, cover, injury, darkness) either subtract from the player total or
+     raise the TN.
+  -  A check succeeds if: `Card Rank + Modifiers >= Target Number`.
+  -  The difference `(Check Total - TN)` constitutes the *Margin of Success (MoS)*, used directly to scale
+     damage, duration, or quality.
+
+
+  III. Mechanic 1: The Unified Kinetic Draw (Single-Card Flow)
+
+The Unified Kinetic Draw is engineered for ultra-fast, modern TTRPG play. Its primary design goal is
+*Zero-Friction Resolution*: a single card drawn from the top of the deck resolves whether an attack hits,
+how much damage is dealt, and which secondary status rider triggers.
+
+  III.A. Skill Check Resolution
+
+When an agent attempts an action under pressure (climbing a slick precipice, bypassing an encrypted terminal,
+or dodging an incoming shockwave):
+
+  1.  The GM assigns a Target Number (TN) based on baseline difficulty:
+      -  TN 8: Routine (an experienced agent succeeds unless drawing very poorly)
+      -  TN 12: Standard (professional challenge, 50% baseline before modifiers)
+      -  TN 16: Formidable (demands high attribute or specialized training)
+      -  TN 20: Extreme (elite specialization or supernatural aid required)
+      -  TN 24+: Heroic / Planar (nigh impossible without potent magic or gear)
+  2.  The player draws 1 card from the deck.
+  3.  Card Ranks:
+      -  Numbered Cards (2-10): Face value.
+      -  Court Cards: Jack = 11, Queen = 12, King = 13.
+      -  Ace: 14 (High Ace standard).
+  4.  Calculate outcome: `Result = Card Rank + Attribute Modifier + Skill Bonus`.
+      -  `Result >= TN`: Success.
+      -  `Result < TN`: Failure.
+      -  #[ hl; fg: red; bold: true ] Red Joker #: Instant Critical Success. Overrides any difficulty.
+         Grants immediate standard success plus a free Tactical Momentum point (usable for an immediate
+         free move, bonus card draw into hand, or defensive bonus).
+      -  #[ hl; fg: black; bg: white; bold: true ] Black Joker #: Instant Critical Failure. Overrides all
+         modifiers. An immediate equipment failure, structural danger, or severe setback occurs.
+
+  III.B. Combat & Damage Resolution
+
+In combat, weapons do not roll separate damage dice. Instead, weapons have a fixed *Damage Output (DO)*,
+representing their inherent kinetic or energetic payload, which scales with the hit's precision:
+
+| Weapon Tier | Example Armament        | Base DO | Glancing Hit Damage (MoS -1 to -2) | Critical Hit Bonus |
++=============+=========================+=========+====================================+====================+
+| Light       | Combat Knife, Derringer | 3       | 1                                  | +3 + Bleed (2)     |
+| Medium      | Service Pistol, Cutlass | 5       | 2                                  | +5 + Stagger       |
+| Heavy       | Battle Rifle, Halberd   | 8       | 4                                  | +8 + Armor Crush   |
+| Devastating | Anti-Materiel / Cannon  | 12      | 6                                  | +12 + Sever / Prone|
++-------------+-------------------------+---------+------------------------------------+--------------------+
+
+Procedure:
+  1.  Attack Check: Draw 1 card. `Attack Total = Card Rank + Combat Skill vs Target Defense Score (DS)`.
+  2.  Determine Hit Quality:
+      -  *Direct Hit (`Attack Total >= DS`)*:
+         `Total Damage = Weapon Base DO + Margin of Success`.
+      -  *Glancing Hit (`Attack Total` misses DS by 1 or 2 points)*:
+         The attack grazes the target. Deal half base DO (rounded down, minimum 1). No suit rider applies.
+      -  *Clean Miss (`Attack Total` misses DS by 3 or more)*:
+         Zero damage dealt.
+  3.  Suit Riders (The Classified Outcome): On a Direct Hit, the suit of the attack card triggers an
+      inherent tactical rider:
+      -  *Spades (♠ - Ruin / Penetration)*: The strike hits a vulnerability. Ignores up to 3 points of
+         armor soak.
+      -  *Hearts (♥ - Force / Momentum)*: The attacker gains immediate combat flow. Regain 2 points of
+         Stamina, or push the target back 10 feet.
+      -  *Diamonds (♦ - Precision / Flaw)*: Exploit structural weakness. If Margin of Success >= 3, the
+         target suffers -2 to their next action from physical pain or system shock.
+      -  *Clubs (♣ - Concussion / Shock)*: Heavy kinetic displacement. Target must pass an immediate
+         Fortitude check (TN equal to Base DO) or fall Prone.
+  4.  Critical Outcomes:
+      -  *Red Joker Attack*: Maximum devastation! Deal `Double Base DO + 14 + Full Suit Rider of Choice`.
+         Armor soak is completely ignored.
+      -  *Black Joker Attack*: Weapon misfire, magazine dropped, or attacker stumbles overextended. Deal
+         zero damage, and adjacent enemies gain +4 to hit the attacker until their next turn.
+
+  III.C. Strengths & Best Use Case
+  -  *Speed*: Fastest resolution possible with cards. A single draw determines hit, damage, and effects.
+  -  *Best Fit*: Fast-paced tactical skirmishes, convention games, and introductory CARDS-lite play.
+
+
+  IV. Mechanic 2: The Tactical Push-and-Hand Engine (Blackjack Pool)
+
+The Tactical Push-and-Hand Engine translates classic card-table psychology—blackjack, risk calculation,
+and push-your-luck—into heroic TTRPG combat. It directly implements the *Hand* and *Class Deck* features
+outlined in the OETH core philosophy (`cards/_index.org`).
+
+  IV.A. The Hand & The Class Deck Architecture
+
+  -  *The Player Hand*: At the start of a combat encounter, each player draws a Hand of cards (3 cards at
+     Rank 1, up to 5 at high levels) from their personal deck.
+  -  *The Class Deck*: Highly specialized abilities allow players to seed custom cards (such as Ace of
+     Spades for assassins, or King of Hearts for paladins/sentinels) into an auxiliary Class Deck (8 to 32
+     cards) that can be drawn from in place of the main deck.
+
+  IV.B. Skill & Action Resolution (The 21 Threshold)
+
+When attempting a skill check or complex challenge:
+  1.  Card Valuation (Standard Blackjack Values):
+      -  Numbered Cards (2-10): Face value.
+      -  Court Cards (J, Q, K): Exactly 10 points each.
+      -  Aces: Variable value: 1 or 11 (player decides upon playing or drawing).
+  2.  The Play / Draw Phase:
+      -  The player may choose to commit 1 card from their Hand, OR flip the top card of their deck face-up.
+      -  The running score is `Card Value + Attribute Modifier`.
+  3.  The Push Phase ("Hit or Stand"):
+      -  If the running score does not beat the GM's TN, or if the player wants a higher degree of success,
+         they may call **"Push"** and draw an additional card from the deck to add to the sum.
+      -  A player may push up to twice (maximum 3 cards in their active action pool).
+  4.  The Bust Rule:
+      -  If the raw card values in the pool (ignoring attribute modifiers) exceed **21**, the action **Busts**!
+      -  A Bust is an automatic failure, regardless of how large the character's static modifiers are.
+  5.  Natural 21 & Combinations:
+      -  If the cards total exactly 21 (e.g., Ace + King, or 7 + 8 + 6), the action is a *Perfect Mastery Hit*
+         (treated as an automatic success with a +6 bonus margin).
+  6.  Joker Triggers:
+      -  #[ hl; fg: red; bold: true ] Red Joker #: *The Royal Flush Joker*. If drawn or played during any
+         stage of the check, the pool immediately counts as a 21 without busting. The check is a Critical
+         Success, and the player immediately draws 2 cards from their deck into their active Hand.
+      -  #[ hl; fg: black; bg: white; bold: true ] Black Joker #: *The Sudden Death Joker*. If flipped at
+         any point during a push, the pool collapses immediately into a Catastrophic Bust. The player loses
+         their remaining actions for the round and discards 1 card from their hand.
+
+  IV.C. Damage Resolution (The Combative Pot)
+
+In the Push-and-Hand engine, damage is determined by the total card value committed to the pool versus
+the target's defensive soak:
+
+  1.  Successful Strike: When the attack pool successfully meets or beats the target's Defense Score without
+      busting:
+      `Raw Damage = Weapon Base DO + [Sum of all Pool Cards / 2]`.
+  2.  Poker Set Bonuses (Classified Multi-Card Synergies):
+      Because the player has multiple cards in their action pool, poker combinations generate devastating
+      mechanical combos:
+      -  *Pair (Two cards of matching rank, e.g., two 8s or two Jacks)*:
+         Heavy Crushing Blow. Add +5 bonus damage and ignore 2 points of target armor.
+      -  *Three of a Kind (Three identical ranks)*:
+         Devastating Executioner Strike. Double the total weapon DO.
+      -  *Flush (All cards in the push pool share the same suit)*:
+         Elemental Surge. Triggers the suit's special maneuver without spending stamina:
+         -  Spades Flush: Cleave into an adjacent secondary target for half damage.
+         -  Hearts Flush: Attacker heals stamina equal to the weapon's Base DO.
+         -  Diamonds Flush: Target's shield or defensive posture is shattered (DS reduced by 3).
+         -  Clubs Flush: Target is stunned for 1 turn (can take only movement, no attacks).
+  3.  Armor Interaction:
+      Target Armor Score acts as a flat Damage Reduction (DR) subtracted from the final damage sum.
+
+  IV.D. Strengths & Best Use Case
+  -  *Agency & Tension*: Gives the player absolute control over risk. The tension of standing on 17 or
+     pushing for 21 creates genuine table excitement.
+  -  *Best Fit*: Boss battles, gritty infiltration scenes, and characters built around tactical luck,
+     gambling, or resource control.
+
+
+  V. Mechanic 3: The Trump Faculty & Trauma Deck (Narrative Clashes)
+
+The Trump Faculty & Trauma Deck engine is built directly upon OETH's metaphysical cosmology: the
+four elemental faculties and the struggle between cosmic alignment and discordant ruin. It features
+opposed card clashes between attacker and defender, coupled with a dedicated *Trauma Severity Table*
+that renders wounds visceral, memorable, and tactically impactful.
+
+  V.A. The Four Faculty Suits
+
+Every attribute, skill, and environmental challenge in OETH aligns with one of the four suits:
+
+| Suit       | Faculty      | Attributes & Themes                             | Opposed Antithesis Suit    |
++============+==============+=================================================+============================+
+| Spades (♠) | Might / Ruin | Physical Might, Melee, Heavy Armor, Demolition  | Clubs (♣ - Subtlety)       |
+| Hearts (♥) | Soul / Flame | Willpower, Charisma, Life Magic, Presence       | Diamonds (♦ - Cold Logic)  |
+| Diamonds (♦)| Mind / Form | Logic, Arcana, Investigation, Engineering       | Hearts (♥ - Emotion)       |
+| Clubs (♣)  | Grace / Flow | Agility, Stealth, Ranged Marksmanship, Reflex   | Spades (♠ - Raw Mass)      |
++------------+--------------+-------------------------------------------------+----------------------------+
+
+  V.B. Skill & Opposed Action Clashes
+
+Actions in this system are resolved as active contests:
+  -  *Unopposed Static Task*: Player draws 1 card vs GM-set TN (Ace = 1, 2-10 = face, J=11, Q=12, K=13,
+     Ace High optional = 14).
+  -  *Opposed Clash (Combat / Social / Stealth)*:
+     -  Attacker draws 1 card + Attack Skill Modifier.
+     -  Defender draws 1 card + Defense Skill Modifier.
+  -  *Faculty Resonance (The Trump Suit)*:
+     -  Each challenge or spell lists its governing Faculty. For example, a heavy warhammer strike is
+        governed by Spades (Might).
+     -  If the card drawn matches the task's governing suit, the card is in **Resonance**:
+        Add a flat +4 Resonance Bonus to the check total!
+     -  If the drawn card belongs to the *Antithesis Suit*, it suffers **Discord**:
+        Deduct 2 points from the total.
+  -  *Joker Resolutions*:
+     -  #[ hl; fg: red; bold: true ] Red Joker #: *The Prismatic Apex*. Acts as all four suits simultaneously
+        (guaranteed Resonance bonus) and automatically counts as Rank 15. Guaranteed Critical Success.
+        Generates 2 Destiny Points for the party pool.
+     -  #[ hl; fg: black; bg: white; bold: true ] Black Joker #: *Cosmic Void*. Value is absolute zero.
+        Guaranteed Critical Failure. Triggers immediate environmental backlash or catastrophic recoil.
+
+  V.C. Damage & The Trauma Matrix
+
+Rather than inflating hit point pools where characters absorb dozens of sword wounds like sponges, this
+mechanic treats damage as kinetic trauma that impairs physiological systems:
+
+  1.  Margin of Victory:
+      `Clash Margin = Attacker Final Total - Defender Final Total`.
+      -  `Margin <= 0`: Miss, parried cleanly, or absorbed harmlessly by armor.
+      -  `Margin 1 to 4`: *Graze*. Target loses Stamina equal to Weapon Base DO. No permanent harm.
+      -  `Margin 5 to 8`: *Solid Wound*. Target takes Full Damage `(Base DO + Margin)`. Armor absorbs its
+         flat rating; any leftover damage penetrates directly to Health.
+      -  `Margin 9+ (or Red Joker)`: *Grievous Trauma*. Target takes Full Damage AND the attacker draws 1
+         card from the deck to consult the **Trauma Severity Matrix**:
+
+| Drawn Card Suit | Trauma Category     | Mechanical Debuff & Ongoing Complication                            |
++=================+=====================+======================================================================+
+| Spades (♠)      | Structural Fracture | Broken bone or crushed chassis. Target's Movement speed halved;      |
+|                 |                     | physical rolls suffer -3 penalty until set by field surgeon.         |
+| Hearts (♥)      | Arterial Rupture    | Severe internal or external bleeding. Target suffers 3 ongoing       |
+|                 |                     | damage at the start of each round until stabilized (TN 12 Medicine). |
+| Diamonds (♦)    | Systemic Concussion | Head trauma or computational core dislodged. Target cannot cast      |
+|                 |                     | spells or activate talents for 1 round; dazed state.                 |
+| Clubs (♣)       | Severe Tendon Slice | Hamstrung or disarmed. Dropped weapon flies 15 feet; target falls    |
+|                 |                     | prone and cannot take reaction actions.                              |
++-----------------+---------------------+----------------------------------------------------------------------+
+
+Trauma Rank Modifier:
+  -  Trauma Card Rank 2-6: Mild complication (resolves in 1 round or with quick rest).
+  -  Trauma Card Rank 7-10: Severe trauma (requires surgical intervention; lasting combat impairment).
+  -  Trauma Card Court (J, Q, K): Permanent scarring or equipment destroyed.
+  -  *Red Joker on Trauma Draw*: Instant Decapitation / Heartstrike! Non-boss target is slain or knocked
+     unconscious immediately; boss suffers double maximum trauma.
+  -  *Black Joker on Trauma Draw*: Miracle of Fate! The strike would have been lethal, but struck a pocket
+     watch, holy talisman, or thick armor buckle. Target takes 1 damage and zero trauma debuffs.
+
+  V.D. Strengths & Best Use Case
+  -  *Narrative Weight*: Makes every wound narratively vivid and tactically consequential.
+  -  *Best Fit*: Survival horror, gritty military campaigns, dark fantasy, and high-stakes dueling.
+
+
+  VI. Comparative Analysis & Benchmarks
+
+The following matrix contrasts all three mechanics across key design and table dimensions:
+
+| Dimension                | Mechanic 1: Unified Kinetic Draw  | Mechanic 2: Tactical Push Pool    | Mechanic 3: Trump & Trauma Deck  |
++==========================+===================================+===================================+==================================+
+| Draws per Resolution     | Exactly 1 draw (super fast)       | 1 to 3 draws (player choice)      | 2 draws (Attacker vs Defender)   |
+| Average Resolution Time  | ~3 - 5 seconds                    | ~12 - 20 seconds                  | ~8 - 15 seconds                  |
+| Math Complexity          | Low (Rank + Mod vs TN)            | Medium (Addition up to 21)        | Low to Medium (Margin of Clash)  |
+| Tactical Player Agency   | Low to Moderate                   | Extremely High (Push vs Stand)    | Moderate to High (Suit strategy) |
+| Hand Management Overhead | Minimal                           | Active (Manages 3-5 card hand)    | Moderate (Hand used for trumps)  |
+| Critical Guarantee       | Exact (1 Crit, 1 Fumble per deck) | Exact (Jokers in deck/hand)       | Exact (Jokers dictate climax)    |
+| Lethality Profile        | Balanced / Heroic                 | Moderate / Variable               | High / Gritty & Visceral         |
+| Rules Overhead           | Very Low                          | Moderate                          | Moderate                         |
++--------------------------+-----------------------------------+-----------------------------------+----------------------------------+
+
+
+  VII. D20 Conversion & Adaptation Guide
+
+Because existing adventures and creature stat blocks across the OETH repository (and third-party OGL/d20
+material) utilize standard d20 target difficulties and polyhedral damage expressions, this conversion
+table translates legacy metrics into C.A.R.D.S. parameters:
+
+  VII.A. Difficulty Class (DC) to Target Number (TN)
+
+| Legacy d20 DC | Difficulty Descriptor | C.A.R.D.S. Target Number (TN) | Card Rank Needed (w/ +2 Mod) |
++===============+=======================+================================+==============================+
+| DC 10         | Easy / Routine        | TN 8                           | 6 or higher (70% chance)     |
+| DC 12         | Moderate              | TN 10                          | 8 or higher (54% chance)     |
+| DC 15         | Challenging           | TN 13                          | Jack or higher (35% chance)  |
+| DC 18         | Hard                  | TN 16                          | King or higher (15% chance)  |
+| DC 20         | Very Hard             | TN 18                          | Ace or higher (w/ bonuses)   |
+| DC 25+        | Epic / Legendary      | TN 22+                         | Requires high spec + Red Jok |
++---------------+-----------------------+--------------------------------+------------------------------+
+
+  VII.B. Polyhedral Damage Dice to Weapon Damage Output (DO)
+
+In legacy systems, damage dice roll wildly from 1 to the maximum die size. In C.A.R.D.S., weapons have a
+reliable Base DO equal to the expected average roll, with card rank margins providing the swing:
+
+| Legacy Damage Die | Average Roll | C.A.R.D.S. Base DO | Weapon Category Archetype                    |
++===================+==============+====================+==============================================+
+| 1d4               | 2.5          | 2                  | Pocket Dagger, Unarmed Strike, Dart          |
+| 1d6               | 3.5          | 3                  | Shortsword, Revolver, Light Crossbow         |
+| 1d8               | 4.5          | 4                  | Rapier, Longsword, Heavy Service Pistol      |
+| 1d10              | 5.5          | 5                  | Halberd, Repeating Carbine, Heavy Flail      |
+| 1d12              | 6.5          | 6                  | Greataxe, Battle Lance, Trench Shotgun       |
+| 2d6               | 7.0          | 7                  | Greatsword, Double-Barreled Elephant Gun     |
+| 2d12 / 3d8        | 13.0         | 13                 | Heavy Vehicle Cannon, Planar Disintegration  |
++-------------------+--------------+--------------------+----------------------------------------------+
+
+
+  VIII. Concrete Play Examples
+
+  VIII.A. Example 1: Infiltration Skill Check (Picking an Encryption Shackle)
+
+Situation:
+Agent Vesper is attempting to bypass an imperial security shackle before patrol droids round the corridor.
+The GM sets the difficulty at **TN 12** (Standard Technical Challenge). Vesper has an Agility modifier of
+`+2` and Lockpicking proficiency of `+1` (Total modifier: `+3`).
+
+  -  *Under Mechanic 1 (Unified Kinetic Draw)*:
+     -  Vesper draws the top card: **7 of Spades**.
+     -  Check Result: `7 + 3 = 10`.
+     -  Outcome: Misses TN 12 by 2 points.
+     -  Resolution: Because the check missed by 2 points, it resolves as a *Partial Success with Cost*
+        (Glancing skill check): The shackle pops open, but the mechanical latch produces an audible snap,
+        alerting the guard post down the hall.
+  -  *Under Mechanic 2 (Tactical Push Pool)*:
+     -  Vesper flips her first card from the deck: **5 of Hearts**.
+     -  Current score: `5 + 3 = 8`. Not enough to beat TN 12.
+     -  Vesper decides to **Push**: she draws a second card from the deck: **Queen of Diamonds** (Value 10).
+     -  Pool check: Raw card total is `5 + 10 = 15`. (Well under 21, so no bust!).
+     -  Final total: `15 + 3 = 18`.
+     -  Outcome: Crushing success! The lock slides open silently with seconds to spare.
+  -  *Under Mechanic 3 (Trump Faculty & Trauma)*:
+     -  Lockpicking falls under Clubs (Grace / Fine Dexterity).
+     -  Vesper draws the **Jack of Clubs**!
+     -  Because Clubs matches the task's Faculty, Vesper gains the **+4 Resonance Bonus**:
+        `Jack (11) + 3 (Skill) + 4 (Resonance) = 18`.
+     -  Outcome: Flawless victory. Vesper not only cracks the shackle but recovers an unspent cryptographic
+        key card from the mechanism.
+
+  VIII.B. Example 2: Combat Engagement (Broadsword Strike vs Ironbound Golem)
+
+Situation:
+Commander Thorne strikes an Ironbound Golem (Defense Score DS 14, Armor Soak 3). Thorne wields a Masterwork
+Broadsword (Base DO 5, Weapon Skill `+3`).
+
+  -  *Under Mechanic 1 (Unified Kinetic Draw)*:
+     -  Thorne draws: **King of Spades** (Rank 13).
+     -  Attack Total: `13 + 3 = 16`.
+     -  Check: `16 >= 14` (Direct Hit, Margin of Success = +2).
+     -  Raw Damage: `Base DO 5 + Margin 2 = 7 damage`.
+     -  Suit Rider: The card is a **Spade** (Ruin / Penetration), which ignores 3 points of armor!
+     -  The Golem's Armor Soak (3) is completely nullified by the Spades rider.
+     -  Result: The Golem sustains 7 direct structural damage, and the blade shatters an internal hydraulic joint.
+  -  *Under Mechanic 2 (Tactical Push Pool)*:
+     -  Thorne plays an **8 of Clubs** from his hand. Total: `8 + 3 = 11`. (Needs to beat DS 14).
+     -  Thorne calls a **Push** and draws: **8 of Diamonds**.
+     -  Pool total: `8 + 8 = 16`. (Safe from busting!).
+     -  Total Attack: `16 + 3 = 19` (Hits DS 14 with a +5 Margin).
+     -  *Poker Synergy*: Thorne has drawn a **Pair of 8s**!
+     -  Damage Calculation: `Base DO 5 + (16 / 2 = 8) + 5 (Pair Bonus) = 18 damage`.
+     -  Golem Armor soaks 3 damage.
+     -  Result: The Golem sustains a staggering 15 damage, collapsing to one knee.
+  -  *Under Mechanic 3 (Trump Faculty & Trauma)*:
+     -  Broadsword attack is a Spades (Might) action.
+     -  Thorne draws: **Queen of Spades** (Rank 12 w/ Spades Resonance +4 + Skill 3 = 19).
+     -  The Golem draws for Defense: **6 of Hearts** + Defense 2 = 8.
+     -  Clash Margin: `19 - 8 = 11`.
+     -  Outcome: A Margin of 11 triggers a **Grievous Trauma**!
+     -  Thorne deals `Base DO 5 + Margin 11 = 16 damage` (Golem soaks 3, takes 13).
+     -  Thorne draws a Trauma card for the Golem: **9 of Clubs** (Mobility Trauma).
+     -  Result: The Golem's right leg actuator is cleaved through; it drops prone and its movement is halved
+        for the remainder of the battle.
+
+
+  IX. Recommendations for OETH & Next Steps
+
+To resolve the remaining open questions from {@ link, content-report.fey; desc: the Content Audit @}:
+
+  1.  *Adopt Mechanic 1 (Unified Kinetic Draw) as the Core Resolution Engine for CARDS-lite*:
+      -  Its 1-draw speed makes it immediately accessible to players coming from 5e or Pathfinder.
+      -  It completely eliminates the math contradictions in `damage.org` while keeping weapon DO simple.
+  2.  *Reserve Mechanic 2 (Tactical Push Pool) for High-Tier Play & Tactical Classes*:
+      -  Classes with strong tactical themes (such as Gunslingers, Infiltrators, and High Sorcerers)
+         can unlock the "Push Engine" as a distinctive class feature, utilizing their personal Hands
+         and Class Decks while standard combatants use the Unified Draw.
+  3.  *Incorporate the Trauma Severity Matrix (from Mechanic 3) for Critical Hits*:
+      -  Whenever a Red Joker is drawn, or when damage exceeds a target's Wound Threshold, draw 1 card
+         for a visceral Trauma outcome. This provides grim, cinematic depth without bogging down everyday
+         attacks.
+  4.  *Update the Rulebook Files*:
+      -  Rewrite `content/basic-training-manual/cards/_index.org` with the explicit 54-card deck definitions
+         and the Red/Black Joker rules.
+      -  Replace the commented-out legacy draft in `content/basic-training-manual/cards/damage.org` with
+         the Unified Kinetic Draw rules and the D20 conversion tables established in this report.

@@ -138,7 +138,7 @@ function M.query_text(bufnr, node)
       raw = raw:gsub('\\([,;])', '%1')
     end
   end
-  return dedent(raw)
+  return require('fey.vars').interpolate(dedent(raw), { bufnr = bufnr })
 end
 
 ---The element a result is attached to: the tag itself, or the paragraph/title/table that holds it

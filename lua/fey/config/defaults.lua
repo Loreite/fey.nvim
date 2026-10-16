@@ -39,6 +39,8 @@ local DefaultConfig = {
   fey_db_result_tag_name = 'feydb_result',
   fey_clocktable_tag_name = 'clocktable',
   fey_clocktable_result_tag_name = 'clocktable_result',
+  fey_tblfm_tag_name = 'tblfm', -- the tag under a table with its settings (tblwidth) and formulas
+  fey_table_recalculate_on_save = false, -- compute the formulas of the tables of a note when it is saved
   fey_link_tag_name = 'link',
   fey_section_tag_name = 'section',
   fey_comment_tag_name = 'comment',
@@ -56,6 +58,7 @@ local DefaultConfig = {
   fey_status_tag_name = 'status',
   fey_labels_tag_name = 'labels',
   fey_property_tag_name = 'prop',
+  fey_var_tag_name = 'var',
   fey_conceal_task_tags = true,
   fey_show_checkbox_state_as_icons = true, -- show `[x]` `[/]` `[!]` ... as an icon (the line of the cursor shows the box)
   fey_link_conceal_default = false, -- show every link tag as its text (the description, or what it points to) unless it says `conceal: false`
@@ -336,6 +339,8 @@ local DefaultConfig = {
       fey_table_merge_cell_content_from_below = '<prefix>tms',
       --
       fey_table_reformat = '<prefix>tf',
+      fey_table_recalculate = '<prefix>t=',
+      fey_table_recalculate_all = '<prefix>t+',
       fey_table_create_before = '<prefix>tC',
       fey_table_create_after = '<prefix>tc',
       --

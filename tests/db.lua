@@ -29,8 +29,15 @@ local data = {
     limit = 10,
   } },
 }
+data.views[1].columns[1].align = 'right'
 local back = serialize.decode(serialize.encode(data))
 check('serialize round trip', norm(back), norm(data))
+
+-- how a column lines up
+local dbtext = require('fey.db.text')
+check('pad left', dbtext.pad('ab', 6), 'ab    ')
+check('pad right', dbtext.pad('ab', 6, 'right'), '    ab')
+check('pad center', dbtext.pad('ab', 7, 'center'), '  ab   ')
 
 -- filters
 local filters = require('fey.db.filters')
@@ -124,6 +131,16 @@ local lines = require('fey.db.export').table_lines(vault, { db = name, rows = 2 
 check('export lines', lines, {
   '| file.name | rating |', '+===========+========+', '| n2        | 2      |', '| n3        | 3      |',
 })
+base.views[1].columns = { { prop = 'file.name', align = 'center' }, { prop = 'rating', align = 'right' } }
+assert(store.save(vault, name, base))
+check('export lines with the alignment', require('fey.db.export').table_lines(vault, { db = name, rows = 2 }), {
+  '| file.name | rating |', '+:=========:+=======:+', '|    n2     |      2 |', '|    n3     |      3 |',
+})
+base.views[1].columns[2].align = 'sideways'
+assert(store.save(vault, name, base))
+check('an alignment that is none of the three is dropped', store.load(vault, name).views[1].columns[2].align, nil)
+base.views[1].columns = { { prop = 'file.name' }, { prop = 'rating' } }
+assert(store.save(vault, name, base))
 check('export unknown db', (pcall(require('fey.db.export').table_lines, vault, { db = 'nope' })), false)
 
 -- opening in the current window: full screen, and the window is given back

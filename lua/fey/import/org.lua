@@ -241,18 +241,31 @@ local function block(ctx, node)
 end
 
 local function table_of(ctx, node)
-  local header, rows, seen_hr, formulas = nil, {}, false, {}
+  local header, rows, seen_hr, formulas, align = nil, {}, false, {}, {}
   for _, child in ipairs(node:named_children()) do
     local t = child:type()
     if t == 'row' then
-      local cells = {}
+      local cells, marks, any = {}, {}, false
       for _, cell in ipairs(child:named_children()) do
         if cell:type() == 'cell' then
           local contents = cell:field('contents')[1]
           cells[#cells + 1] = contents and inlines(ctx, contents) or {}
+          -- `<l>`, `<r>` and `<c>`, with a width or not (`<r10>`): the alignment of the column
+          local mark = vim.trim(contents and node_text(ctx, contents) or ''):match('^<([lrc])%d*>$')
+          marks[#marks + 1] = mark == 'l' and 'left' or mark == 'r' and 'right' or mark == 'c' and 'center' or false
+          any = any or mark ~= nil
         end
       end
-      rows[#rows + 1] = cells
+      -- a row of only the cookies (and empty cells) is the alignment, not a row of data
+      local only = any
+      for i, cell in ipairs(cells) do
+        if marks[i] == false and #cell > 0 then only = false end
+      end
+      if only then
+        align = marks
+      else
+        rows[#rows + 1] = cells
+      end
     elseif t == 'formula' then
       local f = child:field('formula')[1]
       local text = f and vim.trim(node_text(ctx, f)) or ''
@@ -262,7 +275,7 @@ local function table_of(ctx, node)
       if #rows >= 1 then header = table.remove(rows, 1) end
     end
   end
-  local out = { { t = 'table', header = header, rows = rows } }
+  local out = { { t = 'table', header = header, rows = rows, align = align } }
   vim.list_extend(out, formulas)
   return out
 end
@@ -451,7 +464,11 @@ function M.parse(src, opts)
   if src:sub(-1) ~= '\n' then src = src .. '\n' end
   -- a YAML front matter at the top (notes written by other tools put one in org files too) is the data of the document
   local yaml, after = src:match('^%-%-%-\n(.-)\n%-%-%-[ \t]*\n()')
-  if yaml then src = src:sub(after) end
+  local toml
+  if not yaml then
+    toml, after = src:match('^%+%+%+\n(.-)\n%+%+%+[ \t]*\n()')
+  end
+  if yaml or toml then src = src:sub(after) end
   local parser = vim.treesitter.get_string_parser(src, 'org')
   local root = parser:parse()[1]:root()
   local config = require('fey.config')
@@ -464,6 +481,7 @@ function M.parse(src, opts)
   }
   local doc = { data = {}, labels = {}, blocks = {}, sections = {}, warnings = {} }
   if yaml then require('fey.import.markdown').front_matter(ctx, yaml, doc) end
+  if toml then require('fey.import.markdown').front_matter(ctx, toml, doc, true) end
 
   local body = root:field('body')[1]
   if body then

@@ -126,6 +126,11 @@ function FeyVault:tasks(opts) return self._vault:tasks(opts) end
 ---@return table[]
 function FeyVault:footnotes(opts) return self._vault:footnotes(opts) end
 
+---Variables defined in the notes (`var` line, block, and pair tags): `path`, `heading_ord`, `line`, `name`, `value`
+---@param opts? { name?: string, path?: string }
+---@return { path: string, heading_ord?: integer, line: integer, name: string, value: string }[]
+function FeyVault:vars(opts) return self._vault:vars(opts) end
+
 ---Names of the databases in `.fey/dbs`
 ---@return string[]
 function FeyVault:databases()

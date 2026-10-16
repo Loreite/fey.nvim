@@ -149,6 +149,14 @@ check('ids are unique', has(html, '<section id="sec-I-A-2">'), true)
 check('a checkbox', has(html, '<input type="checkbox" disabled>'), true)
 
 
+-- the alignment of a column -----------------------------------------------------------------------------------------
+doc = md({ '  I. H', '', '| a | b | c |', '+:==+==:+:=:+', '| 1 | 2 | 3 |' })
+check('Markdown says the alignment', has(doc, '| :--- | ---: | :---: |'), true)
+local aligned = Export.html(table.concat({ '  I. H', '', '| a | b |', '+==+==:+', '| 1 | 2 |', '' }, '\n'))
+check('HTML says the alignment', has(aligned, '<td style="text-align:right">2</td>') and has(aligned, '<th>a</th>'), true)
+doc = md({ '  I. H', '', '| a |', '+===+', '| 1 |', '#[ tblfm ] a = 2 #' })
+check('the formula tag is not text of the export', has(doc, 'tblfm') or has(doc, 'a = 2'), false)
+
 -- merged cells: embedded HTML in Markdown, the table itself in HTML ------------------------------------------------
 local MERGED = {
   '  I. T',

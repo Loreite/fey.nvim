@@ -35,9 +35,11 @@ function M.table_lines(vault, spec, opts)
 
   local headers = {}
   local getters = {}
+  local aligns = {}
   local group_get
   if view.group and view.group.prop then
     headers[1] = view.group.prop
+    aligns[1] = false
     group_get = model:getter(view.group.prop)
   end
   for _, col in ipairs(view.columns) do
@@ -48,6 +50,7 @@ function M.table_lines(vault, spec, opts)
       end
     end
     headers[#headers + 1] = title or col.prop
+    aligns[#aligns + 1] = col.align or false
     getters[#getters + 1] = model:getter(col.prop)
   end
 
@@ -62,7 +65,7 @@ function M.table_lines(vault, spec, opts)
     rows[i] = cells
   end
 
-  return render.lines({ type = 'table', headers = headers, rows = rows, count = #rows, grouped = false }, opts)
+  return render.lines({ type = 'table', headers = headers, rows = rows, count = #rows, grouped = false, align = aligns }, opts)
 end
 
 return M

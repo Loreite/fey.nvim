@@ -105,6 +105,15 @@ function Fey:setup_autocmds()
       if not vim.bo[event.buf].filetype or vim.bo[event.buf].filetype == '' then vim.bo[event.buf].filetype = 'fey' end
     end,
   })
+  vim.api.nvim_create_autocmd('BufWritePre', {
+    pattern = { '*.fey', '*.fey_archive' },
+    group = fey_augroup,
+    callback = function(event)
+      if require('fey.config').fey_table_recalculate_on_save then
+        require('fey.files.elements.table.operations').recalculate_all(event.buf, true)
+      end
+    end,
+  })
   vim.api.nvim_create_autocmd('BufWritePost', {
     pattern = { '*.fey', '*.fey_archive' },
     group = fey_augroup,

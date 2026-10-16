@@ -21,7 +21,7 @@ local INDENT = 4
 
 -- keys are written in this order first, then alphabetically
 local KEY_ORDER = {
-  'name', 'version', 'kind', 'type', 'mode', 'prop', 'op', 'value', 'expr', 'display', 'width', 'summary', 'dir',
+  'name', 'version', 'kind', 'type', 'mode', 'prop', 'op', 'value', 'expr', 'display', 'width', 'align', 'summary', 'dir',
   'limit', 'row_height', 'freeze', 'scope', 'filters', 'formulas', 'properties', 'columns', 'sort', 'group', 'items', 'views',
 }
 local KEY_RANK = {}

@@ -144,7 +144,12 @@ render_blocks = function(blocks, indent, out, tight)
         return indent .. '| ' .. table.concat(texts, ' | ') .. ' |'
       end
       out[#out + 1] = row(header)
-      out[#out + 1] = indent .. '|' .. (' --- |'):rep(#header)
+      local rule = {}
+      for i = 1, #header do
+        local a = block.align and block.align[i]
+        rule[i] = a == 'center' and ' :---: |' or a == 'right' and ' ---: |' or a == 'left' and ' :--- |' or ' --- |'
+      end
+      out[#out + 1] = indent .. '|' .. table.concat(rule)
       for _, r in ipairs(block.rows) do
         out[#out + 1] = row(r)
       end

@@ -113,10 +113,10 @@ A query is a tag too. It asks the index a question and the result is written aft
 With `conceal: true` a query shows as an icon and its result alone, and shows everything when the cursor is in it.
 
 
-  IX. Footnotes, comments and math
+  IX. Footnotes, comments, math and variables
 
 A footnote is a reference tag and a definition (a pair, block or line tag); `<Leader>;nf` inserts both and jumps between them. A `comment` tag hides what it covers from the index and
-the export, in every form. `math` is LaTeX, highlighted with the latex parser when it is installed.
+the export, in every form. `math` is LaTeX, highlighted with the latex parser when it is installed. A `var` tag defines a variable in the line, block or pair form (`#[ var, name ] text#` or `#[ var, name: some_name ] text#`); `{# var, name #}` inserts its text on export, and `$name$` (or `$vault:path:to:var$`) resolves inside any tag's values and keys when it runs and on export, looking up from the note through parent hollows to the court.
 
 ###  src fey
 A claim {@ fn, 1 @}.
@@ -126,6 +126,11 @@ The note.
 [# fn ]
 
 #[ comment ] to do: check this #
+
+#[ var, url1 ] https://gitlab.com/rrml/webd/realm/site.git#
+
+| a table is a useful case for this |
+| {# link; url: $url1$ #}           |
 ###
 
 

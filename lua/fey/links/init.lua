@@ -267,7 +267,8 @@ end
 ---Open a `link` tag
 ---@param tag FeyTag
 function M.open_link(tag)
-  local target = tag.values[1] and unescape(tag.values[1]) or nil
+  local raw = tag.values[1] or tag.key_values.url or tag.key_values.file
+  local target = raw and unescape(raw) or nil
   return M.open_target(target, tag.key_values.section or tag.key_values.heading, tonumber(tag.key_values.n), from_path_of(tag), tag)
 end
 
@@ -295,9 +296,11 @@ function M.first_link_in(text)
         local k, v = kv:field('key')[1], kv:field('value')[1]
         if k and v then keys[vim.trim(vim.treesitter.get_node_text(k, text))] = vim.trim(vim.treesitter.get_node_text(v, text)) end
       end
-      if kind == 'section' then return { sig = values[1] and unescape(values[1]), target = values[2] and unescape(values[2]) } end
+      values, keys = require('fey.vars').interpolate_tag(values, keys, { src = text })
+      if kind == 'section' then return { sig = values[1] and unescape(values[1]), target = (values[2] or keys.file) and unescape(values[2] or keys.file) } end
+      local raw_target = values[1] or keys.url or keys.file
       return {
-        target = values[1] and unescape(values[1]),
+        target = raw_target and unescape(raw_target),
         sig = keys.section or keys.heading,
         n = tonumber(keys.n),
       }

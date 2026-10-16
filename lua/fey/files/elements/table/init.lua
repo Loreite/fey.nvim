@@ -17,6 +17,10 @@ local indent = require('fey.fey.indent')
 ---@field end_line integer
 ---@field node TSNode
 ---@field col_count integer
+---@field align (string|false)[] 'left', 'right' or 'center' for each column, false for none: the marks of the rule row
+---@field config table the settings written in the tags under the table (`tblwidth`)
+---@field formulas { target: string, expr: string }[] the formulas written in the tags under the table, in order
+---@field errors string[] what was wrong with the tags under the table
 local Table = {}
 
 ---@param range FeyRange
@@ -31,6 +35,10 @@ function Table:new(range)
     start_col = range.start_col,
     end_line = range.end_line,
     col_count = 0,
+    align = {},
+    config = {},
+    formulas = {},
+    errors = {},
   }
 
   setmetatable(data, self)
@@ -187,6 +195,7 @@ function Table.from_node(node, bufnr)
         current_physical_rows = {}
       end
     elseif type == 'hr' then
+      tbl:read_rule(vim.treesitter.get_node_text(child, bufnr))
       if is_multi_line_mode then
         pending_hrs = pending_hrs + 1
       else
@@ -289,11 +298,99 @@ function Table.from_node(node, bufnr)
     pending_hrs = pending_hrs - 1
   end
 
+  tbl:read_tags(bufnr)
   return tbl
 end
 
+-- Alignment ---------------------------------------------------------------------------------------
+
+---The alignment a rule row writes for each column: a colon at the left of the run of `=` aligns left, at the right aligns
+---right, at both centres. The first rule row with a mark sets it for the table.
+---@param text string the rule row
+function Table:read_rule(text)
+  if self.align_read then return end
+  local marks, any = {}, false
+  for seg in vim.trim(text):gmatch('[^+]+') do
+    seg = vim.trim(seg)
+    local left, right = seg:sub(1, 1) == ':', seg:sub(-1) == ':'
+    local mark = (left and right) and 'center' or (left and 'left') or (right and 'right') or false
+    marks[#marks + 1] = mark
+    any = any or mark ~= false
+  end
+  if any then
+    self.align, self.align_read = marks, true
+  end
+end
+
+---@param col integer
+---@return 'left'|'right'|'center'|nil
+function Table:column_align(col) return self.align[col] or nil end
+
+---The alignment of the columns follows the columns when they are added, taken away or moved
+---@param col integer the column the new one takes the place of
+function Table:align_insert(col)
+  if #self.align > 0 then table.insert(self.align, math.min(col, #self.align + 1), false) end
+end
+
+---@param col integer
+function Table:align_remove(col)
+  if self.align[col] ~= nil then table.remove(self.align, col) end
+end
+
+---Two blocks of columns, the first before the second, change places
+---@param a1 integer
+---@param a2 integer
+---@param b1 integer
+---@param b2 integer
+function Table:align_swap(a1, a2, b1, b2)
+  if #self.align == 0 then return end
+  local out = {}
+  local function take(from, to)
+    for i = from, to do
+      out[#out + 1] = self.align[i] or false
+    end
+  end
+  take(1, a1 - 1)
+  take(b1, b2)
+  take(a1, a2)
+  take(b2 + 1, math.max(#self.align, self.col_count))
+  self.align = out
+end
+
+-- Tags under the table ----------------------------------------------------------------------------
+
+---The settings and formulas of the tags (the formula tag, `fey_tblfm_tag_name`) that follow the table with no blank line
+---between. A key that names a setting is a setting, any other key is a formula (a target and an expression), in the
+---order they are written. The body of a line tag is a line of formulas (`$3=$1*$2::$4=$1+$2`).
+---@param source integer|string the buffer, or the text, the table is from
+function Table:read_tags(source)
+  local ok, query = pcall(vim.treesitter.query.get, 'fey', 'fey_tags')
+  if not ok or not query or not self.node then return end
+  local Tag = require('fey.files.elements.tags')
+  local formula = require('fey.files.elements.table.formula')
+  local root = self.node:tree():root()
+  local er, ec = self.node:end_()
+  local row = ec == 0 and er or er + 1
+  while true do
+    local node
+    for _, n in query:iter_captures(root, source, row, row + 1) do
+      local sr = n:start()
+      if sr == row and (not node or (n:end_()) > (node:end_())) then node = n end
+    end
+    if not node then break end
+    local tag = Tag.parse_tag_node(source, node)
+    if tag.name ~= config.fey_tblfm_tag_name then break end
+    formula.read_tag(self, tag, source)
+    local nr, nc = node:end_()
+    row = nc == 0 and nr or nr + 1
+  end
+end
+
+---The widths of the columns. `tblwidth` of the tags under the table is the most the table may take: past it the widest
+---column is made narrower until the table fits, and its text wraps. With no `tblwidth` a table has no limit.
+---@param max_table_width? integer
 function Table:calculate_widths(max_table_width)
-  max_table_width = max_table_width or 120
+  max_table_width = max_table_width or self.config.tblwidth
   self.col_widths = {}
   for i = 1, self.col_count do
     self.col_widths[i] = 1
@@ -336,7 +433,7 @@ function Table:calculate_widths(max_table_width)
     total = total + self.col_widths[i] + 3
   end
 
-  if total > max_table_width then
+  if max_table_width and total > max_table_width then
     local excess = total - max_table_width
     while excess > 0 do
       local largest_idx, largest_val = 1, 0
@@ -360,7 +457,7 @@ local function wrap_lines(lines, max_w)
     else
       local current = ''
       for word in line:gmatch('%S+') do
-        if #current + #word + 1 > max_w then
+        if vim.api.nvim_strwidth(current) + vim.api.nvim_strwidth(word) + 1 > max_w then
           if #current > 0 then
             table.insert(wrapped, vim.trim(current))
             current = word
@@ -378,11 +475,32 @@ local function wrap_lines(lines, max_w)
   return wrapped
 end
 
-function Table:draw()
-  self:calculate_widths(120)
-  local rendered_lines = {}
-  local cell_positions = {}
+---Pad `text` to `w` columns as the alignment says
+---@param text string
+---@param w integer
+---@param align? string
+local function pad_text(text, w, align)
+  local gap = math.max(w - vim.api.nvim_strwidth(text), 0)
+  if align == 'right' then return string.rep(' ', gap) .. text end
+  if align == 'center' then
+    local left = math.floor(gap / 2)
+    return string.rep(' ', left) .. text .. string.rep(' ', gap - left)
+  end
+  return text .. string.rep(' ', gap)
+end
 
+---The rule row of a column: `=` all the way, with a colon at the left, the right or both for the alignment
+---@param width integer
+---@param align? string
+local function rule_cell(width, align)
+  local seg = string.rep('=', width)
+  if align == 'left' or align == 'center' then seg = ':' .. seg:sub(2) end
+  if align == 'right' or align == 'center' then seg = seg:sub(1, -2) .. ':' end
+  return seg
+end
+
+---Break the text of every cell into the lines it takes at the width of its columns
+function Table:wrap_cells()
   for _, row in ipairs(self.rows) do
     for _, cell in ipairs(row.cells) do
       local max_w = 0
@@ -393,6 +511,37 @@ function Table:draw()
       cell.wrapped = wrap_lines(cell.lines, max_w)
     end
   end
+end
+
+---A row that takes more than one line must be inside a multi-line block (`v---v` ... `^---^`), or its lines are read
+---as rows of their own. True when a row is as tall as that and is not.
+function Table:needs_boundaries()
+  local inside = false
+  for _, item in ipairs(self.logical_grid) do
+    if item.type == 'cbo' then
+      inside = true
+    elseif item.type == 'cbe' then
+      inside = false
+    elseif not item.type and not inside then
+      for _, cell in ipairs(item.cells) do
+        if cell.rowspan > 1 or cell.rowspan == 0 or cell.colspan > 1 or #cell.lines > 1 or #cell.wrapped > 1 then return true end
+      end
+    end
+  end
+  return false
+end
+
+function Table:draw()
+  self:calculate_widths()
+  self:wrap_cells()
+  -- the text broke into more lines than the rows had: they become multi-line rows
+  if self:needs_boundaries() then
+    self:sync_boundaries()
+    self:calculate_widths()
+    self:wrap_cells()
+  end
+  local rendered_lines = {}
+  local cell_positions = {}
 
   local row_phys_lines = {}
   for i = 1, #self.rows do
@@ -444,7 +593,9 @@ function Table:draw()
 
       if not item.spans then
         for i = 1, self.col_count do
-          line = line .. string.rep(fill, self.col_widths[i] + 2) .. line_char
+          local seg = string.rep(fill, self.col_widths[i] + 2)
+          if item.type == 'hr' then seg = rule_cell(self.col_widths[i] + 2, self:column_align(i)) end
+          line = line .. seg .. line_char
         end
       else
         local col_idx = 1
@@ -546,11 +697,7 @@ function Table:draw()
           end
           w = w + (span - 1) * 3
 
-          local text_w = vim.api.nvim_strwidth(text)
-          local pad_len = w - text_w
-          if pad_len < 0 then pad_len = 0 end
-
-          line_str = line_str .. ' ' .. text .. string.rep(' ', pad_len) .. ' |'
+          line_str = line_str .. ' ' .. pad_text(text, w, self:column_align(col_idx)) .. ' |'
           col_idx = col_idx + span
         end
         table.insert(rendered_lines, line_str)
@@ -605,7 +752,7 @@ function Table:sync_boundaries()
   if #self.rows > 0 then
     local first_row_complex = false
     for _, cell in ipairs(self.rows[1].cells) do
-      if cell.colspan > 1 or cell.rowspan > 1 or cell.rowspan == 0 or #cell.lines > 1 then
+      if cell.colspan > 1 or cell.rowspan > 1 or cell.rowspan == 0 or #cell.lines > 1 or #cell.wrapped > 1 then
         first_row_complex = true
         break
       end
@@ -651,7 +798,7 @@ function Table:sync_boundaries()
 
     for _, cell in ipairs(row.cells) do
       if cell.rowspan == 0 then needs_cbi = true end
-      if cell.colspan > 1 or cell.rowspan > 1 or #cell.lines > 1 then has_complex = true end
+      if cell.colspan > 1 or cell.rowspan > 1 or #cell.lines > 1 or #cell.wrapped > 1 then has_complex = true end
     end
 
     local needs_hr = has_hr_before_row[row]

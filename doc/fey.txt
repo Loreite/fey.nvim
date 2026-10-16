@@ -25,7 +25,7 @@ Table of Contents                                      *fey-table-of-contents*
   - The clock and notes                     |fey-tutorial-the-clock-and-notes|
   - Links                                                 |fey-tutorial-links|
   - Queries and databases                 |fey-tutorial-queries-and-databases|
-  - Footnotes, comments and math   |fey-tutorial-footnotes,-comments-and-math|
+  - Footnotes, comments, math and variables |fey-tutorial-footnotes,-comments,-math-and-variables|
   - Settings of a note                       |fey-tutorial-settings-of-a-note|
   - Export                                               |fey-tutorial-export|
   - Import, and the command line   |fey-tutorial-import,-and-the-command-line|
@@ -416,12 +416,16 @@ without links. With `conceal: true` a query shows as an icon and its result
 alone, and shows everything when the cursor is in it.
 
 
-FOOTNOTES, COMMENTS AND MATH       *fey-tutorial-footnotes,-comments-and-math*
+FOOTNOTES, COMMENTS, MATH AND VARIABLES*fey-tutorial-footnotes,-comments,-math-and-variables*
 
 A footnote is a reference tag and a definition (a pair, block or line tag);
 `<Leader>;nf` inserts both and jumps between them. A `comment` tag hides what
 it covers from the index and the export, in every form. `math` is LaTeX,
-highlighted with the latex parser when it is installed.
+highlighted with the latex parser when it is installed. A `var` tag defines a
+variable in the line, block or pair form (`` or ``); `text` inserts its text on
+export, and `$name$` (or `$vault:path:to:var$`) resolves inside any tag's
+values and keys when it runs and on export, looking up from the note through
+parent hollows to the court.
 
 >fey
     A claim {@ fn, 1 @}.
@@ -431,6 +435,11 @@ highlighted with the latex parser when it is installed.
     [# fn ]
     
     #[ comment ] to do: check this #
+    
+    #[ var, url1 ] https://gitlab.com/rrml/webd/realm/site.git#
+    
+    | a table is a useful case for this |
+    | {# link; url: $url1$ #}           |
 <
 
 
@@ -583,7 +592,7 @@ is optional. A function instead of the table is the same as `apply` alone.
 
 EVERY OPTION                                  *fey-configuration-every-option*
 
-155 options. "A note may set it" is the white list of the `plugin` tag
+158 options. "A note may set it" is the white list of the `plugin` tag
 (`fey.settings.fey_options`): a `plugin` tag, in the court, a hollow or a note,
 can set those, and the change takes effect as soon as it is applied; the others
 are read when the plugin is set up, so they are written in the setup.
@@ -701,6 +710,8 @@ are read when the plugin is set up, so they are written in the setup.
 - `fey_status_tag_name` (string, default `"status"`; a note may set it: no, read when the plugin is set up) Tag name of the todo keyword and the priority of a heading, `a tag`.
 - `fey_subheadings_unique_segments_for_subtree` (boolean, default `false`; a note may set it: no, read when the plugin is set up)
 - `fey_sublists_unique_bullets_for_subtree` (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+- `fey_table_recalculate_on_save` (boolean, default `false`; a note may set it: no, read when the plugin is set up) Compute the formulas of the tables of a note when it is saved.
+- `fey_tblfm_tag_name` (string, default `"tblfm"`; a note may set it: no, read when the plugin is set up) Tag name of the tag under a table that holds its settings (`tblwidth`) and formulas.
 - `fey_todo_keyword_faces` (table<string, string>, default `{}`; a note may set it: yes, at once) Custom faces (colors) for todo keywords.
 - `fey_todo_keywords` (string[], default `{ "TODO", "|", "DONE" }`; a note may set it: yes, at once) List of todo/done states, separated by `|`.
 - `fey_treesitter_local_install` (string, default `""`; a note may set it: no, read when the plugin is set up)
@@ -709,6 +720,7 @@ are read when the plugin is set up, so they are written in the setup.
 - `fey_use_uppercase_for_binary_marker` (boolean, default `false`; a note may set it: no, read when the plugin is set up)
 - `fey_use_uppercase_for_hex_index` (boolean, default `false`; a note may set it: no, read when the plugin is set up)
 - `fey_use_uppercase_for_hex_marker` (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+- `fey_var_tag_name` (string, default `"var"`; a note may set it: no, read when the plugin is set up) Tag name of variable definitions and scope insertions.
 - `notifications.cron_enabled` (boolean, default `true`; a note may set it: yes, at once) Enable cron notifications.
 - `notifications.deadline_reminder` (boolean, default `true`; a note may set it: yes, at once) Enable notifiactions for DEADLINE dates.
 - `notifications.deadline_warning_reminder_time` (boolean | number | number[], default `0`; a note may set it: yes, at once) Number of minutes before the deadline wrning time to send the notifiaction.
@@ -1039,7 +1051,7 @@ link                                                                *fey-link*
 The name is `link`; the option `fey_link_tag_name` changes it.
 
 - Forms: scope: a link written out; line: the words of the line are the link; block: what is under it is the link (a paragraph, a list, a table); pair: the same, between an opener and a closer.
-- Head: the target (a file, a url, `id:...`, a file of another hollow); the keys `desc`, `section` and `n`, and `conceal`.
+- Head: the target (a file, a url, `id:...`, a file of another hollow), or the keys `url` or `file`; the keys `desc`, `section` and `n`, and `conceal`.
 - Body: what the link is made of, in the line, block and pair forms.
 - Where: anywhere in the text.
 - The index: a link, with its target file and section, so backlinks, broken links and queries work.
@@ -1099,6 +1111,45 @@ The name is `math`; the option `fey_math_tag_name` changes it.
 
 >fey
     The mass #[ math ] E = mc^2 # is energy.
+<
+
+
+tblfm                                                              *fey-tblfm*
+
+The name is `tblfm`; the option `fey_tblfm_tag_name` changes it.
+
+- Forms: scope: the settings and formulas of the table above it; line: the same, with formulas in the body; block: the same, with formulas in the body; pair: the same, with formulas in the body.
+- Head: a key that names a setting is a setting (`tblwidth`: the most columns the table takes, with none a table has no limit), any other key is a formula: the target (a column by its header or `c3`, a row `r3`, a cell `r3c4`, rows of a column `r2to4c3`) and an expression of the query language; a head cannot hold `,` or `;`.
+- Body: formulas, one to a line or after each other with `::`, like `total = qty * price` (`$3=$1*$2`, as an imported file has it, works).
+- Where: right under a table, with no blank line; tags one after the other are one.
+- The index: as a tag only.
+- Open at point: nothing; `fey_table_recalculate` computes the table under the cursor, `fey_table_recalculate_all` all of the note, and `fey_table_recalculate_on_save` does it on save.
+- Related: `fey_table_recalculate_on_save`, the rule row of a table (`+:===+===:+` aligns the columns).
+
+>fey
+    {# tblfm; tblwidth: 60; total: qty * price #}
+<
+
+
+var                                                                  *fey-var*
+
+The name is `var`; the option `fey_var_tag_name` changes it.
+
+- Forms: scope: inserts the text of a variable on export; line: defines a variable whose text is the body of the line tag; block: defines a variable whose text is the indented body; pair: defines a variable whose text is the lines between the opener and the closer.
+- Head: the variable name (or `vault:path:to:var` for a scope reference), as the first value or with the key `name`; any tag may also interpolate `$name$` or `$vault:path:to:var$` in its values and keys when it runs and on export.
+- Body: the variable text (for the line, block and pair definition forms); omitted from export where it is defined.
+- Where: anywhere in the text; local definitions shadow definitions from parent hollows up to the court.
+- The index: in the `vars` table of the vault, with its name, text and line number.
+- Open at point: jumps between a `a tag` reference and its definition (across files and hollows).
+- Related: `Vault:vars`, `fey.vars.get`, `fey.vars.interpolate`.
+
+>fey
+    #[ var, url1 ] https://gitlab.com/rrml/webd/realm/site.git#
+    
+    | a table is a useful case for this |
+    | {# link; url: $url1$ #}           |
+    
+    Insert on export: {# var, url1 #}.
 <
 
 
@@ -1505,6 +1556,8 @@ In Fey files:
   <prefix>tml             move the current table col under curosr right                                                     fey_table_move_col_right
   <prefix>tmj             move the current table row under cursor down                                                      fey_table_move_row_down
   <prefix>tmk             move the current table row under cursor up                                                        fey_table_move_row_up
+  <prefix>t=              compute the formulas of the table under the cursor and write the results into its cells           fey_table_recalculate
+  <prefix>t+              compute the formulas of every table of the note and write the results into their cells            fey_table_recalculate_all
   <prefix>tf              reformat table, reflowing text and aligning to a grid                                             fey_table_reformat
   <prefix>tu              break apart combined cells into individual cells                                                  fey_table_unmerge_cells
   cit                     Forward change TODO state of current heading                                                      fey_todo
@@ -1865,6 +1918,8 @@ Features:
 
 Changes:
 
+- updates to do with the importer, and database view (b1bb476)
+- update importer (803497c)
 - fey importer (20ba084)
 - documentation overhaul (6845826)
 - III.R task completed (53bff71)

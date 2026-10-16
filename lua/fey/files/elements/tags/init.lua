@@ -9,6 +9,8 @@ local section_handler = require('fey.files.elements.tags.handlers.section')
 local date_handler = require('fey.files.elements.tags.handlers.date')
 local status_handler = require('fey.files.elements.tags.handlers.status')
 local comment_handler = require('fey.files.elements.tags.handlers.comment')
+local var_handler = require('fey.files.elements.tags.handlers.var')
+local vars = require('fey.vars')
 
 ---@type vim.treesitter.Query
 local query = nil
@@ -22,6 +24,9 @@ local query = nil
 ---@field name string
 ---@field values string[]
 ---@field key_values table
+---@field raw_values? string[]
+---@field raw_key_values? table
+---@field key_order string[] the keys of `key_values`, in the order they are written
 local Tag = {}
 
 ---@param opts table
@@ -35,6 +40,9 @@ function Tag:new(opts)
     name = opts.name,
     values = opts.values,
     key_values = opts.key_values,
+    raw_values = opts.raw_values,
+    raw_key_values = opts.raw_key_values,
+    key_order = opts.key_order or {},
   }
 
   setmetatable(data, self)
@@ -89,13 +97,13 @@ function Tag.parse_tag_node(bufnr, node)
   local name_text = vim.treesitter.get_node_text(name, bufnr)
   local body = Tag.body_node(node)
 
-  local values = {}
+  local raw_values = {}
   for _, value in ipairs(head:field('value')) do
     local text = vim.treesitter.get_node_text(value, bufnr)
-    table.insert(values, text:match('^%s*(.-)%s*$'))
+    table.insert(raw_values, text:match('^%s*(.-)%s*$'))
   end
 
-  local key_values = {}
+  local raw_key_values, key_order = {}, {}
   for _, kv in ipairs(head:field('key_value')) do
     local key = kv:field('key')[1]
     local value = kv:field('value')[1]
@@ -105,8 +113,16 @@ function Tag.parse_tag_node(bufnr, node)
       local value_text = vim.treesitter.get_node_text(value, bufnr)
 
       value_text = value_text:match('^%s*(.-)%s*$')
-      key_values[vim.trim(key_text)] = value_text
+      key_text = vim.trim(key_text)
+      if raw_key_values[key_text] == nil then key_order[#key_order + 1] = key_text end
+      raw_key_values[key_text] = value_text
     end
+  end
+
+  local values, key_values = raw_values, raw_key_values
+  if name_text ~= config.fey_var_tag_name then
+    local var_opts = type(bufnr) == 'number' and { bufnr = bufnr } or { src = bufnr }
+    values, key_values = vars.interpolate_tag(raw_values, raw_key_values, var_opts)
   end
 
   local opts = {
@@ -118,6 +134,9 @@ function Tag.parse_tag_node(bufnr, node)
     name = name_text,
     values = values,
     key_values = key_values,
+    raw_values = raw_values,
+    raw_key_values = raw_key_values,
+    key_order = key_order,
   }
 
   return Tag:new(opts)
@@ -167,8 +186,13 @@ function Tag.setup(handlers)
   Tag.handlers[config.fey_status_tag_name] = status_handler.handlers
   Tag.handlers[config.fey_comment_tag_name] = comment_handler.handlers
   Tag.handlers[config.fey_footnote_tag_name] = require('fey.footnotes').handlers
+  Tag.handlers[config.fey_var_tag_name] = var_handler.handlers
   -- tags the open-at-point mapping applies the handler of (the others are run by their own mappings)
-  Tag.at_point = { [config.fey_status_tag_name] = true, [config.fey_footnote_tag_name] = true }
+  Tag.at_point = {
+    [config.fey_status_tag_name] = true,
+    [config.fey_footnote_tag_name] = true,
+    [config.fey_var_tag_name] = true,
+  }
   for _, name in ipairs(date_handler.names()) do
     Tag.handlers[name] = date_handler.handlers
     Tag.at_point[name] = true

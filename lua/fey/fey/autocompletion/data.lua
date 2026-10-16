@@ -20,7 +20,7 @@ local function static_keys()
     [config.fey_deadline_tag_name] = { 'active' },
     [config.fey_closed_tag_name] = { 'active' },
     [config.fey_clock_tag_name] = { 'end', 'dur' },
-    [config.fey_link_tag_name] = { 'desc', 'section', 'n', 'conceal' },
+    [config.fey_link_tag_name] = { 'url', 'file', 'desc', 'section', 'n', 'conceal' },
     [config.fey_section_tag_name] = { 'file', 'n', 'conceal' },
     [config.fey_query_tag_name] = { 'scope', 'conceal' },
     [config.fey_db_tag_name] = { 'db', 'view', 'conceal' },
@@ -29,8 +29,10 @@ local function static_keys()
     [config.fey_db_result_tag_name] = { 'conceal' },
     [config.fey_clocktable_result_tag_name] = { 'conceal' },
     [config.fey_comment_tag_name] = { 'index' },
+    [config.fey_tblfm_tag_name] = { 'tblwidth' },
     [config.fey_hl_tag_name] = { 'fg', 'bg', 'bold', 'italic', 'strike', 'underline', 'link' },
     [config.fey_footnote_tag_name] = { 'form' },
+    [config.fey_var_tag_name] = { 'name' },
     table = M.DATA_KEYS,
     array = {},
   }
@@ -156,6 +158,12 @@ function M.values(ctx)
       out[#out + 1] = row.label
     end
     return out
+  elseif tag == config.fey_var_tag_name then
+    if ctx.index == 1 then
+      local names = vim.tbl_keys(require('fey.vars').all_visible())
+      table.sort(names)
+      return names
+    end
   elseif tag == config.fey_clocktable_tag_name then
     if ctx.index == 1 then return SPANS end
   elseif tag == config.fey_plugin_tag_name then
@@ -173,8 +181,13 @@ end
 ---@return string[]
 function M.key_values(ctx)
   local key = ctx.key
+  if ctx.tag == config.fey_var_tag_name and key == 'name' then
+    local names = vim.tbl_keys(require('fey.vars').all_visible())
+    table.sort(names)
+    return names
+  end
   if key == 'section' or key == 'heading' then return signatures(ctx.values[1]) end
-  if key == 'file' then
+  if key == 'file' or key == 'url' then
     local v = vault()
     return vim.tbl_map(function(f) return f.path end, v and v:files() or {})
   end

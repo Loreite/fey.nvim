@@ -83,12 +83,20 @@ local SAMPLES = {
   { 'feydb_result', 'pair_tag', { '  I. H', '', '[ feydb_result #]', '| a |', '[# feydb_result ]' }, 2, 0 },
   { 'clocktable', 'scope_tag', { '  I. H', '', '{# clocktable; span: thisweek; by: file #}' }, 2, 0 },
   { 'clocktable_result', 'pair_tag', { '  I. H', '', '[ clocktable_result #]', '| a |', '[# clocktable_result ]' }, 2, 0 },
+  { 'tblfm', 'scope_tag', { '  I. H', '', '| a | b |', '+===+===+', '| 1 | 2 |', '{# tblfm; tblwidth: 40; b: a * 2 #}' }, 5, 0 },
+  { 'tblfm', 'line_tag', { '  I. H', '', '| a | b |', '+===+===+', '| 1 | 2 |', '#[ tblfm ] b = a * 2 #' }, 5, 0 },
+  { 'tblfm', 'block_tag', { '  I. H', '', '| a | b |', '+===+===+', '| 1 | 2 |', '[ tblfm ]#', '   b = a * 2' }, 5, 0 },
+  { 'tblfm', 'pair_tag', { '  I. H', '', '| a | b |', '+===+===+', '| 1 | 2 |', '[ tblfm #]', 'b = a * 2', '[# tblfm ]' }, 5, 0 },
   { 'hl', 'scope_tag', { '  I. H', '', 'word {# hl; fg: red #} more' }, 2, 5 },
   { 'nvim', 'scope_tag', { '{# nvim; wrap: false #}', '', '  I. H' }, 0, 0 },
   { 'plugin', 'scope_tag', { '{# plugin, fey; fey_highlight_overdue: false #}', '', '  I. H' }, 0, 0 },
   { 'table', 'scope_tag', { '{# table; title: T; author: A #}', '', '  I. H' }, 0, 0 },
   { 'array', 'scope_tag', { '  I. H', '{# array, 1, 2, 3 #}' }, 1, 0 },
   { 'value', 'scope_tag', { '  I. H', '{# value, 5 #}' }, 1, 0 },
+  { 'var', 'scope_tag', { '  I. H', '', 'word {# var, url1 #} more' }, 2, 5 },
+  { 'var', 'line_tag', { '  I. H', '', '#[ var, url1 ] https://example.org #' }, 2, 0 },
+  { 'var', 'block_tag', { '  I. H', '', '[ var, url1 ]#', '   https://example.org' }, 2, 0 },
+  { 'var', 'pair_tag', { '  I. H', '', '[ var, url1 #]', 'https://example.org', '[# var ]' }, 2, 0 },
 }
 
 local function parses(lines)
@@ -136,6 +144,7 @@ for _, sample in ipairs(SAMPLES) do
     deadline = true,
     closed = true,
     fn = true,
+    var = true,
     link = true,
     section = true,
     comment = true,

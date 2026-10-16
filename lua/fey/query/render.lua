@@ -87,10 +87,14 @@ local function render_table(result, opts)
     end
   end
 
+  -- how a column lines up (`result.align`): the rule row says it, and the cells are padded the same way
   local function line(cells)
     local out = {}
     for i, c in ipairs(cells) do
-      out[i] = ' ' .. c .. (' '):rep(widths[i] - width(c)) .. ' '
+      local gap = widths[i] - width(c)
+      local a = result.align and result.align[i]
+      local left = a == 'right' and gap or (a == 'center' and math.floor(gap / 2) or 0)
+      out[i] = ' ' .. (' '):rep(left) .. c .. (' '):rep(gap - left) .. ' '
     end
     return '|' .. table.concat(out, '|') .. '|'
   end
@@ -98,7 +102,11 @@ local function render_table(result, opts)
   local lines = { line(header) }
   local sep = {}
   for i, w in ipairs(widths) do
-    sep[i] = ('='):rep(w + 2)
+    local seg = ('='):rep(w + 2)
+    local a = result.align and result.align[i]
+    if a == 'left' or a == 'center' then seg = ':' .. seg:sub(2) end
+    if a == 'right' or a == 'center' then seg = seg:sub(1, -2) .. ':' end
+    sep[i] = seg
   end
   lines[2] = '+' .. table.concat(sep, '+') .. '+'
   for _, row in ipairs(body) do

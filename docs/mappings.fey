@@ -138,6 +138,8 @@ In Fey files:
 | <prefix>tml           | move the current table col under curosr right                                                   | fey_table_move_col_right                           |
 | <prefix>tmj           | move the current table row under cursor down                                                    | fey_table_move_row_down                            |
 | <prefix>tmk           | move the current table row under cursor up                                                      | fey_table_move_row_up                              |
+| <prefix>t=            | compute the formulas of the table under the cursor and write the results into its cells         | fey_table_recalculate                              |
+| <prefix>t+            | compute the formulas of every table of the note and write the results into their cells          | fey_table_recalculate_all                          |
 | <prefix>tf            | reformat table, reflowing text and aligning to a grid                                           | fey_table_reformat                                 |
 | <prefix>tu            | break apart combined cells into individual cells                                                | fey_table_unmerge_cells                            |
 | cit                   | Forward change TODO state of current heading                                                    | fey_todo                                           |

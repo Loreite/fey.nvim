@@ -567,7 +567,7 @@ local function quote(ctx, node)
 end
 
 local function table_of(ctx, node)
-  local header, rows = nil, {}
+  local header, rows, align = nil, {}, {}
   local function cells(row)
     local out = {}
     for c in row:iter_children() do
@@ -593,9 +593,21 @@ local function table_of(ctx, node)
       header = cells(c)
     elseif c:type() == 'pipe_table_row' then
       rows[#rows + 1] = cells(c)
+    elseif c:type() == 'pipe_table_delimiter_row' then
+      -- `:--` aligns a column left, `--:` right, `:-:` centres it
+      for d in c:iter_children() do
+        if d:type() == 'pipe_table_delimiter_cell' then
+          local left, right = false, false
+          for mark in d:iter_children() do
+            left = left or mark:type() == 'pipe_table_align_left'
+            right = right or mark:type() == 'pipe_table_align_right'
+          end
+          align[#align + 1] = (left and right) and 'center' or (left and 'left') or (right and 'right') or false
+        end
+      end
     end
   end
-  return { { t = 'table', header = header, rows = rows } }
+  return { { t = 'table', header = header, rows = rows, align = align } }
 end
 
 ---@param ctx table
@@ -737,13 +749,152 @@ local function parse_yaml(text)
   return root
 end
 
+---The TOML of a front matter, in the shape `parse_yaml` makes: `[tables]`, `[[arrays of tables]]`, dotted keys, strings, `[arrays]` (over lines too)
+---and `{inline = "tables"}`. Dates and numbers stay text.
+---@param text string
+---@return table|nil node nil when the text has no keys
+local function parse_toml(text)
+  ---`text` with the comments gone and the brackets of a value balanced over lines
+  local src, lines, pending, depth = text, {}, nil, 0
+  local function scan(l)
+    local q, out = nil, {}
+    local k = 1
+    while k <= #l do
+      local ch = l:sub(k, k)
+      if q then
+        if ch == '\\' and q == '"' then out[#out + 1] = l:sub(k, k + 1); k = k + 1
+        else
+          out[#out + 1] = ch
+          if ch == q then q = nil end
+        end
+      elseif ch == '"' or ch == "'" then q = ch; out[#out + 1] = ch
+      elseif ch == '#' then break
+      else
+        if ch == '[' or ch == '{' then depth = depth + 1 elseif ch == ']' or ch == '}' then depth = depth - 1 end
+        out[#out + 1] = ch
+      end
+      k = k + 1
+    end
+    return (table.concat(out):gsub('%s+$', ''))
+  end
+  for _, l in ipairs(vim.split(src, '\n', { plain = true })) do
+    local first = pending == nil
+    local kept = scan(first and l:gsub('^%s+', '') or l)
+    if first and kept:match('^%[') and depth > 0 and kept:match('^%[%[?[%w_."\' -]+%]%]?$') then depth = 0 end
+    if first then
+      if kept ~= '' then
+        if depth > 0 then pending = kept else lines[#lines + 1] = kept end
+      end
+    else
+      pending = pending .. ' ' .. vim.trim(kept)
+      if depth <= 0 then lines[#lines + 1] = pending; pending, depth = nil, 0 end
+    end
+  end
+  if pending then lines[#lines + 1] = pending end
+
+  ---One value from the start of `v`, and what is left after it
+  local parse_value
+  local function split_top(v)
+    local items, q, d, from = {}, nil, 0, 1
+    for k = 1, #v do
+      local ch = v:sub(k, k)
+      if q then
+        if ch == q then q = nil end
+      elseif ch == '"' or ch == "'" then q = ch
+      elseif ch == '[' or ch == '{' then d = d + 1
+      elseif ch == ']' or ch == '}' then d = d - 1
+      elseif ch == ',' and d == 0 then
+        items[#items + 1] = v:sub(from, k - 1)
+        from = k + 1
+      end
+    end
+    local last = v:sub(from)
+    if vim.trim(last) ~= '' then items[#items + 1] = last end
+    return items
+  end
+  local function key_parts(k)
+    local parts = {}
+    for part in (k .. '.'):gmatch('%s*(.-)%s*%.') do
+      parts[#parts + 1] = unquote(part)
+    end
+    return parts
+  end
+  function parse_value(v)
+    v = vim.trim(v)
+    if v:match('^%[.*%]$') then
+      local list = {}
+      for _, item in ipairs(split_top(v:sub(2, -2))) do
+        list[#list + 1] = parse_value(item)
+      end
+      return { list = list }
+    elseif v:match('^{.*}$') then
+      local map = {}
+      for _, item in ipairs(split_top(v:sub(2, -2))) do
+        local k, rest = item:match('^%s*([^=]-)%s*=%s*(.*)$')
+        if k then map[#map + 1] = { unquote(vim.trim(k)), parse_value(rest) } end
+      end
+      return { map = map }
+    end
+    return unquote(v)
+  end
+
+  local root = { map = {} }
+  local current = root
+  ---The map at the path from `base`, made as it is walked
+  local function descend(base, parts, last_is_array)
+    local node = base
+    for n, part in ipairs(parts) do
+      local found
+      for _, kv in ipairs(node.map) do
+        if kv[1] == part then found = kv end
+      end
+      local is_last = n == #parts
+      if not found then
+        found = { part, (is_last and last_is_array) and { list = {} } or { map = {} } }
+        node.map[#node.map + 1] = found
+      end
+      node = found[2]
+      if type(node) ~= 'table' then return nil end
+      if node.list then
+        if is_last and last_is_array then
+          local fresh = { map = {} }
+          node.list[#node.list + 1] = fresh
+          return fresh
+        end
+        node = node.list[#node.list]
+        if not node then return nil end
+      end
+    end
+    return node
+  end
+  for _, l in ipairs(lines) do
+    local arr = l:match('^%[%[%s*(.-)%s*%]%]$')
+    local tab = not arr and l:match('^%[%s*(.-)%s*%]$')
+    if arr then
+      current = descend(root, key_parts(arr), true) or { map = {} }
+    elseif tab then
+      current = descend(root, key_parts(tab), false) or { map = {} }
+    else
+      local k, v = l:match('^([^=]-)%s*=%s*(.*)$')
+      if k then
+        local parts = key_parts(k)
+        local node = current
+        if #parts > 1 then node = descend(current, { unpack(parts, 1, #parts - 1) }, false) or { map = {} } end
+        node.map[#node.map + 1] = { parts[#parts], parse_value(v) }
+      end
+    end
+  end
+  if #root.map == 0 then return nil end
+  return root
+end
+
 ---The front matter of a note: its YAML as the data of the document. A list of plain values is one value (joined), a map or a list of maps stays
 ---as it is, and the writer makes a block of it.
 ---@param ctx table
 ---@param text string
 ---@param doc table
-local function front_matter(ctx, text, doc)
-  local root = parse_yaml(text)
+local function front_matter(ctx, text, doc, toml)
+  local root = (toml and parse_toml or parse_yaml)(text)
   if not root then return end
   local function plain_list(v)
     if type(v) ~= 'table' or not v.list then return nil end
@@ -901,6 +1052,9 @@ function M.parse(src, opts)
     if c:type() == 'minus_metadata' then
       local text = node_text(ctx, c):gsub('^%-%-%-\n', ''):gsub('\n%-%-%-%s*$', '')
       front_matter(ctx, text, doc)
+    elseif c:type() == 'plus_metadata' then
+      local text = node_text(ctx, c):gsub('^%+%+%+\n', ''):gsub('\n%+%+%+%s*$', '')
+      front_matter(ctx, text, doc, true)
     end
   end
   sections(ctx, root, doc)
@@ -942,6 +1096,6 @@ function M.parse(src, opts)
   return doc
 end
 
-M.parse_yaml, M.key_of, M.front_matter = parse_yaml, key_of, front_matter
+M.parse_yaml, M.parse_toml, M.key_of, M.front_matter = parse_yaml, parse_toml, key_of, front_matter
 
 return M

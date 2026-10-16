@@ -84,6 +84,10 @@ function M.normalize(base, name)
     view.type = view.type or 'table'
     view.name = view.name or 'View'
     view.columns = type(view.columns) == 'table' and view.columns or {}
+    for _, col in ipairs(view.columns) do
+      -- how a column lines up: left, center or right; any other word is none, and numbers line up right
+      if col.align ~= 'left' and col.align ~= 'center' and col.align ~= 'right' then col.align = nil end
+    end
     view.sort = type(view.sort) == 'table' and view.sort or {}
     view.filters = group(view.filters)
     view.row_height = tonumber(view.row_height) or 1

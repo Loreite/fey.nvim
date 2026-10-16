@@ -25,6 +25,8 @@ local M = {}
 ---@field date_tags? table<string, string> tag name -> kind (`date`, `scheduled`, `deadline`, `closed`) of the tags that hold a date. Default: those four names
 ---@field status_tag? string     name of the tag with the todo keyword and the priority. Default 'status'
 ---@field prop_tag? string       name of the tag with the properties of a heading. Default 'prop'
+---@field var_tag? string        name of the variable definition/insertion tag. Default 'var'
+---@field path? string           optional absolute path of the file being extracted, for cross-vault variable resolution
 ---@field todo_lookup? fun(data_todo: any): table<string, { type: string }> todo keywords by value; gets the `todo` key of the document data (nil when it has none). Default: TODO and DONE
 ---@field meta_tags? string[]   names of the tags that are heading metadata (a todo keyword, labels, ...). They
 ---                             are not part of the title of a heading: scope and line tags with one of these
@@ -101,6 +103,12 @@ local M = {}
 ---@field args table<string, string> the header arguments, from the file, the headings and the block
 ---@field content string the lines between the fences, as written
 
+---@class FeyVaultVar
+---@field heading_ord? integer
+---@field line integer 1-based line of the variable definition
+---@field name string variable name
+---@field value string variable body text
+
 ---@class FeyVaultFileMeta
 ---@field title string
 ---@field data any document data value (nil is null)
@@ -111,6 +119,7 @@ local M = {}
 ---@field dates FeyVaultDate[]
 ---@field tasks FeyVaultTask[]
 ---@field blocks FeyVaultBlock[]
+---@field vars FeyVaultVar[]
 ---@field properties table<string, any> top level keys when the document data is a table
 ---@field errors string[]
 
@@ -231,6 +240,13 @@ local function parse_tag(ctx, node)
     end
   end
   if node:type() == 'pair_tag' or node:type() == 'block_tag' then tag.body = node:field('body')[1] end
+  if ctx.vars_ready and tag.name ~= ctx.var_name then
+    tag.values, tag.attrs = require('fey.vars').interpolate_tag(tag.values, tag.attrs, {
+      vars = ctx.vars,
+      path = ctx.opts and ctx.opts.path or nil,
+      src = ctx.src,
+    })
+  end
   return tag
 end
 
@@ -608,11 +624,60 @@ function M.extract(src, opts)
   local status_name = opts.status_tag or 'status'
   local prop_name = opts.prop_tag or 'prop'
   local clock_name = opts.clock_tag or 'clock'
-  local ctx = { src = src, lines = vim.split(src, '\n', { plain = true }), errors = {}, opts = opts, meta_set = meta_set }
+  local var_name = opts.var_tag or 'var'
+  local vars_mod = require('fey.vars')
+  local ctx = {
+    src = src,
+    lines = vim.split(src, '\n', { plain = true }),
+    errors = {},
+    opts = opts,
+    meta_set = meta_set,
+    vars = {},
+    var_name = var_name,
+  }
   local root = vim.treesitter.get_string_parser(src, 'fey'):parse()[1]:root()
   if root:has_error() then table.insert(ctx.errors, 'syntax errors in file') end
 
+  -- what a comment tag comments is not indexed: no tags, links, labels, dates, tasks, or vars
+  local comment = require('fey.files.elements.tags.handlers.comment')
+  local comments = comment.bodies(root, src, get_tag_query(), opts.comment_tag or 'comment')
+  local function commented(node) return #comments > 0 and comment.is_commented(node, comments) end
+
+  -- First pass over tags: collect `var` definitions so `$var$` in data/links/tags resolves them
+  local raw_var_tags = {}
+  for _, node in get_tag_query():iter_captures(root, src) do
+    local tag = not commented(node) and parse_tag(ctx, node)
+    if tag and tag.name == var_name and tag.kind ~= 'scope' then
+      local vname = vars_mod.name_of(tag.values, tag.attrs)
+      local vbody = vname and vars_mod.body_text(node, src) or nil
+      if vname and vbody ~= nil then
+        table.insert(raw_var_tags, { node = node, name = vname, value = vbody })
+        ctx.vars[vname] = vbody
+      end
+    end
+  end
+  ctx.vars_ready = true
+
   local headings, ord_by_node = collect_headings(ctx, root)
+  local extracted_vars = {}
+  for _, item in ipairs(raw_var_tags) do
+    local heading_ord
+    local p = item.node:parent()
+    while p do
+      if p:type() == 'section' then
+        heading_ord = ord_by_node[p:id()]
+        break
+      end
+      p = p:parent()
+    end
+    table.insert(extracted_vars, {
+      heading_ord = heading_ord,
+      line = item.node:start() + 1,
+      name = item.name,
+      value = item.value,
+    })
+  end
+
   local data = section_value(ctx, root)
 
   ---@type FeyVaultFileMeta
@@ -626,6 +691,7 @@ function M.extract(src, opts)
     dates = {},
     tasks = {},
     blocks = {},
+    vars = extracted_vars,
     properties = {},
     errors = ctx.errors,
   }
@@ -654,11 +720,6 @@ function M.extract(src, opts)
     return set[node:id()] or 'text'
   end
 
-  -- what a comment tag comments is not indexed: no tags, links, labels, dates or tasks
-  local comment = require('fey.files.elements.tags.handlers.comment')
-  local comments = comment.bodies(root, src, get_tag_query(), opts.comment_tag or 'comment')
-  local function commented(node) return #comments > 0 and comment.is_commented(node, comments) end
-
   for _, node in get_tag_query():iter_captures(root, src) do
     local tag = not commented(node) and parse_tag(ctx, node)
     if tag then
@@ -686,10 +747,11 @@ function M.extract(src, opts)
         order = tag.order,
       })
 
-      if link_set[tag.name] and tag.values[1] then
+      local link_target = tag.values[1] or tag.attrs.url or tag.attrs.file
+      if link_set[tag.name] and link_target then
         table.insert(meta.links, {
           kind = tag.name,
-          target = tag.values[1],
+          target = link_target,
           description = tag.attrs.desc or tag.values[2],
           values = tag.values,
           attrs = tag.attrs,

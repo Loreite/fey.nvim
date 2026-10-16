@@ -81,7 +81,7 @@ table is the same as `apply` alone.
 
 #[ comment ] begin generated: options (scripts/gen_docs.lua) #
 
-155 options. "A note may set it" is the white list of the `plugin` tag (`fey.settings.fey_options`): a `plugin` tag, in the court, a hollow or a note, can set
+158 options. "A note may set it" is the white list of the `plugin` tag (`fey.settings.fey_options`): a `plugin` tag, in the court, a hollow or a note, can set
 those, and the change takes effect as soon as it is applied; the others are read when the plugin is set up, so they are written in the setup.
 
 -  `calendar.min_big_step`  (number, default `15`; a note may set it: no, read when the plugin is set up)  Step size for changing the minutes while cursor is on the first digit.
@@ -197,6 +197,8 @@ those, and the change takes effect as soon as it is applied; the others are read
 -  `fey_status_tag_name`  (string, default `"status"`; a note may set it: no, read when the plugin is set up)  Tag name of the todo keyword and the priority of a heading, `a tag`.
 -  `fey_subheadings_unique_segments_for_subtree`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
 -  `fey_sublists_unique_bullets_for_subtree`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+-  `fey_table_recalculate_on_save`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)  Compute the formulas of the tables of a note when it is saved.
+-  `fey_tblfm_tag_name`  (string, default `"tblfm"`; a note may set it: no, read when the plugin is set up)  Tag name of the tag under a table that holds its settings (`tblwidth`) and formulas.
 -  `fey_todo_keyword_faces`  (table<string, string>, default `{}`; a note may set it: yes, at once)  Custom faces (colors) for todo keywords.
 -  `fey_todo_keywords`  (string[], default `{ "TODO", "|", "DONE" }`; a note may set it: yes, at once)  List of todo/done states, separated by `|`.
 -  `fey_treesitter_local_install`  (string, default `""`; a note may set it: no, read when the plugin is set up)
@@ -205,6 +207,7 @@ those, and the change takes effect as soon as it is applied; the others are read
 -  `fey_use_uppercase_for_binary_marker`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
 -  `fey_use_uppercase_for_hex_index`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
 -  `fey_use_uppercase_for_hex_marker`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)
+-  `fey_var_tag_name`  (string, default `"var"`; a note may set it: no, read when the plugin is set up)  Tag name of variable definitions and scope insertions.
 -  `notifications.cron_enabled`  (boolean, default `true`; a note may set it: yes, at once)  Enable cron notifications.
 -  `notifications.deadline_reminder`  (boolean, default `true`; a note may set it: yes, at once)  Enable notifiactions for DEADLINE dates.
 -  `notifications.deadline_warning_reminder_time`  (boolean | number | number[], default `0`; a note may set it: yes, at once)  Number of minutes before the deadline wrning time to send the notifiaction.

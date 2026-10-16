@@ -1668,6 +1668,15 @@ function FeyMappings:table_merge_cell_content(direction, before) tableops.table_
 
 function FeyMappings:table_reformat() tableops.reformat() end
 
+---@param scope? 'all' every table of the note, not only the one under the cursor
+function FeyMappings:table_recalculate(scope)
+  if scope == 'all' then
+    tableops.recalculate_all()
+  else
+    tableops.recalculate()
+  end
+end
+
 ---@param choice string 'before' | 'after'
 function FeyMappings:table_insert_row(choice)
   ({ before = tableops.insert_row_before, after = tableops.insert_row_after })[choice]()

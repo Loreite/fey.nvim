@@ -38,7 +38,8 @@ local function label(tag)
   end
   local desc = tag.key_values.desc
   if desc and desc ~= '' then return (desc:gsub('\\(.)', '%1')) end
-  local target = tag.values[1] and tag.values[1]:gsub('\\(.)', '%1') or ''
+  local raw_target = tag.values[1] or tag.key_values.url or tag.key_values.file
+  local target = raw_target and raw_target:gsub('\\(.)', '%1') or ''
   if target:match('^%a[%w+.-]*://') then return target end
   local name = vim.fn.fnamemodify(target, ':t:r')
   local sig = tag.key_values.section or tag.key_values.heading

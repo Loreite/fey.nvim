@@ -1023,6 +1023,25 @@ in). What the grammars do not know is matched in the text between the nodes: the
   -  adjacent lists of different kinds (a bulleted and a numbered one) are one list in Fey
 
 
+  II.M.xvi. Variables
+
+The `var` tag (`fey_var_tag_name`) defines text variables that live in the vault system, can be inserted on export, and can be interpolated into any tag's values and key-values when the tag executes and on export.
+
+  -  definition: a line, block or pair `var` tag defines a variable whose text is the tag's body (`#[ var, name ] text to insert#` or `#[ var, name: some_name ] text to insert#`, `[ var, name ]#`, `[ var, name #] ... [# var ]`). Definition tags are omitted at their definition site on export
+  -  insertion on export: a scope `{# var, name #}` (or `{# var, name: some_name #}`) tag inserts the variable's text into the place where it is used when exporting to Markdown or HTML
+  -  interpolation in tags: any tag value or key-value can reference `$name$` (or `$vault:path:to:var$`); the variable is resolved both when the tag executes in Neovim and when the document is exported. Links also accept `url:` (or `file:`) as a key when the positional target is omitted:
+
+         ###  src fey
+         #[ var, url1 ] https://gitlab.com/rrml/webd/realm/site.git#
+
+         | a table is a useful case for this |
+         | {# link; url: $url1$ #}           |
+         ###
+
+  -  vault scoping: all variables are indexed in the `vars` table of `.fey/vault.db`. Unqualified lookups check the current document first, then the current hollow's vault, then parent hollows up the tree to the court, so local variables shadow variables from parent vaults. Qualified references use the `vault:path:to:var` notation (such as `court:url1` or `court:notes:defs:url1`), just like referencing files in `link` or `section` tags
+  -  `<prefix>o` on a `{# var, name #}` tag jumps to its definition (across files and hollows), and on a `var` definition jumps to its references
+
+
 
   II.N. Queries and databases
 
@@ -1034,7 +1053,51 @@ to run queries, `<prefix>bn` `<prefix>bs` `<prefix>bv` `<prefix>bt` and
 `<prefix>bl` for databases.
 
 
-  II.O. Currently Available Default Mappings
+  II.O. Tables
+
+A table is rows of cells between bars. The rule row `+===+===+` under the first row makes it the header, and the tags right under a table
+(no blank line between) hold its settings and its formulas.
+
+A colon at an end of the run of `=` of a column says how the column lines up: at the left, left; at the right, right; at both, centred.
+A column with no colon is left as it is. The editing mappings (`<prefix>tf` reformats a table) pad the cells that way, and keep the marks
+when columns are added, taken away or moved. The import reads Markdown's `:--` `--:` `:-:` and org's `<l>` `<r>` `<c>` cookies into them, the
+export writes them again (Markdown, and a `text-align` style in HTML), and the column of a database view has an `align` key (`ga` in the view)
+that `feydb` writes into the table it makes.
+
+    ###  src fey
+    | name  | qty | note |
+    +:=====+====:+:====:+
+    | apple |   2 |  ok  |
+    | fig   |  10 | late |
+    ###
+
+The settings and formulas are the keys of a `tblfm` tag (`fey_tblfm_tag_name` renames it). A key that names a setting is a setting, any
+other key is a formula, and they can be mixed in one tag or in tags one after the other. The only setting for now is `tblwidth`, the
+most columns the table may take: when the table is wider the widest column gets narrower and its text breaks over lines (the row becomes
+a multi-line row). With no `tblwidth` a table has no limit.
+
+A formula is a target and an expression of the language of the `query` tag (the same as in database views): `total: qty * price`. The
+target is a column (its header, lower case and with `_` for the characters that are not letters or digits, or `c3`), a row (`r3`), a cell
+(`r3c4`) or a range of rows in a column (`r2to4c3`, `r2tolast_total`); rows are counted after the header. An expression sees the cells of
+its row by the name of the column, `n` and `c` (its row and column), `rows`, `above`, `below` and `column` (the values of its column) and
+`note` (the properties of the note). The head of a tag cannot hold a `,` or a `;`, so a formula that has one goes in the body, one to a line
+or one after the other with `::` as org writes them (`$3=$1*$2` imported from org works too).
+
+    ###  src fey
+    | item | qty | price | total |
+    +======+=====+=======+=======+
+    | tea  | 2   | 3.5   |       |
+    | jam  | 4   | 1.25  |       |
+    | sum  |     |       |       |
+    {# tblfm; tblwidth: 60; total: qty * price #}
+    #[ tblfm ] r3_total = round(sum(above), 2) #
+    ###
+
+`<prefix>t=` computes the formulas of the table under the cursor and writes the results into its cells (the formulas stay, as the
+query of a `query` tag stays), `<prefix>t+` does it for every table of the note, and the option `fey_table_recalculate_on_save` does it when
+the note is written. A formula that fails (an unknown column, a division by zero) leaves its cell as it was and says so.
+
+  II.P. Currently Available Default Mappings
 
 This list is made from `lua/fey/config/defaults.lua` by `scripts/gen_mappings.lua`,
 so it is always what is actually mapped. Mappings that are commented out or empty
@@ -1173,6 +1236,8 @@ In Fey files:
 | <prefix>tml           | move the current table col under curosr right                                                   | fey_table_move_col_right                           |
 | <prefix>tmj           | move the current table row under cursor down                                                    | fey_table_move_row_down                            |
 | <prefix>tmk           | move the current table row under cursor up                                                      | fey_table_move_row_up                              |
+| <prefix>t=            | compute the formulas of the table under the cursor and write the results into its cells         | fey_table_recalculate                              |
+| <prefix>t+            | compute the formulas of every table of the note and write the results into their cells          | fey_table_recalculate_all                          |
 | <prefix>tf            | reformat table, reflowing text and aligning to a grid                                           | fey_table_reformat                                 |
 | <prefix>tu            | break apart combined cells into individual cells                                                | fey_table_unmerge_cells                            |
 | cit                   | Forward change TODO state of current heading                                                    | fey_todo                                           |

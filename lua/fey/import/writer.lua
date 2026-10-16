@@ -335,7 +335,10 @@ function Writer:block(block)
       local parts = {}
       for c = 1, ncols do
         local cell = row[c] or ''
-        parts[c] = ' ' .. cell .. string.rep(' ', widths[c] - width(cell)) .. ' '
+        local gap = widths[c] - width(cell)
+        local a = block.align and block.align[c]
+        local left = a == 'right' and gap or (a == 'center' and math.floor(gap / 2) or 0)
+        parts[c] = ' ' .. string.rep(' ', left) .. cell .. string.rep(' ', gap - left) .. ' '
       end
       return '|' .. table.concat(parts, '|') .. '|'
     end
@@ -344,7 +347,12 @@ function Writer:block(block)
       lines[#lines + 1] = line_of(header)
       local rule = {}
       for c = 1, ncols do
-        rule[c] = string.rep('=', widths[c] + 2)
+        local seg = string.rep('=', widths[c] + 2)
+        local a = block.align and block.align[c]
+        -- a colon at the left of the rule aligns the column left, at the right right, at both centres it
+        if a == 'left' or a == 'center' then seg = ':' .. seg:sub(2) end
+        if a == 'right' or a == 'center' then seg = seg:sub(1, -2) .. ':' end
+        rule[c] = seg
       end
       lines[#lines + 1] = '+' .. table.concat(rule, '+') .. '+'
     end

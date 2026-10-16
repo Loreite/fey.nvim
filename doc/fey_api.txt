@@ -168,6 +168,11 @@ FeyApiVault:footnotes({opts?})                        *FeyApiVault:footnotes()*
     referenced and not defined, `opts.unused` those defined and not referenced,
     `opts.path` limits to one file.
 
+FeyApiVault:vars({opts?})                                  *FeyApiVault:vars()*
+    The variable definitions (`var` line, block and pair tags) indexed in the
+    vault: `path`, `name`, `value`, `line`. `opts.name` filters by variable
+    name, `opts.path` limits to one file.
+
 FeyApiVault:headings({path})                           *FeyApiVault:headings()*
     The heading rows of a file, `data` decoded.
 
@@ -364,13 +369,14 @@ All `path` columns are relative to the vault root; JSON columns hold JSON text.
                 start_time, end_ts, end_time, repeater, warn
     tasks       file_id, heading_ord, line, kind (heading or item), state, done,
                 priority, title
+    vars        file_id, name, value, line
 
 `region` says where a tag sits: `title`, `body` (a tag line right under a
 heading), `text` or `document`. `container` of a label is `title`, `body`,
 `text`, `document` or `data`. `target_ref` of a link is the hollow it names
 (`court:notes`, `current`) and is NULL for a link inside the hollow. Times are
 epoch seconds in local time; `start_time` is 1 when the date has a time of day.
-The index version is 6 (a checkbox item is a `tasks` row of kind `item`; a clock is a `dates` row with `kind` `clock` and no end while it runs): a vault written by an older version is rebuilt when
+The index version is 7 (a checkbox item is a `tasks` row of kind `item`; a clock is a `dates` row with `kind` `clock` and no end while it runs; `vars` holds `var` definitions): a vault written by an older version is rebuilt when
 it is opened.
 
 `heading_ord` is NULL for entries outside any section. `target_sig` is the

@@ -2,6 +2,7 @@ local TableRow = require('fey.files.elements.table.row')
 local TableCell = require('fey.files.elements.table.cell')
 local Table = require('fey.files.elements.table')
 local ts_utils = require('fey.utils.treesitter')
+local formula = require('fey.files.elements.table.formula')
 
 local TableOps = {}
 
@@ -233,6 +234,7 @@ function TableOps.insert_col_before()
   if not tbl then return end
 
   tbl.col_count = tbl.col_count + 1
+  tbl:align_insert(c)
 
   for r_idx, row in ipairs(tbl.rows) do
     local inserted = false
@@ -272,6 +274,7 @@ function TableOps.insert_col_after()
   end
 
   tbl.col_count = tbl.col_count + 1
+  tbl:align_insert(target_c)
 
   for r_idx, row in ipairs(tbl.rows) do
     local inserted = false
@@ -307,6 +310,7 @@ function TableOps.move_col_left()
 
   local c1_start, c1_end = get_col_block(tbl, c2_start - 1)
   local w1, w2 = c1_end - c1_start + 1, c2_end - c2_start + 1
+  tbl:align_swap(c1_start, c1_end, c2_start, c2_end)
 
   for _, row in ipairs(tbl.rows) do
     for _, cell in ipairs(row.cells) do
@@ -332,6 +336,7 @@ function TableOps.delete_col()
   end
 
   tbl.col_count = tbl.col_count - 1
+  tbl:align_remove(c)
 
   for _, row in ipairs(tbl.rows) do
     local remove_idx = nil
@@ -362,6 +367,7 @@ function TableOps.move_col_right()
 
   local c2_start, c2_end = get_col_block(tbl, c1_end + 1)
   local w1, w2 = c1_end - c1_start + 1, c2_end - c2_start + 1
+  tbl:align_swap(c1_start, c1_end, c2_start, c2_end)
 
   for _, row in ipairs(tbl.rows) do
     for _, cell in ipairs(row.cells) do
@@ -1356,6 +1362,66 @@ function TableOps.goto_cell_right()
   if next_c > tbl.col_count then return end
 
   goto_logical_cell(tbl, r, next_c)
+end
+
+-- Formulas ---------------------------------------------------------------------------------------------------------
+
+---@param errors string[]
+local function tell(errors)
+  if #errors > 0 then vim.notify('Fey: table formulas: ' .. table.concat(errors, '; '), vim.log.levels.WARN) end
+end
+
+---Compute the formulas of the table under the cursor, and write the results into its cells
+function TableOps.recalculate()
+  local tbl, r, c = TableOps.get_ctx()
+  if not tbl then return end
+  if #tbl.formulas == 0 and #tbl.errors == 0 then
+    vim.notify('Fey: this table has no formulas (a tblfm tag right under it)', vim.log.levels.INFO)
+    return
+  end
+  local changed, errors = formula.apply(tbl, vim.api.nvim_get_current_buf())
+  if changed > 0 then
+    tbl:sync_boundaries()
+    tbl:reformat(r, c)
+  end
+  tell(errors)
+end
+
+---Compute the formulas of every table of a note. The tables are done from the last to the first, so what one
+---takes in lines does not move the others.
+---@param bufnr? integer
+---@param quiet? boolean say nothing when no table has a formula
+---@return integer changed how many cells got another text
+function TableOps.recalculate_all(bufnr, quiet)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, 'fey')
+  if not ok or not parser then return 0 end
+  local root = parser:parse()[1]:root()
+  local query = vim.treesitter.query.parse('fey', '(table) @table')
+  local found = {}
+  for _, node in query:iter_captures(root, bufnr) do
+    local tbl = Table.from_node(node, bufnr)
+    if #tbl.formulas > 0 or #tbl.errors > 0 then found[#found + 1] = tbl end
+  end
+  if #found == 0 then
+    if not quiet then vim.notify('Fey: no table of this note has formulas', vim.log.levels.INFO) end
+    return 0
+  end
+  local total, errors = 0, {}
+  vim.api.nvim_buf_call(bufnr, function()
+    for i = #found, 1, -1 do
+      local tbl = found[i]
+      local changed, errs = formula.apply(tbl, bufnr)
+      vim.list_extend(errors, errs)
+      if changed > 0 then
+        tbl:sync_boundaries()
+        tbl:reformat()
+        total = total + changed
+      end
+    end
+  end)
+  tell(errors)
+  return total
 end
 
 return TableOps

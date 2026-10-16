@@ -17,6 +17,8 @@ local M = {}
 ---@class FeyExportCtx
 ---@field src string
 ---@field extension string
+---@field path? string
+---@field vars? table<string, string>
 ---@field commented { from: integer, to: integer }[]
 ---@field footnotes table<string, table[]>
 ---@field footnote_order string[]
@@ -58,6 +60,13 @@ local function tag_head(ctx, node)
     local k, v = kv:field('key')[1], kv:field('value')[1]
     if k and v then keys[vim.trim(text(ctx, k))] = (vim.trim(text(ctx, v)):gsub('\\(.)', '%1')) end
   end
+  if tag_name(ctx, node) ~= config.fey_var_tag_name then
+    values, keys = require('fey.vars').interpolate_tag(values, keys, {
+      vars = ctx.vars,
+      path = ctx.path,
+      src = ctx.src,
+    })
+  end
   return values, keys
 end
 
@@ -79,11 +88,12 @@ local function kind_of(name)
   if name == config.fey_math_tag_name then return 'math' end
   if name == config.fey_comment_tag_name then return 'comment' end
   if name == config.fey_status_tag_name then return 'status' end
+  if name == config.fey_var_tag_name then return 'var' end
   if name == config.fey_labels_tag_name or vim.tbl_contains(config.vault.label_tags or {}, name) then return 'labels' end
   for _, n in ipairs({
     config.fey_property_tag_name, config.fey_scheduled_tag_name, config.fey_deadline_tag_name, config.fey_closed_tag_name,
     config.fey_clock_tag_name, config.fey_logbook_tag_name, config.fey_query_tag_name, config.fey_db_tag_name,
-    config.fey_clocktable_tag_name, config.fey_nvim_config_tag_name, config.fey_plugin_tag_name, 'table', 'array', 'value',
+    config.fey_clocktable_tag_name, config.fey_nvim_config_tag_name, config.fey_plugin_tag_name, config.fey_tblfm_tag_name, 'table', 'array', 'value',
   }) do
     if name == n then return 'machinery' end
   end
@@ -140,6 +150,24 @@ function M.anchor(sig)
 end
 
 local convert_inlines
+local text_inlines
+
+---Resolve a scope `var` tag's variable value in the export context
+---@param ctx FeyExportCtx
+---@param values string[]
+---@param keys table<string, string>
+---@return string|nil
+local function resolve_var_tag(ctx, values, keys)
+  local vars = require('fey.vars')
+  local ref = vars.name_of(values, keys)
+  if not ref then return nil end
+  local vopts = { vars = ctx.vars, path = ctx.path, src = ctx.src }
+  local resolved = vars.get(ref, vopts)
+  if resolved and resolved:find('$', 1, true) then
+    resolved = vars.interpolate(resolved, vopts)
+  end
+  return resolved
+end
 
 ---Inline items of a tag
 ---@param ctx FeyExportCtx
@@ -150,10 +178,16 @@ local function inline_tag(ctx, node)
   local kind = kind_of(name)
   if kind == 'comment' or kind == 'machinery' or kind == 'status' or kind == 'labels' then return {} end
   local values, keys = tag_head(ctx, node)
+  if kind == 'var' then
+    if node:type() ~= 'scope_tag' then return {} end
+    local resolved = resolve_var_tag(ctx, values, keys)
+    if not resolved or resolved == '' then return {} end
+    return text_inlines(ctx, resolved)
+  end
   local body = body_of(node)
   local function body_items() return body and convert_inlines(ctx, body) or {} end
   if kind == 'link' or kind == 'section' then
-    local target, sig = values[1], keys.section or keys.heading
+    local target, sig = values[1] or keys.url or keys.file, keys.section or keys.heading
     if kind == 'section' then target, sig = values[2] or keys.file, values[1] end
     local children = body and #body_items() > 0 and body_items() or nil
     if not children then
@@ -243,7 +277,7 @@ local convert_blocks
 ---@param ctx FeyExportCtx
 ---@param str string
 ---@return table[]
-local function text_inlines(ctx, str)
+text_inlines = function(ctx, str)
   str = vim.trim(str)
   if str == '' then return {} end
   local sub = vim.tbl_extend('force', ctx, { src = str, commented = {} })
@@ -294,8 +328,12 @@ end
 ---@param node TSNode a table
 local function convert_table(ctx, node)
   -- merged cells come out of the grid of the table with their spans
+  local align = {}
   local ok, merged = pcall(function()
     local tbl = require('fey.files.elements.table').from_node(node, ctx.src)
+    for i = 1, tbl.col_count do
+      align[i] = tbl.align[i] or nil
+    end
     for _, row in ipairs(tbl.rows) do
       for _, cell in ipairs(row.cells) do
         if cell.colspan > 1 or cell.rowspan ~= 1 then return true end
@@ -328,7 +366,7 @@ local function convert_table(ctx, node)
       end
     end
   end
-  return { t = 'table', header = header, rows = rows }
+  return { t = 'table', header = header, rows = rows, align = align }
 end
 
 ---@param ctx FeyExportCtx
@@ -386,6 +424,25 @@ local function convert_tag_block(ctx, node)
   local body = body_of(node)
   local function inner() return body and convert_blocks(ctx, body:named_children()) or {} end
   if kind == 'comment' or kind == 'machinery' or kind == 'status' or kind == 'labels' then return {} end
+  if kind == 'var' then
+    if node:type() ~= 'scope_tag' then return {} end
+    local values, keys = tag_head(ctx, node)
+    local resolved = resolve_var_tag(ctx, values, keys)
+    if not resolved or resolved == '' then return {} end
+    local sub_src = resolved .. '\n'
+    local ok, parser = pcall(vim.treesitter.get_string_parser, sub_src, 'fey')
+    if ok then
+      local root = parser:parse()[1]:root()
+      local b = root:field('body')[1]
+      if b then
+        local sub = vim.tbl_extend('force', ctx, { src = sub_src, commented = {} })
+        local blocks = convert_blocks(sub, b:named_children())
+        if #blocks > 0 then return blocks end
+      end
+    end
+    local items = text_inlines(ctx, resolved)
+    return #items > 0 and { { t = 'paragraph', inlines = items } } or {}
+  end
   if node:type() == 'scope_tag' then
     if exports.lookup(name) ~= nil then return {} end
     -- a scope tag on a line of its own: a link or a footnote reference or a date is a paragraph, the rest is metadata
@@ -405,7 +462,7 @@ local function convert_tag_block(ctx, node)
   elseif kind == 'link' or kind == 'section' then
     -- a block, a pair or a line tag: what it holds is the link
     local _, keys = tag_head(ctx, node)
-    local target, sig = values[1], keys.section or keys.heading
+    local target, sig = values[1] or keys.url or keys.file, keys.section or keys.heading
     if kind == 'section' then target, sig = values[2] or keys.file, values[1] end
     return { { t = 'linkblock', href = href(ctx, target, sig), blocks = inner() } }
   end
@@ -516,14 +573,29 @@ end
 
 ---The document of a text
 ---@param src string
----@param opts? { extension?: string } the extension the links to other notes end with
+---@param opts? { extension?: string, path?: string } the extension the links to other notes end with
 ---@return table|nil doc nil when everything is commented
 function M.parse(src, opts)
   opts = opts or {}
   local parser = vim.treesitter.get_string_parser(src, 'fey')
   local root = parser:parse()[1]:root()
   local query = vim.treesitter.query.get('fey', 'fey_tags')
-  local ctx = { src = src, extension = opts.extension or 'md', commented = {}, footnotes = {}, footnote_order = {}, ids = {}, wrap = {} }
+  local meta = require('fey.vault.extract').extract(src, { path = opts.path })
+  local local_vars = {}
+  for _, v in ipairs(meta.vars or {}) do
+    local_vars[v.name] = v.value
+  end
+  local ctx = {
+    src = src,
+    extension = opts.extension or 'md',
+    path = opts.path,
+    vars = local_vars,
+    commented = {},
+    footnotes = {},
+    footnote_order = {},
+    ids = {},
+    wrap = {},
+  }
   for _, c in ipairs(comment.bodies(root, src, query, config.fey_comment_tag_name, true)) do
     ctx.commented[#ctx.commented + 1] = { from = c.from, to = c.to }
     local _, _, rs = root:start()
@@ -546,7 +618,6 @@ function M.parse(src, opts)
     end
   end
 
-  local meta = require('fey.vault.extract').extract(src, {})
   local data = type(meta.data) == 'table' and not vim.islist(meta.data) and meta.data or {}
   local doc = {
     title = meta.title ~= '' and meta.title or nil,

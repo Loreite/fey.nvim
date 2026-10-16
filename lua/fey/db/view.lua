@@ -237,7 +237,7 @@ function View:render()
     marks[#marks + 1] = { line, s, e, group, prio }
   end
 
-  ---@param cells table<integer, { text: string, right?: boolean }>
+  ---@param cells table<integer, { text: string, align?: 'left'|'center'|'right' }>
   ---@return string line
   ---@return table<integer, { [1]: integer, [2]: integer }> spans
   ---@return { [1]: integer, [2]: integer }[] seps
@@ -251,7 +251,7 @@ function View:render()
         pos = pos + #sep
       end
       local cell = cells[c] or { text = '' }
-      local t = text.pad(cell.text, widths[c], cell.right and 'right' or 'left')
+      local t = text.pad(cell.text, widths[c], cell.align)
       spans[c] = { pos, pos + #t }
       parts[#parts + 1] = t
       pos = pos + #t
@@ -294,7 +294,7 @@ function View:render()
     local so = sort_of[col.prop]
     if so then t = t .. (so.dir == 'desc' and '▼' or '▲') .. (#view.sort > 1 and so.n or '') end
     if view.group and view.group.prop == col.prop then t = t .. '◆' end
-    hcells[c] = { text = text.truncate(t, widths[c]) }
+    hcells[c] = { text = text.truncate(t, widths[c]), align = col.align }
   end
   local hline, hspans, hseps = build_line(hcells)
   lines[2] = hline
@@ -328,14 +328,14 @@ function View:render()
         local get = self.model:getter(cols[c].prop)
         local v = get(ent.row)
         local ls = text.cell_lines(v, widths[c], max_lines)
-        per_col[c] = { lines = ls, right = type(v) == 'number', null = V.is_null(v) }
+        per_col[c] = { lines = ls, align = cols[c].align or (type(v) == 'number' and 'right' or 'left'), null = V.is_null(v) }
         n = math.max(n, #ls)
       end
       b = { n = n, per_col = per_col, spans = {}, seps = {}, lines = {} }
       for l = 1, n do
         local cells = {}
         for _, c in ipairs(vis) do
-          cells[c] = { text = per_col[c].lines[l] or '', right = per_col[c].right }
+          cells[c] = { text = per_col[c].lines[l] or '', align = per_col[c].align }
         end
         b.lines[l], b.spans[l], b.seps[l] = build_line(cells)
       end
@@ -443,7 +443,7 @@ function View:render()
           v = self.model:summarize(col.summary, col.prop, rows)
           self.summary_cache[key] = v == nil and V.NULL or v
         end
-        cells[c] = { text = text.truncate((SUMMARY_SHORT[col.summary] or col.summary) .. ' ' .. summary_text(v), widths[c]) }
+        cells[c] = { text = text.truncate((SUMMARY_SHORT[col.summary] or col.summary) .. ' ' .. summary_text(v), widths[c]), align = col.align }
       end
     end
     local sline = build_line(cells)
@@ -662,6 +662,17 @@ function View:set_summary()
     prompt = 'Summary of ' .. col.prop,
     items = items,
     on_confirm = function(item) self:mutate(function() col.summary = item.id ~= '' and item.id or nil end) end,
+  })
+end
+
+---Line the column up left, centre or right; by default numbers line up right and the rest left
+function View:set_align()
+  local col = self:col()
+  if not col then return end
+  Fuzzy.open({
+    prompt = 'Align ' .. col.prop,
+    items = { { text = 'By type', id = '' }, { text = 'Left', id = 'left' }, { text = 'Center', id = 'center' }, { text = 'Right', id = 'right' } },
+    on_confirm = function(item) self:mutate(function() col.align = item.id ~= '' and item.id or nil end) end,
   })
 end
 
@@ -1006,6 +1017,7 @@ local ACTIONS = {
   { name = 'Widen column', key = '>', fn = function(s) s:resize(4) end },
   { name = 'Narrow column', key = '<', fn = function(s) s:resize(-4) end },
   { name = 'Auto width', key = '_', fn = View.auto_resize },
+  { name = 'Align column', key = 'ga', fn = View.set_align },
   { name = 'Rename column title', key = '^', fn = View.rename_column },
   { name = 'Column summary', key = 's', fn = View.set_summary },
   { name = 'Sort ascending', key = '[', fn = function(s) s:sort('asc') end },
