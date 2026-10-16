@@ -158,6 +158,7 @@ local TABLES = { 'vars', 'blocks', 'tasks', 'dates', 'properties', 'labels', 'li
 ---@class FeyVaultOpts
 ---@field dirname string name of the vault directory. Default '.fey'
 ---@field db_name string database file inside `dirname`. Default 'vault.db'
+---@field db_dir? string when set, stores database inside `db_dir` instead of the vault directory
 ---@field ignore string[] names of directories/files never indexed
 ---@field label_tags string[] tag names whose values are labels
 ---@field link_tags string[] tag names that point to another file or section
@@ -190,10 +191,19 @@ Vault.__index = Vault
 ---@return FeyVault
 function Vault.new(root, opts)
   local dir = vim.fs.joinpath(root, opts.dirname)
+  local db_path
+  if opts.db_dir and opts.db_dir ~= '' then
+    local dir_expanded = vim.fs.normalize(vim.fn.expand(opts.db_dir))
+    local hash = vim.fn.sha256(root):sub(1, 10)
+    local safe_name = vim.fs.basename(root) .. '-' .. hash .. '-' .. opts.db_name
+    db_path = vim.fs.joinpath(dir_expanded, safe_name)
+  else
+    db_path = vim.fs.joinpath(dir, opts.db_name)
+  end
   return setmetatable({
     root = root,
     dir = dir,
-    db_path = vim.fs.joinpath(dir, opts.db_name),
+    db_path = db_path,
     opts = opts,
     state = 'idle',
     gen = 0,
@@ -232,6 +242,8 @@ end
 function Vault:open()
   if self.db then return true end
   if vim.fn.isdirectory(self.dir) == 0 then return false, self.dir .. ' does not exist' end
+  local db_parent = vim.fs.dirname(self.db_path)
+  if db_parent and vim.fn.isdirectory(db_parent) == 0 then vim.fn.mkdir(db_parent, 'p') end
   local db, err = Db.open(self.db_path)
   if not db then
     self.state, self.last_error = 'error', err

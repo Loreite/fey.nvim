@@ -406,6 +406,7 @@ local DefaultConfig = {
     enabled = true,
     dirname = '.fey',
     db_name = 'vault.db',
+    db_dir = nil, -- when set, stores index db in db_dir/<vault_basename>-<hash>-<db_name> instead of inside the vault directory
     ignore = { 'node_modules' },
     label_tags = { 'label', 'labels' },
     link_tags = { 'link', 'section' },
