@@ -1121,6 +1121,11 @@ end
 ---@param scope? 'all'|'images' the file embeds of the note, or its image embeds, not only the one under the cursor
 function FeyMappings:embed_toggle(scope) require('fey.embed').toggle(scope == 'all') end
 
+function FeyMappings:embed_peek() require('fey.embed').peek() end
+
+---@param direction 1|-1
+function FeyMappings:embed_scroll(direction) require('fey.embed').scroll(direction) end
+
 function FeyMappings:check_links() return require('fey.links.check').run('current') end
 
 ---@param direction 'up'|'down'

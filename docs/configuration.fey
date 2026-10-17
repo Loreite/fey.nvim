@@ -81,7 +81,7 @@ table is the same as `apply` alone.
 
 #[ comment ] begin generated: options (scripts/gen_docs.lua) #
 
-165 options. "A note may set it" is the white list of the `plugin` tag (`fey.settings.fey_options`): a `plugin` tag, in the court, a hollow or a note, can set
+166 options. "A note may set it" is the white list of the `plugin` tag (`fey.settings.fey_options`): a `plugin` tag, in the court, a hollow or a note, can set
 those, and the change takes effect as soon as it is applied; the others are read when the plugin is set up, so they are written in the setup.
 
 -  `calendar.min_big_step`  (number, default `15`; a note may set it: no, read when the plugin is set up)  Step size for changing the minutes while cursor is on the first digit.
@@ -159,6 +159,7 @@ those, and the change takes effect as soon as it is applied; the others are read
 -  `fey_embed_images_default`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  Show every image embed; when false an image shows on the cursor line and after a toggle.
 -  `fey_embed_max_lines`  (integer, default `200`; a note may set it: no, read when the plugin is set up)  The most lines of a file that an embed shows.
 -  `fey_embed_tag_name`  (string, default `"embed"`; a note may set it: no, read when the plugin is set up)  Tag name of embeds: a link with the key `embed` always true.
+-  `fey_embed_view_height`  (integer, default `20`; a note may set it: no, read when the plugin is set up)  The most lines of a file embed drawn at once; it scrolls. 0 draws all of them.
 -  `fey_footnote_definition_form`  ('pair'|'line'|'block', default `"pair"`; a note may set it: yes, at once)  Tag form of a new footnote definition.
 -  `fey_footnote_superscript`  ('auto'|boolean, default `"auto"`; a note may set it: yes, at once)  Show footnote labels as superscript: `auto` converts digits and signs, `true` letters as well, `false` never.
 -  `fey_footnote_tag_name`  (string, default `"fn"`; a note may set it: no, read when the plugin is set up)  Tag name of footnote references and definitions.

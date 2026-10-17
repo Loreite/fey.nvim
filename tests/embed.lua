@@ -230,6 +230,63 @@ check('the option off: plain text', groups(pieces_of_mark(1)[1]), { 'FeyEmbedTex
 config.fey_embed_highlight = true
 vim.cmd('edit! ' .. vim.fn.fnameescape(note))
 
+-- a view that scrolls, and a window to peek in -----------------------------------------------------------------
+write('notes/scroll.fey', { '  I. T', '', '{@ embed, code.lua @}', '{@ embed, other.fey; heading: II. @}' })
+vim.cmd('edit! ' .. vim.fn.fnameescape(root .. '/notes/scroll.fey'))
+local sbuf = vim.api.nvim_get_current_buf()
+config.fey_embed_view_height = 3
+local function rows_of(n)
+  local marks = vim.api.nvim_buf_get_extmarks(sbuf, E.ns, 0, -1, { details = true })
+  local out = {}
+  for _, line in ipairs(marks[n] and marks[n][4].virt_lines or {}) do
+    local text = {}
+    for i = 1, #line do
+      text[#text + 1] = line[i][1]
+    end
+    out[#out + 1] = table.concat(text)
+  end
+  return out
+end
+vim.api.nvim_win_set_cursor(0, { 3, 3 })
+E.refresh(sbuf)
+E.on_cursor(sbuf)
+check('a tall embed draws a view and tells where it is', rows_of(1), { '│ one', '│ two', '│ three', '╰ lines 1-3 of 5 (scroll: fey_embed_scroll_down and _up, all of it: fey_embed_peek)' })
+E.scroll(1)
+check('scrolled down by half a view', rows_of(1)[1], '│ two')
+E.scroll(1)
+E.scroll(1)
+check('and not past the end', rows_of(1)[1], '│ three')
+E.scroll(-1)
+E.scroll(-1)
+E.scroll(-1)
+check('up again to the start', rows_of(1)[1], '│ one')
+config.fey_embed_view_height = 0
+E.refresh(sbuf)
+E.on_cursor(sbuf)
+check('no limit: all of it, no footer', #rows_of(1), 5)
+config.fey_embed_view_height = 20
+
+local windows = #vim.api.nvim_list_wins()
+E.peek()
+local pbuf = vim.api.nvim_get_current_buf()
+check('peek opens a window', #vim.api.nvim_list_wins(), windows + 1)
+check('with all the lines, read only', { vim.api.nvim_buf_get_lines(pbuf, 0, -1, false), vim.bo[pbuf].modifiable, vim.bo[pbuf].buftype }, { { 'one', 'two', 'three', 'four', 'five' }, false, 'nofile' })
+check('and the filetype of the file', vim.bo[pbuf].filetype, 'lua')
+vim.api.nvim_win_set_cursor(0, { 4, 0 })
+vim.cmd('normal Vjy')
+check('it can be selected from', vim.fn.getreg('"'), 'four\nfive\n')
+vim.cmd('normal q')
+check('q closes it', { #vim.api.nvim_list_wins(), vim.api.nvim_get_current_buf() }, { windows, sbuf })
+vim.api.nvim_win_set_cursor(0, { 4, 3 })
+E.refresh(sbuf)
+E.peek()
+pbuf = vim.api.nvim_get_current_buf()
+check('a heading of a note: its lines', vim.api.nvim_buf_get_lines(pbuf, 0, -1, false), { '  II. Second', 'second text', 'more second' })
+vim.api.nvim_win_set_cursor(0, { 2, 0 })
+vim.api.nvim_feedkeys(vim.keycode('<CR>'), 'x', false)
+check('enter opens the file at that line', { vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ':t'), vim.api.nvim_win_get_cursor(0)[1] }, { 'other.fey', 5 })
+vim.cmd('edit! ' .. vim.fn.fnameescape(note))
+
 -- the images -------------------------------------------------------------------------------------------
 local images = E.images(buf)
 check('the images of a buffer', vim.tbl_map(function(i) return { i.row, vim.fn.fnamemodify(i.path, ':t'), i.desc, i.width } end, images), { { 3, 'pic.png', 'a cat', 30 } })

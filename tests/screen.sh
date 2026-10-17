@@ -185,6 +185,15 @@ out=$(screen_of "$TMP/fold.fey")
 check 'not folded at startup: the body is shown' "$out" 'hidden body' yes
 unset FEY_OPTS
 
+# an embed under the last line of the note: the cursor coming to it scrolls the window so that the text drawn under it can be seen
+seq 1 80 | sed 's/^/code line /' >"$TMP/code.txt"
+{ printf '  I. Last\n\n'; for i in $(seq 1 30); do printf 'paragraph %s\n\n' "$i"; done; printf '{@ embed, code.txt @}\n'; } >"$TMP/last.fey"
+export FEY_OPTS="{ fey_embed_files_default = true, fey_embed_view_height = 12 }"
+out=$(screen_of "$TMP/last.fey" ':normal zR' ':normal G')
+check 'an embed at the end: the first lines' "$out" 'code line 1' yes
+check 'an embed at the end: the view has a footer' "$out" 'lines 1-12 of 80' yes
+unset FEY_OPTS
+
 rm -rf "$TMP"
 if [ "$failed" -gt 0 ]; then echo "screen: $failed of $total checks failed"; exit 1; fi
 echo "ok: $total screen checks"

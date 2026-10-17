@@ -162,7 +162,7 @@ M.TAGS = {
     body = 'the description, in the line, block and pair forms',
     where = 'anywhere in the text; a `link` tag with the key `embed: true` is the same tag',
     indexed = 'a link of the kind `embed`: backlinks and broken links see it, a file that is not a note only has to exist, and the query value of the link has `embed` true',
-    open = 'opens the file; `fey_embed_toggle` shows the text of the file under the tag (`fey_embed_toggle_all` for the files of the whole note, `fey_embed_toggle_images` for its images), the cursor on the line does too (`fey_embed_expand_on_cursor`), and `fey_embed_files_default` and `fey_embed_images_default` say what shows without either (the text is coloured by the parser of its language, `fey_embed_highlight`); an image is drawn by the image plugin that reads the `images` query (snacks.image does)',
+    open = 'opens the file; `fey_embed_toggle` shows the text of the file under the tag (`fey_embed_toggle_all` for the files of the whole note, `fey_embed_toggle_images` for its images), the cursor on the line does too (`fey_embed_expand_on_cursor`), and `fey_embed_files_default` and `fey_embed_images_default` say what shows without either (the text is coloured by the parser of its language, `fey_embed_highlight`; `fey_embed_view_height` lines show at once, `fey_embed_scroll_down` and `fey_embed_scroll_up` scroll them, and `fey_embed_peek` opens all the lines in a window to move and select in); an image is drawn by the image plugin that reads the `images` query (snacks.image does)',
     related = '`fey_link_tag_name`, `fey_embed_max_lines`, `fey_import_embeds_as`',
     example = { 'A photo {@ embed, img/cat.png; desc: a cat; width: 40 @} and the code:', '{@ embed, build.lua; lines: 10-30 @}' },
   },

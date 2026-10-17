@@ -27,9 +27,9 @@
 ; first so the heads, values and any nested tags below paint over them.
 
 ; body paragraphs take the colour of their tag
-(block_tag body: (body (paragraph) @fey.tag.block.body))
-(pair_tag body: (body (paragraph) @fey.tag.pair.body))
-(line_tag (body) @fey.tag.line.body)
+; (block_tag body: (body (paragraph) @fey.tag.block.body))
+; (pair_tag body: (body (paragraph) @fey.tag.pair.body))
+; (line_tag (body) @fey.tag.line.body)
 
 ; name + head open/close bracket and token, one colour per tag format
 (scope_tag [ (tag_start) (tag_name) (tag_end) ] @fey.tag.scope)

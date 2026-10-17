@@ -170,10 +170,11 @@ end
 ---What an embed shows of a file: the lines it asks for (`lines`, `heading`), at most `fey_embed_max_lines`
 ---@param path string
 ---@param keys table<string, string> the keys of the tag
+---@param all? boolean every line it asks for, not only `fey_embed_max_lines`
 ---@return string[]|nil lines
 ---@return string|nil err
 ---@return integer|nil first the number of the first line shown
-function M.content(path, keys)
+function M.content(path, keys, all)
   local lines, err = file_lines(path)
   if not lines then return nil, err end
   local first, last = 1, #lines
@@ -185,7 +186,7 @@ function M.content(path, keys)
     first, last = range_of(keys.lines, #lines)
   end
   first, last = math.max(first, 1), math.min(last, #lines)
-  local out, limit = {}, config.fey_embed_max_lines or 200
+  local out, limit = {}, all and math.huge or config.fey_embed_max_lines or 200
   for i = first, last do
     if #out >= limit then
       out[#out + 1] = ('… %d more lines'):format(last - i + 1)
@@ -287,6 +288,8 @@ end
 ---@field path string|nil the file, when it is found
 ---@field kind 'image'|'fey'|'text'|nil
 ---@field drawn? integer the extmark with its text
+---@field height? integer the lines drawn under the tag
+---@field total? integer the lines of the file it shows
 
 ---@param bufnr integer
 ---@param tags FeyTag[]
@@ -386,6 +389,49 @@ local function refresh_images(bufnr)
   end
 end
 
+---Scroll positions of the embeds that are taller than their view: the first line shown, by buffer and the place of the tag
+---@type table<integer, table<string, integer>>
+local scrolls = {}
+
+local function scroll_key(embed) return embed.row .. ':' .. embed.col end
+
+---How many lines of a file an embed shows at once: `fey_embed_view_height`, and less when the window is not tall enough for them
+---@return integer
+local function view_height()
+  local height = config.fey_embed_view_height
+  if type(height) ~= 'number' or height <= 0 then return math.huge end
+  return math.max(3, math.min(height, vim.api.nvim_win_get_height(0) - 3))
+end
+
+---The lines of an embed as they are drawn, all of them: `{ chunks }` each, without the border
+---@param embed FeyEmbed
+---@return table[] rows
+local function body_of(embed)
+  local rows = {}
+  local function add(text, hl) rows[#rows + 1] = { { (text:gsub('\t', '    ')), hl } } end
+  if not embed.path then
+    add(('cannot find %s'):format(embed.target or 'the target'), 'DiagnosticWarn')
+    return rows
+  end
+  local lines, err, first = M.content(embed.path, embed.tag.key_values)
+  if not lines then
+    add(err or 'cannot read the file', 'DiagnosticWarn')
+    return rows
+  end
+  if #lines == 0 then add('no lines there', 'DiagnosticWarn') end
+  -- the last line may be the note of a cut (`… 3 more lines`), which is not of the file
+  local cut = #lines > 0 and lines[#lines]:sub(1, 3) == '… ' and #lines or nil
+  local coloured = config.fey_embed_highlight ~= false and first and colours(embed.path, first, first + (cut or #lines + 1) - 2) or nil
+  for n, line in ipairs(lines) do
+    if coloured and coloured[n] and n ~= cut then
+      rows[#rows + 1] = coloured[n]
+    else
+      add(line, 'FeyEmbedText')
+    end
+  end
+  return rows
+end
+
 ---@param bufnr integer
 ---@param embed FeyEmbed
 local function draw_one(bufnr, embed)
@@ -393,38 +439,55 @@ local function draw_one(bufnr, embed)
     pcall(vim.api.nvim_buf_del_extmark, bufnr, ns, embed.drawn)
     embed.drawn = nil
   end
+  embed.height = 0
   if embed.kind == 'image' or not shown(bufnr, embed) then return end
+  local body = body_of(embed)
+  local view = view_height()
+  local from, to = 1, #body
+  embed.total = #body
+  if #body > view then
+    local buf_scrolls = scrolls[bufnr] or {}
+    scrolls[bufnr] = buf_scrolls
+    local offset = math.max(0, math.min(buf_scrolls[scroll_key(embed)] or 0, #body - view))
+    buf_scrolls[scroll_key(embed)] = offset
+    from, to = offset + 1, offset + view
+  end
   local virt = {}
-  local function add(text, hl) virt[#virt + 1] = { { '│ ', 'FeyEmbedBorder' }, { (text:gsub('\t', '    ')), hl } } end
-  if not embed.path then
-    add(('cannot find %s'):format(embed.target or 'the target'), 'DiagnosticWarn')
-  else
-    local lines, err, first = M.content(embed.path, embed.tag.key_values)
-    if not lines then
-      add(err or 'cannot read the file', 'DiagnosticWarn')
-    else
-      -- the last line may be the note of a cut (`… 3 more lines`), which is not of the file
-      if #lines == 0 then add('no lines there', 'DiagnosticWarn') end
-      local cut = #lines > 0 and lines[#lines]:sub(1, 3) == '… ' and #lines or nil
-      local rows = config.fey_embed_highlight ~= false and first and colours(embed.path, first, first + (cut or #lines + 1) - 2) or nil
-      for n, line in ipairs(lines) do
-        if rows and rows[n] and n ~= cut then
-          local chunk = { { '│ ', 'FeyEmbedBorder' } }
-          vim.list_extend(chunk, rows[n])
-          virt[#virt + 1] = chunk
-        else
-          add(line, 'FeyEmbedText')
-        end
-      end
-    end
+  for n = from, to do
+    local chunk = { { '│ ', 'FeyEmbedBorder' } }
+    vim.list_extend(chunk, body[n])
+    virt[#virt + 1] = chunk
+  end
+  if #body > view then
+    virt[#virt + 1] = { { ('╰ lines %d-%d of %d (scroll: fey_embed_scroll_down and _up, all of it: fey_embed_peek)'):format(from, to, #body), 'FeyEmbedBorder' } }
   end
   local ok, id = pcall(vim.api.nvim_buf_set_extmark, bufnr, ns, embed.last, 0, { virt_lines = virt })
   embed.drawn = ok and id or nil
+  embed.height = ok and #virt or 0
+end
+
+---Scroll the window so that the text drawn under an embed can be seen: Neovim does not do it for virtual lines, and under the last line of the
+---note they are below the screen
+---@param bufnr integer
+---@param embed FeyEmbed
+local function reveal(bufnr, embed)
+  if bufnr ~= vim.api.nvim_get_current_buf() or (embed.height or 0) == 0 then return end
+  local row = vim.api.nvim_win_get_cursor(0)[1] - 1
+  local need = (embed.last - row) + embed.height
+  local winline, height = vim.fn.winline(), vim.api.nvim_win_get_height(0)
+  local over = winline + need - height
+  if over > 0 then
+    local n = math.min(over, winline - 1)
+    if n > 0 then vim.cmd(('exe "normal! %d\\<C-e>"'):format(n)) end
+  end
 end
 
 ---The row of the embedded image under the cursor, which an image plugin has to be told about when images are hidden by default
 ---@type table<integer, integer|false>
 local image_cursor = {}
+---The embed the cursor is in (the place of its tag), to scroll the window once when the cursor comes to it
+---@type table<integer, string|nil>
+local entered = {}
 
 ---Draw a buffer again from its tags
 ---@param bufnr integer
@@ -434,6 +497,7 @@ function M.apply(bufnr, tags)
   state[bufnr] = embeds_of(bufnr, tags)
   for _, embed in ipairs(state[bufnr]) do
     draw_one(bufnr, embed)
+    if embed.drawn and cursor_inside(bufnr, embed) then reveal(bufnr, embed) end
   end
 end
 
@@ -450,17 +514,109 @@ end
 ---@param bufnr integer
 function M.on_cursor(bufnr)
   local on_image = false
+  local inside
   for _, embed in ipairs(state[bufnr] or {}) do
+    if embed.kind ~= 'image' and cursor_inside(bufnr, embed) then inside = scroll_key(embed) end
     if embed.kind == 'image' then
       if not all_shown(bufnr, true) and cursor_inside(bufnr, embed) then on_image = embed.row end
     else
       local want = shown(bufnr, embed)
-      if (embed.drawn ~= nil) ~= want then draw_one(bufnr, embed) end
+      if (embed.drawn ~= nil) ~= want then
+        draw_one(bufnr, embed)
+      end
+      -- the cursor came to an embed that was drawn already: the text under it may be below the screen
+      if embed.drawn and cursor_inside(bufnr, embed) and entered[bufnr] ~= scroll_key(embed) then reveal(bufnr, embed) end
     end
   end
   -- images hidden by default are shown on the line of the cursor: the plugin looks again when the cursor comes to one or leaves one
   if (image_cursor[bufnr] or false) ~= on_image then refresh_images(bufnr) end
   image_cursor[bufnr] = on_image
+  entered[bufnr] = inside
+end
+
+---The embed at the cursor: the one the cursor is inside, else the first of the line
+---@param bufnr integer
+---@return FeyEmbed|nil
+function M.embed_at(bufnr)
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local row, col = cursor[1] - 1, cursor[2]
+  local pick
+  for _, embed in ipairs(state[bufnr] or {}) do
+    if row >= embed.row and row <= embed.last then
+      local inside = embed.row == embed.last and col >= embed.col and col < embed.ecol
+      if inside or not pick then pick = embed end
+      if inside then break end
+    end
+  end
+  return pick
+end
+
+---Scroll the text drawn under the embed at the cursor, a half view at a time
+---@param direction 1|-1 down, up
+function M.scroll(direction)
+  local bufnr = vim.api.nvim_get_current_buf()
+  M.refresh(bufnr)
+  local embed = M.embed_at(bufnr)
+  if not embed or embed.kind == 'image' then return vim.notify('fey: no file embed under the cursor', vim.log.levels.INFO) end
+  if not shown(bufnr, embed) then return vim.notify('fey: the embed is not shown', vim.log.levels.INFO) end
+  local view = view_height()
+  if (embed.total or 0) <= view then return end
+  local buf_scrolls = scrolls[bufnr] or {}
+  scrolls[bufnr] = buf_scrolls
+  local step = math.max(1, math.floor(view / 2))
+  buf_scrolls[scroll_key(embed)] = math.max(0, math.min((buf_scrolls[scroll_key(embed)] or 0) + direction * step, embed.total - view))
+  draw_one(bufnr, embed)
+end
+
+---Open what an embed shows in a window of its own, to move about in it, search and select: the lines the embed asks for, all of them, in a buffer
+---that cannot be changed and has the colours and the filetype of the file. `q` closes it, `<CR>` opens the file at the line. An image is opened by the system.
+function M.peek()
+  local bufnr = vim.api.nvim_get_current_buf()
+  M.refresh(bufnr)
+  local embed = M.embed_at(bufnr)
+  if not embed then return vim.notify('fey: no embed under the cursor', vim.log.levels.INFO) end
+  if not embed.path then return vim.notify(('fey: cannot find %s'):format(embed.target or 'the target'), vim.log.levels.WARN) end
+  if embed.kind == 'image' then
+    local ok, err = vim.ui.open(embed.path)
+    if not ok then vim.notify('fey: cannot open ' .. embed.path .. (err and (': ' .. tostring(err)) or ''), vim.log.levels.WARN) end
+    return
+  end
+  local lines, err, first = M.content(embed.path, embed.tag.key_values, true)
+  if not lines then return vim.notify('fey: ' .. (err or 'cannot read the file'), vim.log.levels.WARN) end
+  local path = embed.path
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].buftype = 'nofile'
+  vim.bo[buf].bufhidden = 'wipe'
+  vim.bo[buf].swapfile = false
+  local name = 'embed://' .. vim.fn.fnamemodify(path, ':~')
+  pcall(vim.api.nvim_buf_set_name, buf, name)
+  -- a note is shown by its parser alone: its filetype would load it as a note of the hollow
+  local ft = vim.filetype.match({ filename = path })
+  if M.kind_of(path) == 'fey' then
+    pcall(vim.treesitter.start, buf, 'fey')
+  elseif ft then
+    vim.bo[buf].filetype = ft
+    pcall(vim.treesitter.start, buf, vim.treesitter.language.get_lang(ft))
+  end
+  vim.bo[buf].modifiable = false
+  local height = math.max(3, math.min(#lines, math.floor(vim.o.lines * 0.5)))
+  vim.cmd(('botright %dsplit'):format(height))
+  local win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(win, buf)
+  vim.wo[win].number = true
+  vim.wo[win].wrap = false
+  vim.wo[win].foldenable = false
+  vim.wo[win].signcolumn = 'no'
+  -- the numbers are those of the file
+  vim.wo[win].statuscolumn = '%=%{v:lnum + ' .. ((first or 1) - 1) .. '} '
+  vim.keymap.set('n', 'q', '<Cmd>close<CR>', { buffer = buf, nowait = true, desc = 'close the embed' })
+  vim.keymap.set('n', '<CR>', function()
+    local line = vim.api.nvim_win_get_cursor(win)[1] + (first or 1) - 1
+    vim.cmd('close')
+    vim.cmd('edit ' .. vim.fn.fnameescape(path))
+    pcall(vim.api.nvim_win_set_cursor, 0, { line, 0 })
+  end, { buffer = buf, nowait = true, desc = 'open the file at this line' })
 end
 
 ---Show the embed under the cursor, or hide it (the text of a file, or an image). With `all`: the text of every file of the note, shown or hidden
@@ -490,21 +646,11 @@ function M.toggle(scope)
     vim.notify(('fey: %s %s'):format(images and 'images' or 'file embeds', now and 'shown' or 'only on the cursor'), vim.log.levels.INFO)
     return
   end
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  local row, col = cursor[1] - 1, cursor[2]
-  -- on the line: the embed the cursor is in, else the first one of the line
-  local pick
-  for _, embed in ipairs(embeds) do
-    if row >= embed.row and row <= embed.last then
-      local inside = embed.row == embed.last and col >= embed.col and col < embed.ecol
-      if inside or not pick then pick = embed end
-      if inside then break end
-    end
-  end
+  local pick = M.embed_at(bufnr)
   if pick then
     -- the cursor on the line shows it anyway: the toggle flips what it is without the cursor
     set(pick, toggled(bufnr, pick) == nil)
-    if pick.kind == 'image' then refresh_images(bufnr) end
+    if pick.kind == 'image' then refresh_images(bufnr) elseif shown(bufnr, pick) then reveal(bufnr, pick) end
     return
   end
   vim.notify('fey: no embed under the cursor', vim.log.levels.INFO)
@@ -578,6 +724,8 @@ function M.setup()
       state[args.buf] = nil
       timers[args.buf] = nil
       image_cursor[args.buf] = nil
+      entered[args.buf] = nil
+      scrolls[args.buf] = nil
     end,
   })
 end

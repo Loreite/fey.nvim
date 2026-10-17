@@ -15,6 +15,7 @@ Features:
 
 Changes:
 
+-  embeds: syntax colours for the text of file embeds (fey_embed_highlight) (60f4401)
 -  embeds: the embed tag, file and image embeds, hollow paths, import and export, completion (7071ad9)
 -  added variable tags (1440371)
 -  updates to do with the importer, and database view (b1bb476)

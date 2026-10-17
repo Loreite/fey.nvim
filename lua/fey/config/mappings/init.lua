@@ -777,6 +777,17 @@ return {
       args = { 'images' },
       opts = { desc = 'fey toggle all image embeds', help_desc = 'Show every image embed of the note, or show an image only on the cursor line (the start is fey_embed_images_default)' },
     }),
+    fey_embed_peek = m.action('fey_mappings.embed_peek', {
+      opts = { desc = 'fey peek embed', help_desc = 'Open the lines of the embed under the cursor in a window of its own (read only, to move in, search and select; q closes, Enter opens the file there)' },
+    }),
+    fey_embed_scroll_down = m.action('fey_mappings.embed_scroll', {
+      args = { 1 },
+      opts = { desc = 'fey scroll embed down', help_desc = 'Scroll the text drawn under the embed at the cursor down, half its height' },
+    }),
+    fey_embed_scroll_up = m.action('fey_mappings.embed_scroll', {
+      args = { -1 },
+      opts = { desc = 'fey scroll embed up', help_desc = 'Scroll the text drawn under the embed at the cursor up, half its height' },
+    }),
     fey_clock_in = m.action('clock.fey_clock_in', { opts = { desc = 'fey clock in', help_desc = 'Clock in current heading' } }),
     fey_clock_out = m.action(
       'clock.fey_clock_out',
