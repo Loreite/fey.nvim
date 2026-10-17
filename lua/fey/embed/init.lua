@@ -172,6 +172,7 @@ end
 ---@param keys table<string, string> the keys of the tag
 ---@return string[]|nil lines
 ---@return string|nil err
+---@return integer|nil first the number of the first line shown
 function M.content(path, keys)
   local lines, err = file_lines(path)
   if not lines then return nil, err end
@@ -192,7 +193,86 @@ function M.content(path, keys)
     end
     out[#out + 1] = lines[i]
   end
-  return out
+  return out, nil, first
+end
+
+-- Syntax colours ------------------------------------------------------------------------------------------------
+
+---@type table<string, { mtime: integer, size: integer, rows: table<string, table[]> }>
+local colour_cache = {}
+
+---The colours of the lines `first` to `last` of a file: for each line, its pieces as `{ text, highlight group }`, from the tree-sitter
+---`highlights` query of the language of the file (injected languages too). The whole file is parsed, so a slice of it is coloured in context.
+---@param path string
+---@param first integer
+---@param last integer
+---@return table[]|nil rows nil when the file has no parser
+local function colours(path, first, last)
+  local stat = vim.uv.fs_stat(path)
+  local lines = file_lines(path)
+  if not stat or not lines then return nil end
+  local hit = colour_cache[path]
+  if not hit or hit.mtime ~= stat.mtime.sec or hit.size ~= stat.size then
+    hit = { mtime = stat.mtime.sec, size = stat.size, rows = {} }
+    colour_cache[path] = hit
+  end
+  local key = first .. ':' .. last
+  if hit.rows[key] ~= nil then return hit.rows[key] or nil end
+
+  local ok, result = pcall(function()
+    local ft = vim.filetype.match({ filename = path })
+    local lang = ft and vim.treesitter.language.get_lang(ft)
+    if not lang or not vim.treesitter.language.add(lang) then return nil end
+    local text = table.concat(lines, '\n')
+    local tree = vim.treesitter.get_string_parser(text, lang)
+    tree:parse(true)
+    -- the colour of each byte of the lines: the capture with the highest priority, the later one among equals
+    local hl, pr = {}, {}
+    for r = first, last do
+      hl[r], pr[r] = {}, {}
+    end
+    tree:for_each_tree(function(tstree, ltree)
+      local tlang = ltree:lang()
+      local query = vim.treesitter.query.get(tlang, 'highlights')
+      if not query then return end
+      for id, node, meta in query:iter_captures(tstree:root(), text, first - 1, last) do
+        local name = query.captures[id]
+        if name:sub(1, 1) ~= '_' and name ~= 'spell' and name ~= 'nospell' then
+          local group = '@' .. name .. '.' .. tlang
+          local priority = tonumber(meta.priority or (meta[id] or {}).priority) or 100
+          local range = vim.treesitter.get_range(node, text, meta[id])
+          local sr, sc, er, ec = range[1], range[2], range[4], range[5]
+          for r = math.max(sr + 1, first), math.min(er + 1, last) do
+            local line = lines[r]
+            local from = (r == sr + 1) and sc or 0
+            local to = (r == er + 1) and ec or #line
+            for b = from + 1, to do
+              if (pr[r][b] or -1) <= priority then
+                hl[r][b], pr[r][b] = group, priority
+              end
+            end
+          end
+        end
+      end
+    end)
+    local rows = {}
+    for r = first, last do
+      local line, pieces, start = lines[r], {}, 1
+      local function push(a, b, group)
+        if b >= a then pieces[#pieces + 1] = { (line:sub(a, b):gsub('\t', '    ')), group or 'FeyEmbedText' } end
+      end
+      for b = 2, #line + 1 do
+        if hl[r][b] ~= hl[r][b - 1] or b == #line + 1 then
+          push(start, b - 1, hl[r][start])
+          start = b
+        end
+      end
+      rows[#rows + 1] = pieces
+    end
+    return rows
+  end)
+  hit.rows[key] = ok and result or false
+  return ok and result or nil
 end
 
 -- The embeds of a buffer ----------------------------------------------------------------------------------------
@@ -319,12 +399,22 @@ local function draw_one(bufnr, embed)
   if not embed.path then
     add(('cannot find %s'):format(embed.target or 'the target'), 'DiagnosticWarn')
   else
-    local lines, err = M.content(embed.path, embed.tag.key_values)
+    local lines, err, first = M.content(embed.path, embed.tag.key_values)
     if not lines then
       add(err or 'cannot read the file', 'DiagnosticWarn')
     else
-      for _, line in ipairs(lines) do
-        add(line, 'FeyEmbedText')
+      -- the last line may be the note of a cut (`… 3 more lines`), which is not of the file
+      if #lines == 0 then add('no lines there', 'DiagnosticWarn') end
+      local cut = #lines > 0 and lines[#lines]:sub(1, 3) == '… ' and #lines or nil
+      local rows = config.fey_embed_highlight ~= false and first and colours(embed.path, first, first + (cut or #lines + 1) - 2) or nil
+      for n, line in ipairs(lines) do
+        if rows and rows[n] and n ~= cut then
+          local chunk = { { '│ ', 'FeyEmbedBorder' } }
+          vim.list_extend(chunk, rows[n])
+          virt[#virt + 1] = chunk
+        else
+          add(line, 'FeyEmbedText')
+        end
       end
     end
   end

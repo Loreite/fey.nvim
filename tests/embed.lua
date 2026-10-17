@@ -91,7 +91,11 @@ local function drawn()
   for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, E.ns, 0, -1, { details = true })) do
     local texts = {}
     for _, line in ipairs(m[4].virt_lines) do
-      texts[#texts + 1] = line[2][1]
+      local text = {}
+      for i = 2, #line do
+        text[#text + 1] = line[i][1]
+      end
+      texts[#texts + 1] = table.concat(text)
     end
     out[#out + 1] = { m[2], texts }
   end
@@ -184,6 +188,47 @@ vim.api.nvim_buf_del_var(buf, 'fey_embed_images')
 vim.api.nvim_buf_del_var(buf, 'fey_embed_files')
 E.refresh(buf)
 config.fey_embed_files_default = false
+
+-- syntax colours -----------------------------------------------------------------------------------------------
+write('notes/colour.lua', { 'local x = 1', 'local function f(a)', '  return "s" .. a', 'end' })
+write('notes/plain.txt', { 'just words' })
+write('notes/colours.fey', {
+  '  I. T',
+  '',
+  '{@ embed, colour.lua; lines: 2-3 @}',
+  '{@ embed, plain.txt @}',
+})
+vim.cmd('edit! ' .. vim.fn.fnameescape(root .. '/notes/colours.fey'))
+local cbuf = vim.api.nvim_get_current_buf()
+local function pieces_of_mark(n)
+  local marks = vim.api.nvim_buf_get_extmarks(cbuf, E.ns, 0, -1, { details = true })
+  return marks[n] and marks[n][4].virt_lines
+end
+vim.api.nvim_win_set_cursor(0, { 3, 3 })
+E.refresh(cbuf)
+E.on_cursor(cbuf)
+local coloured = pieces_of_mark(1)
+local function groups(line)
+  local out = {}
+  for i = 2, #line do
+    out[#out + 1] = line[i][2]
+  end
+  return out
+end
+check('the lines of a file with a parser are coloured', coloured and vim.tbl_contains(groups(coloured[1]), '@keyword.function.lua'), true)
+check('by the language of the file', coloured and vim.tbl_contains(groups(coloured[2]), '@string.lua'), true)
+check('the text is whole', coloured and #coloured == 2 and table.concat(vim.tbl_map(function(p) return p[1] end, vim.list_slice(coloured[2], 2))), '  return "s" .. a')
+vim.api.nvim_win_set_cursor(0, { 4, 3 })
+E.on_cursor(cbuf)
+local plain = pieces_of_mark(1)
+check('a file with no parser is plain text', plain and groups(plain[1]), { 'FeyEmbedText' })
+config.fey_embed_highlight = false
+vim.api.nvim_win_set_cursor(0, { 3, 3 })
+E.refresh(cbuf)
+E.on_cursor(cbuf)
+check('the option off: plain text', groups(pieces_of_mark(1)[1]), { 'FeyEmbedText' })
+config.fey_embed_highlight = true
+vim.cmd('edit! ' .. vim.fn.fnameescape(note))
 
 -- the images -------------------------------------------------------------------------------------------
 local images = E.images(buf)

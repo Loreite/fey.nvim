@@ -1118,7 +1118,8 @@ The text of a file is drawn under the tag as virtual lines, so none of it is in 
 the cursor is on the line of the tag (`fey_embed_expand_on_cursor`) and on `<prefix>le`, which keeps it open. `fey_embed_files_default` (false) and
 `fey_embed_images_default` (true) say whether the text of the files and the images are shown all the time; `<prefix>lE` (the files) and `<prefix>lI`
 (the images) switch that for the note, and then the embeds show only on the line of the cursor, or all the time. `<prefix>le` on an embed flips it
-from what the note is set to. At most `fey_embed_max_lines` lines are drawn.
+from what the note is set to. At most `fey_embed_max_lines` lines are drawn, coloured by the tree-sitter parser of the language of the file when Neovim has one
+(`fey_embed_highlight`; the whole file is parsed, so a slice of it is coloured in context, and injected languages are coloured too).
 
 An image is drawn by an image plugin: Fey ships the `images` query (`queries/fey/images.scm`, the target of every embed that
 names an image) and a plugin that reads such queries draws what it finds. snacks.image does, and Fey gives it a resolver for the hollow paths when it is

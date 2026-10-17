@@ -242,6 +242,7 @@
 ---@field fey_embed_expand_on_cursor? boolean Show the text of an embed under it while the cursor is on its line. Default: true
 ---@field fey_embed_files_default? boolean Show the text of every file embed, not only on the cursor line and after a toggle. Default: false
 ---@field fey_embed_images_default? boolean Show every image embed; when false an image shows on the cursor line and after a toggle. Default: true
+---@field fey_embed_highlight? boolean Colour the text of a file embed with the tree-sitter parser of its language (plain text when there is none). Default: true
 ---@field fey_embed_max_lines? integer The most lines of a file that an embed shows. Default: 200
 ---@field fey_embed_tag_name? string Tag name of embeds: a link with the key `embed` always true. Default: 'embed'
 ---@field fey_section_tag_name? string Tag name of links to headings by signature. Default: 'section'

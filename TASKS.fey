@@ -186,7 +186,7 @@ is not listed.
    they had drifted from the scanner. A nesting of more than 255 pairs makes more strays than refused openers (a closer that matches no opener may stand for one of the entries the serialized state had to forget).
 
   IV.Y. Embeds (from the embeds)
--  The text of an embed is drawn without syntax colours (the extension of the file could pick a language), cannot be edited in place (a mapping could jump to the file), and a note embed shows
+-  The text of an embed cannot be edited in place (a mapping could jump to the file), is coloured only for a language with a tree-sitter parser (no Vim syntax fallback), and a note embed shows
    the section as text, not as a rendered note (the tags in it are not drawn as they are in the note).
 -  Images: only plugins that read the `images` query (snacks.image) draw them, and the keys `width` and `height` are not read by it; image.nvim and the like have `images(bufnr)` and no glue. An image in a
    `link` tag whose description is an image (a clickable image) is a link. Export: an embedded text file or note is a link, not its text; org and Markdown writers of the export do not exist.

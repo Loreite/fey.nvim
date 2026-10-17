@@ -592,7 +592,7 @@ is optional. A function instead of the table is the same as `apply` alone.
 
 EVERY OPTION                                  *fey-configuration-every-option*
 
-164 options. "A note may set it" is the white list of the `plugin` tag
+165 options. "A note may set it" is the white list of the `plugin` tag
 (`fey.settings.fey_options`): a `plugin` tag, in the court, a hollow or a note,
 can set those, and the change takes effect as soon as it is applied; the others
 are read when the plugin is set up, so they are written in the setup.
@@ -668,6 +668,7 @@ are read when the plugin is set up, so they are written in the setup.
 - `fey_ellipsis` (string, default `"..."`; a note may set it: no, read when the plugin is set up) Ellipsis character to use when folding text.
 - `fey_embed_expand_on_cursor` (boolean, default `true`; a note may set it: no, read when the plugin is set up) Show the text of an embed under it while the cursor is on its line.
 - `fey_embed_files_default` (boolean, default `false`; a note may set it: no, read when the plugin is set up) Show the text of every file embed, not only on the cursor line and after a toggle.
+- `fey_embed_highlight` (boolean, default `true`; a note may set it: no, read when the plugin is set up) Colour the text of a file embed with the tree-sitter parser of its language (plain text when there is none).
 - `fey_embed_images_default` (boolean, default `true`; a note may set it: no, read when the plugin is set up) Show every image embed; when false an image shows on the cursor line and after a toggle.
 - `fey_embed_max_lines` (integer, default `200`; a note may set it: no, read when the plugin is set up) The most lines of a file that an embed shows.
 - `fey_embed_tag_name` (string, default `"embed"`; a note may set it: no, read when the plugin is set up) Tag name of embeds: a link with the key `embed` always true.
@@ -1078,7 +1079,7 @@ The name is `embed`; the option `fey_embed_tag_name` changes it.
 - Body: the description, in the line, block and pair forms.
 - Where: anywhere in the text; a `link` tag with the key `embed: true` is the same tag.
 - The index: a link of the kind `embed`: backlinks and broken links see it, a file that is not a note only has to exist, and the query value of the link has `embed` true.
-- Open at point: opens the file; `fey_embed_toggle` shows the text of the file under the tag (`fey_embed_toggle_all` for the files of the whole note, `fey_embed_toggle_images` for its images), the cursor on the line does too (`fey_embed_expand_on_cursor`), and `fey_embed_files_default` and `fey_embed_images_default` say what shows without either; an image is drawn by the image plugin that reads the `images` query (snacks.image does).
+- Open at point: opens the file; `fey_embed_toggle` shows the text of the file under the tag (`fey_embed_toggle_all` for the files of the whole note, `fey_embed_toggle_images` for its images), the cursor on the line does too (`fey_embed_expand_on_cursor`), and `fey_embed_files_default` and `fey_embed_images_default` say what shows without either (the text is coloured by the parser of its language, `fey_embed_highlight`); an image is drawn by the image plugin that reads the `images` query (snacks.image does).
 - Related: `fey_link_tag_name`, `fey_embed_max_lines`, `fey_import_embeds_as`.
 
 >fey
@@ -1947,6 +1948,7 @@ Features:
 
 Changes:
 
+- embeds: the embed tag, file and image embeds, hollow paths, import and export, completion (7071ad9)
 - added variable tags (1440371)
 - updates to do with the importer, and database view (b1bb476)
 - update importer (803497c)

@@ -15,6 +15,7 @@ Features:
 
 Changes:
 
+-  embeds: the embed tag, file and image embeds, hollow paths, import and export, completion (7071ad9)
 -  added variable tags (1440371)
 -  updates to do with the importer, and database view (b1bb476)
 -  update importer (803497c)

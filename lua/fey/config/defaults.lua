@@ -47,6 +47,7 @@ local DefaultConfig = {
   fey_embed_expand_on_cursor = true, -- the text of an embed is shown under it while the cursor is on its line (it is shown on a toggle otherwise)
   fey_embed_files_default = false, -- show the text of every file embed (it shows on the cursor line, and on a toggle, otherwise)
   fey_embed_images_default = true, -- show every image embed (hidden, one shows on the cursor line, and on a toggle)
+  fey_embed_highlight = true, -- colour the text of a file embed with the tree-sitter parser of its language
   fey_embed_max_lines = 200, -- the most lines of a file that an embed shows
   fey_section_tag_name = 'section',
   fey_comment_tag_name = 'comment',
