@@ -163,7 +163,18 @@ has('md: bold italic strike code', text, '!bold!, /italic/, ~gone~, `code`')
 has('md: relative link to a note', text, '{@ link, notes/other.fey#top; desc: link @}')
 has('md: wikilink with alias', text, '{@ link, Other Note.fey; desc: the note @}')
 has('md: plain wikilink', text, '{@ link, Plain.fey; desc: Plain @}')
-has('md: embed', text, '{@ link, pic.png; embed: true @}')
+has('md: embed', text, '{@ embed, pic.png @}')
+do
+  local config = require('fey.config')
+  config.fey_import_embeds_as = 'link'
+  local as_link = Import.text('![[pic.png]] and ![a cat](cat.png)\n', 'markdown')
+  config.fey_import_embeds_as = 'embed'
+  has('md: embeds as link tags on request', as_link, '{@ link, pic.png; embed: true @}')
+  has('md: an image as a link tag keeps its alt', as_link, '{@ link, cat.png; desc: a cat; embed: true @}')
+  local as_embed = Import.text('![a cat](cat.png)\n', 'markdown')
+  has('md: an image is an embed with its alt', as_embed, '{@ embed, cat.png; desc: a cat @}')
+  parses('md: embed parses', as_embed)
+end
 has('md: tag in text', text, '{# labels, tag #}')
 has('md: inline math', text, '#[ math ] x^2 #')
 has('md: footnote reference', text, '{@ fn, 1 @}')
@@ -236,6 +247,7 @@ do
   has('odd lines: dashes', d, '\\---')
   local o = Import.text('---\ntitle: In org\ntags: [a]\n---\n* Heading\ntext\n', 'org')
   has('org: yaml front matter is data', o, '{# table; title: In org #}')
+  has('org: an image link is an embed', (Import.text('See [[file:img/cat.png]] and [[file:a.org][a note]].\n', 'org')), '{@ embed, img/cat.png @}')
   has('org: yaml front matter labels', o, '{# labels, a #}')
   parses('org: yaml front matter parses', o)
   has('org: a piped link', (Import.text('[[_IPOM \\| Structures]]\n', 'org')), '{@ link, _IPOM; desc: Structures @}')

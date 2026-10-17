@@ -391,6 +391,12 @@ function Vault:_store(rel, entry, meta, errors)
       if file and file:match('^%-?%d+$') and not l.values[3] and not l.attrs.file then file = nil end
       target_file = file and self:_resolve_file(rel, file) or rel
       target_sig = require('fey.links.signature').key(l.values[1])
+    elseif l.kind == 'embed' then
+      -- the folder of the note first, the root of the hollow when the file is not there
+      local here = not l.target:match('^[~/]') and self:_resolve_file(rel, './' .. l.target) or nil
+      target_file = (here and vim.uv.fs_stat(self:abs(here))) and here or self:_resolve_file(rel, l.target)
+      target_sig = require('fey.links.signature').key(l.attrs.section or l.attrs.heading or '')
+      if target_sig == '' then target_sig = nil end
     else
       target_file = self:_resolve_file(rel, l.target)
       target_sig = require('fey.links.signature').key(l.attrs.section or l.attrs.heading or '')
@@ -513,6 +519,8 @@ local function extract_opts(self, rel)
   return {
     label_tags = self.opts.label_tags,
     link_tags = self.opts.link_tags,
+    link_tag = config.fey_link_tag_name,
+    embed_tag = config.fey_embed_tag_name,
     meta_tags = self.opts.meta_tags,
     date_tags = {
       [config.fey_date_tag_name] = 'date',
@@ -1223,6 +1231,13 @@ function Vault:broken_links()
       local ref = tree.parse_ref(row.target_ref .. (row.target_file and ('/' .. row.target_file) or ''))
       local root = ref and tree.resolve_ref(ref, self.root)
       if not root or (row.target_file and not vim.uv.fs_stat(vim.fs.joinpath(root, row.target_file))) then reason = 'file' end
+    elseif row.kind == 'embed' then
+      -- the file of an embed is not always a note: it only has to be there
+      if not row.target_file or not vim.uv.fs_stat(self:abs(row.target_file)) then
+        reason = 'file'
+      elseif row.target_sig and row.target_sig ~= '' and self:get_file(row.target_file) and not section_keys(row.target_file)[signature.key(row.target_sig)] then
+        reason = 'section'
+      end
     elseif not row.target_file then
       if row.kind == 'link' and target ~= '' then reason = 'file' end
     elseif not self:get_file(row.target_file) then

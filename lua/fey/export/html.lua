@@ -26,6 +26,10 @@ render_inlines = function(items)
     elseif item.t == 'link' then
       local inner = render_inlines(item.children)
       out[#out + 1] = item.href and ('<a href="%s">%s</a>'):format(esc(item.href), inner) or inner
+    elseif item.t == 'image' then
+      out[#out + 1] = ('<img src="%s" alt="%s"%s%s>'):format(
+        esc(item.src or ''), esc(item.alt or ''), item.width and (' width="%d"'):format(item.width) or '', item.height and (' height="%d"'):format(item.height) or ''
+      )
     elseif item.t == 'fnref' then
       out[#out + 1] = ('<sup><a href="#fn-%s" id="fnref-%s">%s</a></sup>'):format(esc(item.label), esc(item.label), esc(item.label))
     elseif item.t == 'math' then

@@ -152,7 +152,7 @@ function Store:_links()
   local tree = require('fey.hollow.tree')
   local out, inn = {}, {}
   local rows = self.vault:query(
-    [[SELECT f.path, l.target, l.target_ref, l.target_file, l.target_sig, l.description
+    [[SELECT f.path, l.kind, l.target, l.target_ref, l.target_file, l.target_sig, l.description
       FROM links l JOIN files f ON f.id = l.file_id ORDER BY f.path, l.line]]
   )
   local seen_in = {}
@@ -163,11 +163,14 @@ function Store:_links()
       local id = root and tree.id_of(root)
       if r.target_file and id then
         out[r.path] = out[r.path] or {}
-        table.insert(out[r.path], V.link(r.target_file, r.description, r.target_sig, id))
+        local link = V.link(r.target_file, r.description, r.target_sig, id)
+        link.embed = r.kind == 'embed'
+        table.insert(out[r.path], link)
       end
     else
       local dest = r.target_file or r.target
       local link = V.link(dest, r.description, r.target_sig)
+      link.embed = r.kind == 'embed'
       out[r.path] = out[r.path] or {}
       table.insert(out[r.path], link)
       if r.target_file and r.target_file ~= r.path then

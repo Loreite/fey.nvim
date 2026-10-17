@@ -714,6 +714,8 @@ function FeyFile:get_meta()
   return require('fey.vault.extract').extract(table.concat(lines, '\n') .. '\n', {
     label_tags = config.vault.label_tags,
     link_tags = config.vault.link_tags,
+    link_tag = config.fey_link_tag_name,
+    embed_tag = config.fey_embed_tag_name,
     meta_tags = config.vault.meta_tags,
     comment_tag = config.fey_comment_tag_name,
   })

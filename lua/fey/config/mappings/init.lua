@@ -766,6 +766,17 @@ return {
     fey_check_links = m.action('fey_mappings.check_links', {
       opts = { desc = 'fey check links', help_desc = 'List in quickfix the links and sections of this hollow that lead nowhere' },
     }),
+    fey_embed_toggle = m.action('fey_mappings.embed_toggle', {
+      opts = { desc = 'fey toggle embed', help_desc = 'Show the embed under the cursor (the text of a file under it, or an image), or hide it' },
+    }),
+    fey_embed_toggle_all = m.action('fey_mappings.embed_toggle', {
+      args = { 'all' },
+      opts = { desc = 'fey toggle all file embeds', help_desc = 'Show the text of every file embed of the note, or show it only on the cursor line (the start is fey_embed_files_default)' },
+    }),
+    fey_embed_toggle_images = m.action('fey_mappings.embed_toggle', {
+      args = { 'images' },
+      opts = { desc = 'fey toggle all image embeds', help_desc = 'Show every image embed of the note, or show an image only on the cursor line (the start is fey_embed_images_default)' },
+    }),
     fey_clock_in = m.action('clock.fey_clock_in', { opts = { desc = 'fey clock in', help_desc = 'Clock in current heading' } }),
     fey_clock_out = m.action(
       'clock.fey_clock_out',

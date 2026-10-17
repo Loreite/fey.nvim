@@ -151,6 +151,22 @@ M.TAGS = {
     example = { 'See {@ link, notes/design.fey; desc: the design; section: II.A. @}.' },
   },
   {
+    option = 'fey_embed_tag_name',
+    forms = {
+      scope_tag = 'an embed written out',
+      line_tag = 'the words of the line are the description',
+      block_tag = 'what is under it is the description',
+      pair_tag = 'the same, between an opener and a closer',
+    },
+    head = 'the target, as in a link: the folder of the note is searched first, `current/path/in/the/hollow` and `court:other/path/in/it` name a hollow; the keys `desc`, `width` and `height` (an image), `lines` (`10-30`) and `heading` (a note), and `conceal`',
+    body = 'the description, in the line, block and pair forms',
+    where = 'anywhere in the text; a `link` tag with the key `embed: true` is the same tag',
+    indexed = 'a link of the kind `embed`: backlinks and broken links see it, a file that is not a note only has to exist, and the query value of the link has `embed` true',
+    open = 'opens the file; `fey_embed_toggle` shows the text of the file under the tag (`fey_embed_toggle_all` for the files of the whole note, `fey_embed_toggle_images` for its images), the cursor on the line does too (`fey_embed_expand_on_cursor`), and `fey_embed_files_default` and `fey_embed_images_default` say what shows without either; an image is drawn by the image plugin that reads the `images` query (snacks.image does)',
+    related = '`fey_link_tag_name`, `fey_embed_max_lines`, `fey_import_embeds_as`',
+    example = { 'A photo {@ embed, img/cat.png; desc: a cat; width: 40 @} and the code:', '{@ embed, build.lua; lines: 10-30 @}' },
+  },
+  {
     option = 'fey_section_tag_name',
     forms = { scope_tag = 'a link to a heading by its signature', block_tag = 'the body is the link', pair_tag = 'the body is the link', line_tag = 'the words are the link' },
     head = 'the signature, then the file and the number of the heading when several have the signature',
@@ -375,7 +391,7 @@ local FORM_NAME = { scope_tag = 'scope', line_tag = 'line', block_tag = 'block',
 -- the groups of the reference, in the order of the page: a name and the tags (by option, or by name for the data tags)
 M.GROUPS = {
   { 'Dates and tasks', { 'fey_date_tag_name', 'fey_scheduled_tag_name', 'fey_deadline_tag_name', 'fey_closed_tag_name', 'fey_status_tag_name', 'fey_labels_tag_name', 'fey_property_tag_name', 'fey_clock_tag_name', 'fey_logbook_tag_name' } },
-  { 'Text', { 'fey_footnote_tag_name', 'fey_link_tag_name', 'fey_section_tag_name', 'fey_comment_tag_name', 'fey_math_tag_name', 'fey_tblfm_tag_name', 'fey_var_tag_name' } },
+  { 'Text', { 'fey_footnote_tag_name', 'fey_link_tag_name', 'fey_embed_tag_name', 'fey_section_tag_name', 'fey_comment_tag_name', 'fey_math_tag_name', 'fey_tblfm_tag_name', 'fey_var_tag_name' } },
   { 'Queries and databases', { 'fey_query_tag_name', 'fey_query_result_tag_name', 'fey_db_tag_name', 'fey_db_result_tag_name', 'fey_clocktable_tag_name', 'fey_clocktable_result_tag_name' } },
   { 'Appearance and settings', { 'fey_hl_tag_name', 'fey_nvim_config_tag_name', 'fey_plugin_tag_name' } },
   { 'Data', { 'table', 'array', 'value' } },

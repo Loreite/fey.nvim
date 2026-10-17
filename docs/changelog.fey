@@ -15,6 +15,7 @@ Features:
 
 Changes:
 
+-  added variable tags (1440371)
 -  updates to do with the importer, and database view (b1bb476)
 -  update importer (803497c)
 -  fey importer (20ba084)

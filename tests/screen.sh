@@ -14,7 +14,7 @@ failed=0
 screen_of() { # file, extra keys...
   local file="$1"; shift
   tmux -L fey_screen kill-server 2>/dev/null
-  tmux -L fey_screen new-session -d -x 100 -y 40 "nvim -u tests/screen_init.lua $file"
+  tmux -L fey_screen new-session -d -c "$TMP" -x 100 -y 40 "nvim -u $FEY_ROOT/tests/screen_init.lua $file"
   sleep 2
   for cmd in "$@"; do tmux -L fey_screen send-keys "$cmd" Enter; sleep 0.5; done
   sleep 0.5

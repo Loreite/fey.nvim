@@ -21,6 +21,7 @@ local function static_keys()
     [config.fey_closed_tag_name] = { 'active' },
     [config.fey_clock_tag_name] = { 'end', 'dur' },
     [config.fey_link_tag_name] = { 'url', 'file', 'desc', 'section', 'n', 'conceal' },
+    [config.fey_embed_tag_name] = { 'url', 'file', 'desc', 'section', 'heading', 'lines', 'width', 'height', 'conceal' },
     [config.fey_section_tag_name] = { 'file', 'n', 'conceal' },
     [config.fey_query_tag_name] = { 'scope', 'conceal' },
     [config.fey_db_tag_name] = { 'db', 'view', 'conceal' },
@@ -96,8 +97,9 @@ end
 
 ---The keys a tag has: its own and the ones the notes use with it
 ---@param tag string
+---@param values? string[] the values already written: a link or an embed that has its target has no use for the keys `url` and `file`
 ---@return string[]
-function M.keys(tag)
+function M.keys(tag, values)
   local keys = vim.deepcopy(static_keys()[tag] or {})
   if tag == config.fey_nvim_config_tag_name then
     vim.list_extend(keys, vim.fn.getcompletion('', 'option'))
@@ -111,7 +113,11 @@ function M.keys(tag)
       if ok and type(attrs) == 'table' then vim.list_extend(keys, vim.tbl_keys(attrs)) end
     end
   end
-  return unique(keys)
+  local out = unique(keys)
+  if values and values[1] and values[1] ~= '' and (tag == config.fey_link_tag_name or tag == config.fey_embed_tag_name) then
+    out = vim.tbl_filter(function(k) return k ~= 'url' and k ~= 'file' end, out)
+  end
+  return out
 end
 
 ---Headings signatures of the file of the buffer, or of the file a link names
@@ -146,7 +152,7 @@ function M.values(ctx)
     return { range.highest, range.default, range.lowest }
   elseif tag == config.fey_labels_tag_name or tag == 'label' then
     return vim.tbl_map(function(l) return l.label end, v and v:labels() or {})
-  elseif tag == config.fey_link_tag_name then
+  elseif tag == config.fey_link_tag_name or tag == config.fey_embed_tag_name then
     if ctx.index ~= 1 then return {} end
     return vim.tbl_map(function(f) return f.path end, v and v:files() or {})
   elseif tag == config.fey_section_tag_name then

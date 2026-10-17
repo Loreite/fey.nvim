@@ -28,7 +28,7 @@ end
 ---@param name string
 ---@return 'link'|'section'|nil
 local function link_kind(name)
-  if name == config.fey_link_tag_name then return 'link' end
+  if name == config.fey_link_tag_name or name == config.fey_embed_tag_name then return 'link' end
   if name == config.fey_section_tag_name then return 'section' end
 end
 
@@ -257,7 +257,8 @@ function M.open_target(target, sig, n, from, tag)
     return require('fey.hollow.court').jump(tree.id_of(root) or root)
   end
 
-  local path = M.resolve_path(target, from)
+  local path = (tag and require('fey.embed').is_embed(tag.name, tag.key_values) and require('fey.embed').resolve(target, from))
+    or M.resolve_path(target, from)
   if not path then return vim.notify(('fey: cannot find %s'):format(target), vim.log.levels.WARN) end
   if sig then return M.goto_section({ signature = unescape(sig), file = path, n = n }, from) end
   open_at(path)

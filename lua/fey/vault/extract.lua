@@ -20,6 +20,8 @@ local M = {}
 ---@class FeyVaultExtractOpts
 ---@field label_tags? string[]  tag names whose values are labels. Default { 'label', 'labels' }
 ---@field link_tags? string[]   tag names that reference another file/section. Default { 'link', 'section' }
+---@field link_tag? string        name of the link tag. Default 'link'
+---@field embed_tag? string       name of the embed tag, a link that is shown where it is written. Default 'embed'
 ---@field comment_tag? string    name of the comment tag: nothing inside what it comments is indexed. Default 'comment'
 ---@field clock_tag? string tag name of a clock (`{# clock, start; end: ..; dur: .. #}`). Default: `clock`
 ---@field date_tags? table<string, string> tag name -> kind (`date`, `scheduled`, `deadline`, `closed`) of the tags that hold a date. Default: those four names
@@ -617,6 +619,8 @@ function M.extract(src, opts)
   local label_set, link_set = {}, {}
   for _, n in ipairs(label_tags) do label_set[n] = true end
   for _, n in ipairs(link_tags) do link_set[n] = true end
+  local embed_name, link_name = opts.embed_tag or 'embed', opts.link_tag or 'link'
+  link_set[embed_name] = true
 
   local meta_set = {}
   for _, n in ipairs(opts.meta_tags or DEFAULT_META_TAGS) do meta_set[n] = true end
@@ -749,8 +753,11 @@ function M.extract(src, opts)
 
       local link_target = tag.values[1] or tag.attrs.url or tag.attrs.file
       if link_set[tag.name] and link_target then
+        -- an embed is a link that is shown: the `embed` tag, or a `link` tag with the key `embed`
+        local flag = tag.attrs.embed
+        local embed = tag.name == embed_name or (tag.name == link_name and flag ~= nil and tostring(flag):lower() ~= 'false')
         table.insert(meta.links, {
-          kind = tag.name,
+          kind = embed and 'embed' or tag.name,
           target = link_target,
           description = tag.attrs.desc or tag.values[2],
           values = tag.values,

@@ -121,7 +121,9 @@ local function inlines(ctx, node, from, to)
           ctx.dropped.internal = true
           vim.list_extend(items, #children > 0 and children or { { t = 'text', s = url and node_text(ctx, url) or '' } })
         else
-          items[#items + 1] = { t = 'link', href = href, children = children }
+          -- a link to an image with no words is shown in the text (org shows it inline)
+          local embed = not desc and not href:match('^%a[%w+.-]*://') and require('fey.embed').kind_of(href) == 'image' or nil
+          items[#items + 1] = { t = 'link', href = href, children = children, embed = embed }
         end
       elseif t == 'fnref' then
         flush()

@@ -26,7 +26,7 @@ function FeyCompletionTagHead:get_results(context)
   if ctx.kind == 'value' then return data.values(ctx) end
   if ctx.kind == 'key' then
     -- a key is offered with its colon
-    return vim.tbl_map(function(k) return k .. ': ' end, data.keys(ctx.tag))
+    return vim.tbl_map(function(k) return k .. ': ' end, data.keys(ctx.tag, ctx.values))
   end
   return data.key_values(ctx)
 end

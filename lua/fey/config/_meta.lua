@@ -163,6 +163,9 @@
 ---@field fey_insert_link? FeyMappingValue Default: '<prefix>li'
 ---@field fey_store_link? FeyMappingValue Default: '<prefix>ls'
 ---@field fey_check_links? FeyMappingValue Default: '<prefix>lc'
+---@field fey_embed_toggle? FeyMappingValue Default: '<prefix>le'
+---@field fey_embed_toggle_all? FeyMappingValue Default: '<prefix>lE'
+---@field fey_embed_toggle_images? FeyMappingValue Default: '<prefix>lI'
 ---@field fey_toggle_link_conceal? FeyMappingValue Default: '<prefix>Tl'
 ---@field fey_toggle_query_conceal? FeyMappingValue Default: '<prefix>Tq'
 ---@field fey_toggle_checkbox_icons? FeyMappingValue Default: '<prefix>Ti'
@@ -213,7 +216,7 @@
 ---@field db_name? string Database file inside the vault directory. Default: 'vault.db'
 ---@field ignore? string[] Directory/file names that are never indexed. Default: { 'node_modules' }
 ---@field label_tags? string[] Tag names whose values are labels. Default: { 'label', 'labels' }
----@field link_tags? string[] Tag names that reference a file or section. Default: { 'link', 'section' }
+---@field link_tags? string[] Tag names that reference a file or section. Default: { 'link', 'section', 'embed' }
 ---@field meta_tags? string[] Tag names that are heading metadata. They are left out of the title (and path) of a heading in the index. Default: { 'label', 'labels', 'status', 'prop', 'scheduled', 'deadline', 'closed' }
 ---@field live_index? boolean Index buffers while they are edited (after a short pause), not only when they are saved. Default: true
 ---@field time_budget_ms? integer Longest time one indexing slice may block the editor. Default: 10
@@ -235,6 +238,12 @@
 ---@class FeyConfigOpts
 ---@field fey_query_tag_name? string Tag name of query tags. Default: 'query'
 ---@field fey_link_tag_name? string Tag name of file/URL links. Default: 'link'
+---@field fey_import_embeds_as? 'embed'|'link' What the importers write for an embedded image or file: an `embed` tag, or a `link` tag with `embed: true`. Default: 'embed'
+---@field fey_embed_expand_on_cursor? boolean Show the text of an embed under it while the cursor is on its line. Default: true
+---@field fey_embed_files_default? boolean Show the text of every file embed, not only on the cursor line and after a toggle. Default: false
+---@field fey_embed_images_default? boolean Show every image embed; when false an image shows on the cursor line and after a toggle. Default: true
+---@field fey_embed_max_lines? integer The most lines of a file that an embed shows. Default: 200
+---@field fey_embed_tag_name? string Tag name of embeds: a link with the key `embed` always true. Default: 'embed'
 ---@field fey_section_tag_name? string Tag name of links to headings by signature. Default: 'section'
 ---@field fey_date_tag_name? string Tag name of a date. Default: 'date'
 ---@field fey_scheduled_tag_name? string Tag name of the date a heading is scheduled. Default: 'scheduled'

@@ -129,7 +129,7 @@ end
 function M.apply(bufnr, tags)
   vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
   local pieces = {}
-  local names = { [config.fey_link_tag_name] = true, [config.fey_section_tag_name] = true }
+  local names = { [config.fey_link_tag_name] = true, [config.fey_embed_tag_name] = true, [config.fey_section_tag_name] = true }
   for _, tag in ipairs(tags) do
     if names[tag.name] and M.is_concealed(tag.key_values) then vim.list_extend(pieces, pieces_of(bufnr, tag)) end
   end

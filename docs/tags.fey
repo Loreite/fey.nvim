@@ -1,7 +1,7 @@
 {# table; title: Tags; category: docs #}
 
-A tag is a piece of syntax that says something about the text around it. This page lists every tag the plugin has; the names are the defaults and each can be changed with its
-`*_tag_name` option. A tag is written in one of four forms:
+A tag is a piece of syntax that says something about the text around it. This page lists every tag the plugin has; the names
+are the defaults and each can be changed with its `*_tag_name` option. A tag is written in one of four forms:
 
 ###  src fey
 a scope tag {# name, value, value; key: value #} inside a line, and {@ name, value @} for things that are in the text
@@ -16,11 +16,14 @@ a pair tag, up to the closer
 [# name ]
 ###
 
-The head is the name, then the values after commas, then the keys after a semicolon (a backslash escapes a comma, a semicolon or a backslash). The head ends where the way the tag was opened says: at a sign and the closing bracket (`#}`, `#]`) for a scope tag and for the opener of a pair tag, at the closing bracket for a line tag, at the closing bracket
-and a sign for a block tag. Every other sign or bracket is a word, so `desc: a > b -> c :)` is a description. The closing bracket of the opening itself cannot start a word in the line, block and pair forms (it ends the
-head, or the text is no tag); in a scope tag it can. A scope tag applies to the node it is
-in: its paragraph, its title or its table cell, the whole list when it is the only content of a list item, the item when the item has other contents, and the whole file when it is above the
-first heading. `Tag.body` is that node, for every handler.
+The head is the name, then the values after commas, then the keys after a semicolon (a backslash escapes a comma, a semicolon
+or a backslash). The head ends where the way the tag was opened says: at a sign and the closing bracket (`#}`, `#]`) for a
+scope tag and for the opener of a pair tag, at the closing bracket for a line tag, at the closing bracket and a sign for a
+block tag. Every other sign or bracket is a word, so `desc: a > b -> c :)` is a description. The closing bracket of the opening
+itself cannot start a word in the line, block and pair forms (it ends the head, or the text is no tag); in a scope tag it can.
+A scope tag applies to the node it is in: its paragraph, its title or its table cell, the whole list when it is the only
+content of a list item, the item when the item has other contents, and the whole file when it is above the first heading.
+`Tag.body` is that node, for every handler.
 
 The tags of the plugin:
 
@@ -215,7 +218,24 @@ The name is `link`; the option `fey_link_tag_name` changes it.
 See {@ link, notes/design.fey; desc: the design; section: II.A. @}.
 ###
 
-  II.C. section
+  II.C. embed
+
+The name is `embed`; the option `fey_embed_tag_name` changes it.
+
+-  Forms:  scope: an embed written out; line: the words of the line are the description; block: what is under it is the description; pair: the same, between an opener and a closer.
+-  Head:  the target, as in a link: the folder of the note is searched first, `current/path/in/the/hollow` and `court:other/path/in/it` name a hollow; the keys `desc`, `width` and `height` (an image), `lines` (`10-30`) and `heading` (a note), and `conceal`.
+-  Body:  the description, in the line, block and pair forms.
+-  Where:  anywhere in the text; a `link` tag with the key `embed: true` is the same tag.
+-  The index:  a link of the kind `embed`: backlinks and broken links see it, a file that is not a note only has to exist, and the query value of the link has `embed` true.
+-  Open at point:  opens the file; `fey_embed_toggle` shows the text of the file under the tag (`fey_embed_toggle_all` for the files of the whole note, `fey_embed_toggle_images` for its images), the cursor on the line does too (`fey_embed_expand_on_cursor`), and `fey_embed_files_default` and `fey_embed_images_default` say what shows without either; an image is drawn by the image plugin that reads the `images` query (snacks.image does).
+-  Related:  `fey_link_tag_name`, `fey_embed_max_lines`, `fey_import_embeds_as`.
+
+###  src fey
+A photo {@ embed, img/cat.png; desc: a cat; width: 40 @} and the code:
+{@ embed, build.lua; lines: 10-30 @}
+###
+
+  II.D. section
 
 The name is `section`; the option `fey_section_tag_name` changes it.
 
@@ -231,7 +251,7 @@ The name is `section`; the option `fey_section_tag_name` changes it.
 see {@ section, II.A. @}
 ###
 
-  II.D. comment
+  II.E. comment
 
 The name is `comment`; the option `fey_comment_tag_name` changes it.
 
@@ -247,7 +267,7 @@ The name is `comment`; the option `fey_comment_tag_name` changes it.
 #[ comment ] a note to myself #
 ###
 
-  II.E. math
+  II.F. math
 
 The name is `math`; the option `fey_math_tag_name` changes it.
 
@@ -263,7 +283,7 @@ The name is `math`; the option `fey_math_tag_name` changes it.
 The mass #[ math ] E = mc^2 # is energy.
 ###
 
-  II.F. tblfm
+  II.G. tblfm
 
 The name is `tblfm`; the option `fey_tblfm_tag_name` changes it.
 
@@ -279,7 +299,7 @@ The name is `tblfm`; the option `fey_tblfm_tag_name` changes it.
 {# tblfm; tblwidth: 60; total: qty * price #}
 ###
 
-  II.G. var
+  II.H. var
 
 The name is `var`; the option `fey_var_tag_name` changes it.
 
@@ -514,11 +534,14 @@ The name is `value`.
 
   VI. Tags of your own, and tags named like HTML
 
-Any name is a tag: it is indexed (the names and counts are in the index, and `:checkhealth fey` lists the ones nothing knows), completed, and exported as the text it holds. To do more:
+Any name is a tag: it is indexed (the names and counts are in the index, and `:checkhealth fey` lists the ones nothing knows),
+completed, and exported as the text it holds. To do more:
 
--  editor behaviour: `tag_handlers = { note = { scope_tag = function(tag) ... end } }` in the setup, a function for each form that `Tag.handlers` runs with a `FeyTag`, which has the name, the head
+-  editor behaviour: `tag_handlers = { note = { scope_tag = function(tag) ... end } }` in the setup, a function for each form
+   that `Tag.handlers` runs with a `FeyTag`, which has the name, the head
    (`values` and `key_values`), the form (`type`) and the body (`body`)
--  export: `tag_exports`, a pattern for each form, where `%s` is what the tag holds (the HTML of the body for the HTML export, the Markdown of it for Markdown, with the HTML around it):
+-  export: `tag_exports`, a pattern for each form, where `%s` is what the tag holds (the HTML of the body for the HTML export,
+   the Markdown of it for Markdown, with the HTML around it):
 
 ###  src lua
 require('fey').setup({
@@ -533,10 +556,12 @@ require('fey').setup({
 })
 ###
 
-A form can also be a function `function(body, tag, target)` that returns the text; a table with the keys `html` and `markdown` gives each target its own forms; a form named `default` is the one
-for the forms that are not there.
+A form can also be a function `function(body, tag, target)` that returns the text; a table with the keys `html` and `markdown`
+gives each target its own forms; a form named `default` is the one for the forms that are not there.
 
-A tag named like an HTML element (`span`, `mark`, `kbd`, `sub`, `sup`, `div`, `details`, `summary`, `blockquote`, ...) in the line, block and pair forms is that element in the exports, with its keys
-as attributes (event attributes and `javascript:` values are dropped). When a name is taken (by the plugin, by a `tag_exports` entry or a `tag_handlers` entry) it keeps its meaning and the weaker name ends
-with an underscore: `section_` is the HTML `section` where `section` is the link to a heading, `table_` the HTML `table`, and with a `div` of your own `div_` is the HTML `div`. Name your own tags with this
+A tag named like an HTML element (`span`, `mark`, `kbd`, `sub`, `sup`, `div`, `details`, `summary`, `blockquote`, ...) in the
+line, block and pair forms is that element in the exports, with its keys as attributes (event attributes and `javascript:`
+values are dropped). When a name is taken (by the plugin, by a `tag_exports` entry or a `tag_handlers` entry) it keeps its
+meaning and the weaker name ends with an underscore: `section_` is the HTML `section` where `section` is the link to a heading,
+`table_` the HTML `table`, and with a `div` of your own `div_` is the HTML `div`. Name your own tags with this
 in mind: a name that ends with `_` is read as the element without it.

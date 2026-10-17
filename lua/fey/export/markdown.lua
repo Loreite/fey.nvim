@@ -34,6 +34,8 @@ render_inlines = function(items, cell)
     elseif item.t == 'link' then
       local inner = render_inlines(item.children, cell)
       out[#out + 1] = item.href and ('[%s](%s)'):format(inner, item.href:gsub('[%s()]', function(c) return ('%%%02X'):format(c:byte()) end)) or inner
+    elseif item.t == 'image' then
+      out[#out + 1] = ('![%s](%s)'):format(item.alt or '', (item.src or ''):gsub('[%s()]', function(c) return ('%%%02X'):format(c:byte()) end))
     elseif item.t == 'fnref' then
       out[#out + 1] = ('[^%s]'):format(item.label)
     elseif item.t == 'math' then

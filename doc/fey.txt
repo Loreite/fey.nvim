@@ -592,7 +592,7 @@ is optional. A function instead of the table is the same as `apply` alone.
 
 EVERY OPTION                                  *fey-configuration-every-option*
 
-158 options. "A note may set it" is the white list of the `plugin` tag
+164 options. "A note may set it" is the white list of the `plugin` tag
 (`fey.settings.fey_options`): a `plugin` tag, in the court, a hollow or a note,
 can set those, and the change takes effect as soon as it is applied; the others
 are read when the plugin is set up, so they are written in the setup.
@@ -666,6 +666,11 @@ are read when the plugin is set up, so they are written in the setup.
 - `fey_edit_src_content_indentation` (number, default `0`; a note may set it: no, read when the plugin is set up) Addditional ndentation number applied when editing a SRC block through special edit.
 - `fey_edit_src_filetype_map` (table, default `{}`; a note may set it: no, read when the plugin is set up)
 - `fey_ellipsis` (string, default `"..."`; a note may set it: no, read when the plugin is set up) Ellipsis character to use when folding text.
+- `fey_embed_expand_on_cursor` (boolean, default `true`; a note may set it: no, read when the plugin is set up) Show the text of an embed under it while the cursor is on its line.
+- `fey_embed_files_default` (boolean, default `false`; a note may set it: no, read when the plugin is set up) Show the text of every file embed, not only on the cursor line and after a toggle.
+- `fey_embed_images_default` (boolean, default `true`; a note may set it: no, read when the plugin is set up) Show every image embed; when false an image shows on the cursor line and after a toggle.
+- `fey_embed_max_lines` (integer, default `200`; a note may set it: no, read when the plugin is set up) The most lines of a file that an embed shows.
+- `fey_embed_tag_name` (string, default `"embed"`; a note may set it: no, read when the plugin is set up) Tag name of embeds: a link with the key `embed` always true.
 - `fey_footnote_definition_form` ('pair'|'line'|'block', default `"pair"`; a note may set it: yes, at once) Tag form of a new footnote definition.
 - `fey_footnote_superscript` ('auto'|boolean, default `"auto"`; a note may set it: yes, at once) Show footnote labels as superscript: `auto` converts digits and signs, `true` letters as well, `false` never.
 - `fey_footnote_tag_name` (string, default `"fn"`; a note may set it: no, read when the plugin is set up) Tag name of footnote references and definitions.
@@ -677,6 +682,7 @@ are read when the plugin is set up, so they are written in the setup.
 - `fey_id_method` ('uuid' | 'ts' | 'fey', default `"uuid"`; a note may set it: no, read when the plugin is set up) What method to use to generate ids via fey.id module.
 - `fey_id_ts_format` (string, default `"%Y%m%d%H%M%S"`; a note may set it: no, read when the plugin is set up) Format of the id generated when `fey_id_method = 'ts'`.
 - `fey_id_uuid_program` (string, default `"uuidgen"`; a note may set it: no, read when the plugin is set up) External proram to generate UUIDs.
+- `fey_import_embeds_as` ('embed'|'link', default `"embed"`; a note may set it: no, read when the plugin is set up) What the importers write for an embedded image or file: an `embed` tag, or a `link` tag with `embed: true`.
 - `fey_indent_mode_turns_off_fey_adapt_indentation` (boolean, default `true`; a note may set it: no, read when the plugin is set up) If true, turning on indent mode will turn off `fey_adapt_indentation`.
 - `fey_indent_mode_turns_on_hiding_signature` (boolean, default `true`; a note may set it: no, read when the plugin is set up) If true, turning on indent mode will hide leading signature.
 - `fey_labels_exclude_from_inheritance` (string[], default `{}`; a note may set it: no, read when the plugin is set up) List of tags that should be excluded from tag inheritance.
@@ -748,7 +754,7 @@ are read when the plugin is set up, so they are written in the setup.
 - `vault.enabled` (boolean, default `true`; a note may set it: no, read when the plugin is set up)
 - `vault.ignore` (string[], default `{ "node_modules" }`; a note may set it: no, read when the plugin is set up) Directory/file names that are never indexed.
 - `vault.label_tags` (string[], default `{ "label", "labels" }`; a note may set it: no, read when the plugin is set up) Tag names whose values are labels.
-- `vault.link_tags` (string[], default `{ "link", "section" }`; a note may set it: no, read when the plugin is set up) Tag names that reference a file or section.
+- `vault.link_tags` (string[], default `{ "link", "section", "embed" }`; a note may set it: no, read when the plugin is set up) Tag names that reference a file or section.
 - `vault.live_index` (boolean, default `true`; a note may set it: no, read when the plugin is set up) Index buffers while they are edited (after a short pause), not only when they are saved.
 - `vault.meta_tags` (string[], default `{ "label", "labels", "status", "prop", "sched...`; a note may set it: no, read when the plugin is set up) Tag names that are heading metadata. They are left out of the title (and path) of a heading in the index.
 - `vault.run_on_load` (boolean, default `true`; a note may set it: no, read when the plugin is set up) Update `query` and `feydb` tags when a buffer first loads.
@@ -1060,6 +1066,24 @@ The name is `link`; the option `fey_link_tag_name` changes it.
 
 >fey
     See {@ link, notes/design.fey; desc: the design; section: II.A. @}.
+<
+
+
+embed                                                              *fey-embed*
+
+The name is `embed`; the option `fey_embed_tag_name` changes it.
+
+- Forms: scope: an embed written out; line: the words of the line are the description; block: what is under it is the description; pair: the same, between an opener and a closer.
+- Head: the target, as in a link: the folder of the note is searched first, `current/path/in/the/hollow` and `court:other/path/in/it` name a hollow; the keys `desc`, `width` and `height` (an image), `lines` (`10-30`) and `heading` (a note), and `conceal`.
+- Body: the description, in the line, block and pair forms.
+- Where: anywhere in the text; a `link` tag with the key `embed: true` is the same tag.
+- The index: a link of the kind `embed`: backlinks and broken links see it, a file that is not a note only has to exist, and the query value of the link has `embed` true.
+- Open at point: opens the file; `fey_embed_toggle` shows the text of the file under the tag (`fey_embed_toggle_all` for the files of the whole note, `fey_embed_toggle_images` for its images), the cursor on the line does too (`fey_embed_expand_on_cursor`), and `fey_embed_files_default` and `fey_embed_images_default` say what shows without either; an image is drawn by the image plugin that reads the `images` query (snacks.image does).
+- Related: `fey_link_tag_name`, `fey_embed_max_lines`, `fey_import_embeds_as`.
+
+>fey
+    A photo {@ embed, img/cat.png; desc: a cat; width: 40 @} and the code:
+    {@ embed, build.lua; lines: 10-30 @}
 <
 
 
@@ -1383,9 +1407,11 @@ Any name is a tag: it is indexed (the names and counts are in the index, and
 `:checkhealth fey` lists the ones nothing knows), completed, and exported as
 the text it holds. To do more:
 
-- editor behaviour: `tag_handlers = { note = { scope_tag = function(tag) ... end } }` in the setup, a function for each form that `Tag.handlers` runs with a `FeyTag`, which has the name, the head
+- editor behaviour: `tag_handlers = { note = { scope_tag = function(tag) ... end } }` in the setup, a function for each form
+    that `Tag.handlers` runs with a `FeyTag`, which has the name, the head
     (`values` and `key_values`), the form (`type`) and the body (`body`)
-- export: `tag_exports`, a pattern for each form, where `%s` is what the tag holds (the HTML of the body for the HTML export, the Markdown of it for Markdown, with the HTML around it):
+- export: `tag_exports`, a pattern for each form, where `%s` is what the tag holds (the HTML of the body for the HTML export,
+    the Markdown of it for Markdown, with the HTML around it):
 
 >lua
     require('fey').setup({
@@ -1449,132 +1475,135 @@ Anywhere:
   <prefix>vr   Update the vault index                                                   fey_vault_reindex
 In Fey files:
 
-  keys                    does                                                                                              name
-  ----------------------- ------------------------------------------------------------------------------------------------- ----------------------------------------------------
-  <prefix>na              Add a note to the current heading                                                                 fey_add_note
-  <prefix>haf             make all segments of signature anonymous                                                          fey_anonymize_heading
-  <prefix>hae             make {count} segments of signature from end anonymous                                             fey_anonymize_heading_from_end
-  <prefix>has             make {count} segments of signature from start anonymous                                           fey_anonymize_heading_from_start
-  <prefix>?a              Apply the settings of the note: the nvim and plugin tags of the court, the hollow and the note    fey_apply_all_settings
-  <prefix>?t              Apply the nvim or plugin tag under the cursor                                                     fey_apply_settings_at_tag
-  <prefix>$               Archive subtree to archive file                                                                   fey_archive_subtree
-  <prefix>yc              List in quickfix the references that name no block and the targets two files write                fey_babel_check
-  <prefix>yt              Write the source blocks of this file that have a :tangle target                                   fey_babel_tangle
-  <prefix>yv              Write the source blocks that have a :tangle target of every file of this hollow                   fey_babel_tangle_vault
-  [[                      Go to previous heading at the same level                                                          fey_backward_heading_same_level
-  <prefix>hde             update all delimiters to prompted value from end                                                  fey_change_all_delimiters_from_end
-  <prefix>hds             update all delimiters to prompted value from start                                                fey_change_all_delimiters_from_start
-  cid                     Change date under cursor via calendar popup                                                       fey_change_date
-  <prefix>ld              update all delimiters of current list (not sublists) to prompted value                            fey_change_list_delimiters
-  <prefix>lc              List in quickfix the links and sections of this hollow that lead nowhere                          fey_check_links
-  <prefix>xq              Cancel active clock on current heading                                                            fey_clock_cancel
-  <prefix>xj              Jump to currently clocked in heading                                                              fey_clock_goto
-  <prefix>xi              Clock in current heading                                                                          fey_clock_in
-  <prefix>xo              Clock out current heading                                                                         fey_clock_out
-  <TAB>                   Toggle folding                                                                                    fey_cycle
-  <C-x>                   Decrease date part under cursor (year/month/day/hour/minute/repeater/active|inactive)             fey_date_down
-  <S-DOWN>                Decrease date by one day                                                                          fey_date_down_day
-  <prefix>i.              Insert date under cursor                                                                          fey_date_insert
-  <prefix>i!              Insert/Update inactive date under cursor                                                          fey_date_insert_inactive
-  <C-a>                   Increase date part under cursor (year/month/day/hour/minute/repeater/active|inactive)             fey_date_up
-  <S-UP>                  Increase date by one day                                                                          fey_date_up_day
-  <prefix>id              Insert/Update deadline date                                                                       fey_deadline
-  <prefix>L               Demote whole subtree                                                                              fey_demote_subtree
-  ><                      Demote heading                                                                                    fey_do_demote
-  <>                      Promote heading                                                                                   fey_do_promote
-  <prefix>'               Edit the source block under the cursor in another buffer                                          fey_edit_special
-  <prefix>hef             make all segments of signature enumerated                                                         fey_enumerate_heading
-  <prefix>hee             make {count} segments of signature from end indexed                                               fey_enumerate_heading_from_end
-  <prefix>hes             make {count} segments of signature from start indexed                                             fey_enumerate_heading_from_start
-  <prefix>e               Export this file: Markdown, HTML, iCalendar, or LaTeX, PDF, Word, EPUB through pandoc             fey_export
-  <prefix>fi              Assert indentation for subsection                                                                 fey_fix_indentation
-  ]]                      Go to next heading at the same level                                                              fey_forward_heading_same_level
-  <S-TAB>                 Toggle folding (whole file)                                                                       fey_global_cycle
-  <prefix><c-k>           move the cursor to the cell above                                                                 fey_goto_to_cell_above
-  <prefix><c-j>           move the cursor the cell below                                                                    fey_goto_to_cell_below
-  <prefix><c-l>           move the curosr to the next cell                                                                  fey_goto_to_cell_next
-  <prefix><c-h>           move the cursor to the previous cell                                                              fey_goto_to_cell_prev
-  <prefix>nf              Write a footnote reference at the cursor and its definition, ready to type                        fey_insert_footnote
-  <prefix>ih              Add new heading after current subtree                                                             fey_insert_heading_respect_content
-  <prefix>li              Insert or Update a hyperlink under cursor. Visual selection used as description                   fey_insert_link
-  <prefix>iH              Add new subheading after current subtree                                                          fey_insert_subheading_respect_content
-  <prefix>iT              Add new TODO heading on line right after current line                                             fey_insert_todo_heading
-  <prefix>it              Add new TODO heading after current subtree                                                        fey_insert_todo_heading_respect_content
-  <Leader><CR>            Add heading at {count} level, list item or checkbox (context aware)                               fey_meta_return
-  <Leader><S-CR>          Add subheading at curr+{1 or count} level, list item or checkbox (context aware)                  fey_meta_sub_return
-  <prefix>J               Move subtree down                                                                                 fey_move_subtree_down
-  <prefix>K               Move subtree up                                                                                   fey_move_subtree_up
-  }                       Go to next heading (any level)                                                                    fey_next_visible_heading
-  <prefix>o               Follow the link or section tag under the cursor                                                   fey_open_at_point
-  {                       Go to previous heading (any level)                                                                fey_previous_visible_heading
-  <prefix>,               Change the priority of the current heading                                                        fey_priority
-  cir                     Decrease priority of heading                                                                      fey_priority_down
-  ciR                     Increase priority of heading                                                                      fey_priority_up
-  <prefix>H               Promote whole subtree                                                                             fey_promote_subtree
-  <prefix>qa              Run every query tag in the buffer and write their results                                         fey_query_run_all
-  <prefix>qq              Run the query tag under the cursor and write its result as a table or list below it               fey_query_run_at_tag
-  <prefix>r               Refile heading to specific destination                                                            fey_refile
-  <prefix>fI              triggers and automatic reindex of a list or headings                                              fey_reindex_headings_or_list
-  <CR>                    Insert mode: move through a table, keep the indentation of a paragraph or list item               fey_return
-  <prefix>!a              Run the buffer commands of the note (only when settings.hooks names their keys)                   fey_run_all_buffer_commands
-  <prefix>!t              Run the buffer commands of the tag under the cursor (only when settings.hooks names their keys)   fey_run_buffer_commands_at_tag
-  <prefix>is              Insert/Update scheduled date                                                                      fey_schedule
-  <prefix>sc              Pick the state of the checkbox of the list item (in progress, important, note ...)                fey_set_checkbox_state
-  <prefix>xe              Set effort estimate on current heading                                                            fey_set_effort
-  <prefix>sl              Change labels of current heading                                                                  fey_set_labels_command
-  g?                      Show this help                                                                                    fey_show_help
-  <prefix>ls              Store link to current heading                                                                     fey_store_link
-  <prefix>tc              insert table after current line using count or obtained input. default 2x2                        fey_table_create_after
-  <prefix>tC              insert table before curent line using count or obtained input. default 2x2                        fey_table_create_before
-  <prefix>tdc             delete the current col under cursor                                                               fey_table_delete_col
-  <prefix>tdr             delete the current row under curosr                                                               fey_table_delete_row
-  <prefix>tie             inserts a logical row bounary end line after the current row                                      fey_table_insert_boundary_end_after
-  <prefix>tiE             inserts a logical row bounary end line before the current row                                     fey_table_insert_boundary_end_before
-  <prefix>tii             inserts a logical row inner boundary line after the current row                                   fey_table_insert_boundary_inner_after
-  <prefix>tiI             inserts a logical row inner boundary line before the current row                                  fey_table_insert_boundary_inner_before
-  <prefix>tis             inserts a logical row bounary start line after the current row                                    fey_table_insert_boundary_start_after
-  <prefix>tiS             inserts a logical row bounary start line before the current row                                   fey_table_insert_boundary_start_before
-  <prefix>tic             insert a blank col after the current col under cursor                                             fey_table_insert_col_after
-  <prefix>tiC             insert a blank col befre the current col under curosr                                             fey_table_insert_col_before
-  <prefix>tir             insert a blank row after the current row under cursor                                             fey_table_insert_row_after
-  <prefix>tiR             insert a blank row before the current row under cursor                                            fey_table_insert_row_before
-  <prefix>tid             inserts a section divider line after the current row                                              fey_table_insert_section_divider_after
-  <prefix>tiD             inserts a section divider line before the current row                                             fey_table_insert_section_divider_before
-  <prefix>tmS             Merge the content of the cell above into this cell                                                fey_table_merge_cell_content_from_above
-  <prefix>tms             Merge the content of the cell below into this cell                                                fey_table_merge_cell_content_from_below
-  <prefix>tmV             Merge the content of the cell to the left into this cell                                          fey_table_merge_cell_content_from_left
-  <prefix>tmv             Merge the content of the cell to the right into this cell                                         fey_table_merge_cell_content_from_right
-  <prefix>tmd             combine current cell under cursor with cell below                                                 fey_table_merge_cell_down
-  <prefix>tmR             combine current cell under cursor with cell to the left                                           fey_table_merge_cell_left
-  <prefix>tmr             combine current cell under cursor with cell to the right                                          fey_table_merge_cell_right
-  <prefix>tmD             combine current cell under cursor with cell above                                                 fey_table_merge_cell_up
-  <prefix>tj              swap current cell under cursor with cell below                                                    fey_table_move_cell_down
-  <prefix>th              swap current cell under cursor with cell to the left                                              fey_table_move_cell_left
-  <prefix>tl              swap current cell under cursor with cell to the right                                             fey_table_move_cell_right
-  <prefix>tk              swap current cell under curosr with cell above                                                    fey_table_move_cell_up
-  <prefix>tmh             move the current table col under curosr left                                                      fey_table_move_col_left
-  <prefix>tml             move the current table col under curosr right                                                     fey_table_move_col_right
-  <prefix>tmj             move the current table row under cursor down                                                      fey_table_move_row_down
-  <prefix>tmk             move the current table row under cursor up                                                        fey_table_move_row_up
-  <prefix>t=              compute the formulas of the table under the cursor and write the results into its cells           fey_table_recalculate
-  <prefix>t+              compute the formulas of every table of the note and write the results into their cells            fey_table_recalculate_all
-  <prefix>tf              reformat table, reflowing text and aligning to a grid                                             fey_table_reformat
-  <prefix>tu              break apart combined cells into individual cells                                                  fey_table_unmerge_cells
-  cit                     Forward change TODO state of current heading                                                      fey_todo
-  ciT                     Backward change TODO state of current heading                                                     fey_todo_prev
-  <prefix>?e <prefix>Ts   Apply settings when a note is entered, or stop doing it                                           fey_toggle_apply_all_settings_at_buffer_enter
-  <prefix>A               Toggle "ARCHIVE" tag on current heading                                                           fey_toggle_archive_tag
-  <C-Space>               Toggle the checkbox of the list item (adds one when there is none), and update progress cookies   fey_toggle_checkbox
-  <prefix>Ti              Show checkboxes as icons, or as written                                                           fey_toggle_checkbox_icons
-  <prefix>Tc              Show or hide the tag syntax around the todo keyword, priority and labels of headings              fey_toggle_conceal_task_tags
-  <prefix>d!              Toggle date active/inactive type                                                                  fey_toggle_date_type
-  <prefix>*               Toggle current line to heading and vice versa                                                     fey_toggle_heading
-  <prefix>Tl              Hide the head of links, or show it                                                                fey_toggle_link_conceal
-  <prefix>To              Paint the overdue dates, or stop                                                                  fey_toggle_overdue
-  <prefix>Tq              Hide queries and their result heads, or show them                                                 fey_toggle_query_conceal
-  <prefix>!e <prefix>Te   Run the buffer commands when a note is entered and left, or stop doing it                         fey_toggle_run_all_buffer_commands_at_buffer_enter
-  g}                      Go to last child heading                                                                          last_child_heading
-  g{                      Go to parent heading                                                                              outline_up_heading
+  keys                    does                                                                                                                       name
+  ----------------------- -------------------------------------------------------------------------------------------------------------------------- ----------------------------------------------------
+  <prefix>na              Add a note to the current heading                                                                                          fey_add_note
+  <prefix>haf             make all segments of signature anonymous                                                                                   fey_anonymize_heading
+  <prefix>hae             make {count} segments of signature from end anonymous                                                                      fey_anonymize_heading_from_end
+  <prefix>has             make {count} segments of signature from start anonymous                                                                    fey_anonymize_heading_from_start
+  <prefix>?a              Apply the settings of the note: the nvim and plugin tags of the court, the hollow and the note                             fey_apply_all_settings
+  <prefix>?t              Apply the nvim or plugin tag under the cursor                                                                              fey_apply_settings_at_tag
+  <prefix>$               Archive subtree to archive file                                                                                            fey_archive_subtree
+  <prefix>yc              List in quickfix the references that name no block and the targets two files write                                         fey_babel_check
+  <prefix>yt              Write the source blocks of this file that have a :tangle target                                                            fey_babel_tangle
+  <prefix>yv              Write the source blocks that have a :tangle target of every file of this hollow                                            fey_babel_tangle_vault
+  [[                      Go to previous heading at the same level                                                                                   fey_backward_heading_same_level
+  <prefix>hde             update all delimiters to prompted value from end                                                                           fey_change_all_delimiters_from_end
+  <prefix>hds             update all delimiters to prompted value from start                                                                         fey_change_all_delimiters_from_start
+  cid                     Change date under cursor via calendar popup                                                                                fey_change_date
+  <prefix>ld              update all delimiters of current list (not sublists) to prompted value                                                     fey_change_list_delimiters
+  <prefix>lc              List in quickfix the links and sections of this hollow that lead nowhere                                                   fey_check_links
+  <prefix>xq              Cancel active clock on current heading                                                                                     fey_clock_cancel
+  <prefix>xj              Jump to currently clocked in heading                                                                                       fey_clock_goto
+  <prefix>xi              Clock in current heading                                                                                                   fey_clock_in
+  <prefix>xo              Clock out current heading                                                                                                  fey_clock_out
+  <TAB>                   Toggle folding                                                                                                             fey_cycle
+  <C-x>                   Decrease date part under cursor (year/month/day/hour/minute/repeater/active|inactive)                                      fey_date_down
+  <S-DOWN>                Decrease date by one day                                                                                                   fey_date_down_day
+  <prefix>i.              Insert date under cursor                                                                                                   fey_date_insert
+  <prefix>i!              Insert/Update inactive date under cursor                                                                                   fey_date_insert_inactive
+  <C-a>                   Increase date part under cursor (year/month/day/hour/minute/repeater/active|inactive)                                      fey_date_up
+  <S-UP>                  Increase date by one day                                                                                                   fey_date_up_day
+  <prefix>id              Insert/Update deadline date                                                                                                fey_deadline
+  <prefix>L               Demote whole subtree                                                                                                       fey_demote_subtree
+  ><                      Demote heading                                                                                                             fey_do_demote
+  <>                      Promote heading                                                                                                            fey_do_promote
+  <prefix>'               Edit the source block under the cursor in another buffer                                                                   fey_edit_special
+  <prefix>le              Show the embed under the cursor (the text of a file under it, or an image), or hide it                                     fey_embed_toggle
+  <prefix>lE              Show the text of every file embed of the note, or show it only on the cursor line (the start is fey_embed_files_default)   fey_embed_toggle_all
+  <prefix>lI              Show every image embed of the note, or show an image only on the cursor line (the start is fey_embed_images_default)       fey_embed_toggle_images
+  <prefix>hef             make all segments of signature enumerated                                                                                  fey_enumerate_heading
+  <prefix>hee             make {count} segments of signature from end indexed                                                                        fey_enumerate_heading_from_end
+  <prefix>hes             make {count} segments of signature from start indexed                                                                      fey_enumerate_heading_from_start
+  <prefix>e               Export this file: Markdown, HTML, iCalendar, or LaTeX, PDF, Word, EPUB through pandoc                                      fey_export
+  <prefix>fi              Assert indentation for subsection                                                                                          fey_fix_indentation
+  ]]                      Go to next heading at the same level                                                                                       fey_forward_heading_same_level
+  <S-TAB>                 Toggle folding (whole file)                                                                                                fey_global_cycle
+  <prefix><c-k>           move the cursor to the cell above                                                                                          fey_goto_to_cell_above
+  <prefix><c-j>           move the cursor the cell below                                                                                             fey_goto_to_cell_below
+  <prefix><c-l>           move the curosr to the next cell                                                                                           fey_goto_to_cell_next
+  <prefix><c-h>           move the cursor to the previous cell                                                                                       fey_goto_to_cell_prev
+  <prefix>nf              Write a footnote reference at the cursor and its definition, ready to type                                                 fey_insert_footnote
+  <prefix>ih              Add new heading after current subtree                                                                                      fey_insert_heading_respect_content
+  <prefix>li              Insert or Update a hyperlink under cursor. Visual selection used as description                                            fey_insert_link
+  <prefix>iH              Add new subheading after current subtree                                                                                   fey_insert_subheading_respect_content
+  <prefix>iT              Add new TODO heading on line right after current line                                                                      fey_insert_todo_heading
+  <prefix>it              Add new TODO heading after current subtree                                                                                 fey_insert_todo_heading_respect_content
+  <Leader><CR>            Add heading at {count} level, list item or checkbox (context aware)                                                        fey_meta_return
+  <Leader><S-CR>          Add subheading at curr+{1 or count} level, list item or checkbox (context aware)                                           fey_meta_sub_return
+  <prefix>J               Move subtree down                                                                                                          fey_move_subtree_down
+  <prefix>K               Move subtree up                                                                                                            fey_move_subtree_up
+  }                       Go to next heading (any level)                                                                                             fey_next_visible_heading
+  <prefix>o               Follow the link or section tag under the cursor                                                                            fey_open_at_point
+  {                       Go to previous heading (any level)                                                                                         fey_previous_visible_heading
+  <prefix>,               Change the priority of the current heading                                                                                 fey_priority
+  cir                     Decrease priority of heading                                                                                               fey_priority_down
+  ciR                     Increase priority of heading                                                                                               fey_priority_up
+  <prefix>H               Promote whole subtree                                                                                                      fey_promote_subtree
+  <prefix>qa              Run every query tag in the buffer and write their results                                                                  fey_query_run_all
+  <prefix>qq              Run the query tag under the cursor and write its result as a table or list below it                                        fey_query_run_at_tag
+  <prefix>r               Refile heading to specific destination                                                                                     fey_refile
+  <prefix>fI              triggers and automatic reindex of a list or headings                                                                       fey_reindex_headings_or_list
+  <CR>                    Insert mode: move through a table, keep the indentation of a paragraph or list item                                        fey_return
+  <prefix>!a              Run the buffer commands of the note (only when settings.hooks names their keys)                                            fey_run_all_buffer_commands
+  <prefix>!t              Run the buffer commands of the tag under the cursor (only when settings.hooks names their keys)                            fey_run_buffer_commands_at_tag
+  <prefix>is              Insert/Update scheduled date                                                                                               fey_schedule
+  <prefix>sc              Pick the state of the checkbox of the list item (in progress, important, note ...)                                         fey_set_checkbox_state
+  <prefix>xe              Set effort estimate on current heading                                                                                     fey_set_effort
+  <prefix>sl              Change labels of current heading                                                                                           fey_set_labels_command
+  g?                      Show this help                                                                                                             fey_show_help
+  <prefix>ls              Store link to current heading                                                                                              fey_store_link
+  <prefix>tc              insert table after current line using count or obtained input. default 2x2                                                 fey_table_create_after
+  <prefix>tC              insert table before curent line using count or obtained input. default 2x2                                                 fey_table_create_before
+  <prefix>tdc             delete the current col under cursor                                                                                        fey_table_delete_col
+  <prefix>tdr             delete the current row under curosr                                                                                        fey_table_delete_row
+  <prefix>tie             inserts a logical row bounary end line after the current row                                                               fey_table_insert_boundary_end_after
+  <prefix>tiE             inserts a logical row bounary end line before the current row                                                              fey_table_insert_boundary_end_before
+  <prefix>tii             inserts a logical row inner boundary line after the current row                                                            fey_table_insert_boundary_inner_after
+  <prefix>tiI             inserts a logical row inner boundary line before the current row                                                           fey_table_insert_boundary_inner_before
+  <prefix>tis             inserts a logical row bounary start line after the current row                                                             fey_table_insert_boundary_start_after
+  <prefix>tiS             inserts a logical row bounary start line before the current row                                                            fey_table_insert_boundary_start_before
+  <prefix>tic             insert a blank col after the current col under cursor                                                                      fey_table_insert_col_after
+  <prefix>tiC             insert a blank col befre the current col under curosr                                                                      fey_table_insert_col_before
+  <prefix>tir             insert a blank row after the current row under cursor                                                                      fey_table_insert_row_after
+  <prefix>tiR             insert a blank row before the current row under cursor                                                                     fey_table_insert_row_before
+  <prefix>tid             inserts a section divider line after the current row                                                                       fey_table_insert_section_divider_after
+  <prefix>tiD             inserts a section divider line before the current row                                                                      fey_table_insert_section_divider_before
+  <prefix>tmS             Merge the content of the cell above into this cell                                                                         fey_table_merge_cell_content_from_above
+  <prefix>tms             Merge the content of the cell below into this cell                                                                         fey_table_merge_cell_content_from_below
+  <prefix>tmV             Merge the content of the cell to the left into this cell                                                                   fey_table_merge_cell_content_from_left
+  <prefix>tmv             Merge the content of the cell to the right into this cell                                                                  fey_table_merge_cell_content_from_right
+  <prefix>tmd             combine current cell under cursor with cell below                                                                          fey_table_merge_cell_down
+  <prefix>tmR             combine current cell under cursor with cell to the left                                                                    fey_table_merge_cell_left
+  <prefix>tmr             combine current cell under cursor with cell to the right                                                                   fey_table_merge_cell_right
+  <prefix>tmD             combine current cell under cursor with cell above                                                                          fey_table_merge_cell_up
+  <prefix>tj              swap current cell under cursor with cell below                                                                             fey_table_move_cell_down
+  <prefix>th              swap current cell under cursor with cell to the left                                                                       fey_table_move_cell_left
+  <prefix>tl              swap current cell under cursor with cell to the right                                                                      fey_table_move_cell_right
+  <prefix>tk              swap current cell under curosr with cell above                                                                             fey_table_move_cell_up
+  <prefix>tmh             move the current table col under curosr left                                                                               fey_table_move_col_left
+  <prefix>tml             move the current table col under curosr right                                                                              fey_table_move_col_right
+  <prefix>tmj             move the current table row under cursor down                                                                               fey_table_move_row_down
+  <prefix>tmk             move the current table row under cursor up                                                                                 fey_table_move_row_up
+  <prefix>t=              compute the formulas of the table under the cursor and write the results into its cells                                    fey_table_recalculate
+  <prefix>t+              compute the formulas of every table of the note and write the results into their cells                                     fey_table_recalculate_all
+  <prefix>tf              reformat table, reflowing text and aligning to a grid                                                                      fey_table_reformat
+  <prefix>tu              break apart combined cells into individual cells                                                                           fey_table_unmerge_cells
+  cit                     Forward change TODO state of current heading                                                                               fey_todo
+  ciT                     Backward change TODO state of current heading                                                                              fey_todo_prev
+  <prefix>?e <prefix>Ts   Apply settings when a note is entered, or stop doing it                                                                    fey_toggle_apply_all_settings_at_buffer_enter
+  <prefix>A               Toggle "ARCHIVE" tag on current heading                                                                                    fey_toggle_archive_tag
+  <C-Space>               Toggle the checkbox of the list item (adds one when there is none), and update progress cookies                            fey_toggle_checkbox
+  <prefix>Ti              Show checkboxes as icons, or as written                                                                                    fey_toggle_checkbox_icons
+  <prefix>Tc              Show or hide the tag syntax around the todo keyword, priority and labels of headings                                       fey_toggle_conceal_task_tags
+  <prefix>d!              Toggle date active/inactive type                                                                                           fey_toggle_date_type
+  <prefix>*               Toggle current line to heading and vice versa                                                                              fey_toggle_heading
+  <prefix>Tl              Hide the head of links, or show it                                                                                         fey_toggle_link_conceal
+  <prefix>To              Paint the overdue dates, or stop                                                                                           fey_toggle_overdue
+  <prefix>Tq              Hide queries and their result heads, or show them                                                                          fey_toggle_query_conceal
+  <prefix>!e <prefix>Te   Run the buffer commands when a note is entered and left, or stop doing it                                                  fey_toggle_run_all_buffer_commands_at_buffer_enter
+  g}                      Go to last child heading                                                                                                   last_child_heading
+  g{                      Go to parent heading                                                                                                       outline_up_heading
 In the agenda:
 
   keys         does                                                                       name
@@ -1918,6 +1947,7 @@ Features:
 
 Changes:
 
+- added variable tags (1440371)
 - updates to do with the importer, and database view (b1bb476)
 - update importer (803497c)
 - fey importer (20ba084)

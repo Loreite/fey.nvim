@@ -124,15 +124,22 @@ function Writer:link(item)
   local desc = plain(item.children)
   -- a link to nowhere (`[text]()`) is its text
   if (item.href or '') == '' then return self:inlines(item.children) end
-  local keys =
-    { desc = desc ~= '' and desc ~= item.href and desc or nil, section = item.section, embed = item.embed and 'true' or nil }
+  -- an embed is an `embed` tag, or a `link` tag with `embed: true` (`fey_import_embeds_as`)
+  local config = require('fey.config')
+  local as_tag = item.embed and config.fey_import_embeds_as ~= 'link'
+  local name = as_tag and (config.fey_embed_tag_name or 'embed') or 'link'
+  local keys = {
+    desc = desc ~= '' and desc ~= item.href and desc or nil,
+    section = item.section,
+    embed = (item.embed and not as_tag) and 'true' or nil,
+  }
   local opts = { sigil = '@' }
-  local text, err = self:build('link', { item.href }, keys, opts)
+  local text, err = self:build(name, { item.href }, keys, opts)
   if not text and keys.desc then
     -- the description holds something a tag head cannot (a word like `->`): the link keeps its target, the words stay beside it as text
     self:warn('a link description was written as text: ' .. tostring(err))
     keys.desc = nil
-    text = self:build('link', { item.href }, keys, opts)
+    text = self:build(name, { item.href }, keys, opts)
     if text then text = text .. ' ' .. self:text(desc) end
   end
   if not text then

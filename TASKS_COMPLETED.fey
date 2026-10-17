@@ -2563,6 +2563,7 @@ Done (2026-10-07): import.
 | table, array, value | scope, block, pair  | keys, values; body       | none (document data)   | earlier          |
 | feydb, feydb_result | scope, pair         | rows; db, view           | run, writes the result | earlier          |
 | tblfm               | all four            | settings; formulas       | read with its table    | table formulas   |
+| embed               | all four            | target; desc, lines, ... | open; shows the target | embeds           |
 | var                 | all four            | name; name; body is text | jump, insert on export | III.F (vars)     |
 v---------------------v---------------------v--------------------------v------------------------v------------------v
 | status              | scope               | keyword, priority;       | cycle state, priority  | II.E             |

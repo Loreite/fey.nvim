@@ -82,7 +82,7 @@ end
 
 -- the kinds of tag names, from the configuration
 local function kind_of(name)
-  if name == config.fey_link_tag_name then return 'link' end
+  if name == config.fey_link_tag_name or name == config.fey_embed_tag_name then return 'link' end
   if name == config.fey_section_tag_name then return 'section' end
   if name == config.fey_footnote_tag_name then return 'fn' end
   if name == config.fey_math_tag_name then return 'math' end
@@ -197,6 +197,10 @@ local function inline_tag(ctx, node)
         if label == '' then label = sig or '' end
       end
       children = { { t = 'text', s = label } }
+    end
+    -- an embedded image is drawn where it is written; any other embed is a link
+    if require('fey.embed').is_embed(name, keys) and target and require('fey.embed').kind_of(target) == 'image' then
+      return { { t = 'image', src = href(ctx, target, sig), alt = keys.desc or vim.fn.fnamemodify(target, ':t:r'), width = tonumber(keys.width), height = tonumber(keys.height) } }
     end
     return { { t = 'link', href = href(ctx, target, sig), children = children } }
   elseif kind == 'fn' then
