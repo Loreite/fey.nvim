@@ -250,10 +250,23 @@ convert_inlines = function(ctx, node)
       vim.list_extend(items, inline.parse(s))
     end
   end
+  local fence_end -- where the raw text of an open inline block starts
   local function walk(parent)
     for child in parent:iter_children() do
       local t = child:type()
-      if t == 'scope_tag' or t == 'line_tag' or t == 'pair_tag' or t == 'block_tag' then
+      if t == 'inline_fence' then
+        -- ***raw text***: what lies between the fences is text as it is written, the fences are not shown
+        local _, _, s = child:start()
+        local _, _, e = child:end_()
+        if fence_end then
+          if s > fence_end then items[#items + 1] = { t = 'text', s = ctx.src:sub(fence_end + 1, s) } end
+          fence_end = nil
+        else
+          plain(s)
+          fence_end = e
+        end
+        cursor = e
+      elseif t == 'scope_tag' or t == 'line_tag' or t == 'pair_tag' or t == 'block_tag' then
         local _, _, s = child:start()
         local _, _, e = child:end_()
         plain(s)

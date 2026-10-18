@@ -26,6 +26,14 @@ local inline = require('fey.export.inline')
 local function md(lines) return Export.markdown(table.concat(lines, '\n') .. '\n') end
 local function has(s, needle) return s ~= nil and s:find(needle, 1, true) ~= nil end
 
+-- inline blocks ---------------------------------------------------------------------------------------------
+do
+  local out = md({ 'a ***{# t; k: v #} !x!*** b !c!' })
+  check('inline block: the fences are not shown', has(out, '***'), false)
+  check('inline block: its text is as written', has(out, '{# t; k: v #} !x!') or has(out, '{# t; k: v #} \\!x\\!'), true)
+  check('inline block: the text around it is read', has(out, '**c**') or has(out, '*c*'), true)
+end
+
 -- emphasis --------------------------------------------------------------------------------------------------
 local function flat(items)
   return vim.tbl_map(function(i) return i.t == 'em' and (i.kind .. ':' .. flat(i.children)[1]) or (i.s or i.t) end, items)
