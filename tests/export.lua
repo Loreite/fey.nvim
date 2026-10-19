@@ -32,6 +32,25 @@ do
   check('inline block: the fences are not shown', has(out, '***'), false)
   check('inline block: its text is as written', has(out, '{# t; k: v #} !x!') or has(out, '{# t; k: v #} \\!x\\!'), true)
   check('inline block: the text around it is read', has(out, '**c**') or has(out, '*c*'), true)
+
+  -- an emphasis marker can lie outside the block: `###`...`###` is the code `...`, whose text has backticks of its own
+  local code = md({ 'a `###`...`###` b `x` c' })
+  check('inline block inside code: markdown', has(code, 'a `` `...` `` b `x` c'), true)
+  check('inline block inside code: the markers of the raw text are not read', has(code, '``...``'), false)
+  check('inline block inside code: html', has(Export.html('a `###`...`###` b\n'), '<code>`...`</code>'), true)
+  local bold = md({ '!bold ***a/b_c***, end!' })
+  check('inline block inside bold', has(bold, '**bold a/b_c, end**') or has(bold, '**bold a/b\\_c, end**'), true)
+  -- the markers inside the raw text are not emphasis for the editor either
+  local emphasis = require('fey.colors.highlighter.markup.emphasis')
+  local parser = vim.treesitter.get_string_parser('a `###`...`###` b `x` c\n', 'fey')
+  local para = parser:parse()[1]:root():field('body')[1]:named_child(0)
+  local marks = {}
+  for expr in para:iter_children() do
+    for tok in expr:iter_children() do
+      if tok:type() == '`' then marks[#marks + 1] = emphasis.in_raw_text(tok) end
+    end
+  end
+  check('raw text of an inline block: which backticks are in it', marks, { false, true, true, false, false, false })
 end
 
 -- emphasis --------------------------------------------------------------------------------------------------

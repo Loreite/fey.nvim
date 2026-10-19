@@ -244,11 +244,33 @@ convert_inlines = function(ctx, node)
   local _, _, from = node:start()
   local _, _, to = node:end_()
   local cursor = from
-  local function plain(upto)
-    if upto > cursor then
-      local s = ctx.src:sub(cursor + 1, upto)
-      vim.list_extend(items, inline.parse(s))
+  -- The text that has not been read yet. The raw text of an inline block stands in it as one character (a word), so that an
+  -- emphasis marker can lie outside it: `` `***`x`***` `` is the code `` `x` ``. The raw texts are put back after the reading.
+  local HOLDER = '\1'
+  local pending, raws = '', {}
+  local function flush()
+    if pending == '' then return end
+    local read = inline.parse(pending)
+    if #raws > 0 then
+      local n = 0
+      local function put(list)
+        for _, item in ipairs(list) do
+          if item.s then
+            item.s = item.s:gsub(HOLDER, function()
+              n = n + 1
+              return raws[n] or ''
+            end)
+          end
+          if item.children then put(item.children) end
+        end
+      end
+      put(read)
     end
+    vim.list_extend(items, read)
+    pending, raws = '', {}
+  end
+  local function plain(upto)
+    if upto > cursor then pending = pending .. ctx.src:sub(cursor + 1, upto) end
   end
   local fence_end -- where the raw text of an open inline block starts
   local function walk(parent)
@@ -259,7 +281,10 @@ convert_inlines = function(ctx, node)
         local _, _, s = child:start()
         local _, _, e = child:end_()
         if fence_end then
-          if s > fence_end then items[#items + 1] = { t = 'text', s = ctx.src:sub(fence_end + 1, s) } end
+          if s > fence_end then
+            pending = pending .. HOLDER
+            raws[#raws + 1] = ctx.src:sub(fence_end + 1, s)
+          end
           fence_end = nil
         else
           plain(s)
@@ -270,6 +295,7 @@ convert_inlines = function(ctx, node)
         local _, _, s = child:start()
         local _, _, e = child:end_()
         plain(s)
+        flush()
         if not hidden(ctx, child) then vim.list_extend(items, inline_tag(ctx, child)) end
         cursor = e
       elseif t == 'paragraph' or t == 'body' or t == 'contents' then
@@ -279,6 +305,7 @@ convert_inlines = function(ctx, node)
   end
   walk(node)
   plain(to)
+  flush()
   -- trim the ends
   if items[1] and items[1].t == 'text' then items[1].s = items[1].s:gsub('^%s+', '') end
   local last = items[#items]

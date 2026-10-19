@@ -145,6 +145,24 @@ local function same_row_adjacent(a, b)
   return a_end_row == b_row and a_row == b_row and a_end_col == b_col
 end
 
+-- The raw text of an inline block (`***raw***`) lies between two `inline_fence` nodes of a paragraph. It is text as it is
+-- written: its markers are no emphasis, and the whole of it counts as a word to the markers around it.
+---@param node TSNode a marker
+---@return boolean
+local function in_raw_text(node)
+  local expr = node:parent()
+  if not expr then return false end
+  local fences = 0
+  local sibling = expr:prev_sibling()
+  while sibling do
+    if sibling:type() == 'inline_fence' then fences = fences + 1 end
+    sibling = sibling:prev_sibling()
+  end
+  return fences % 2 == 1
+end
+
+FeyEmphasis.in_raw_text = in_raw_text
+
 ---@param node TSNode
 ---@param name string
 ---@return FeyMarkupNode | false
@@ -152,6 +170,7 @@ function FeyEmphasis:parse_node(node, name)
   if not self.valid_capture_names[name] then return false end
   local node_type = node:type()
   if not markers[node_type] then return false end
+  if in_raw_text(node) then return false end
 
   -- The second marker of a double (or anything inside a longer run) is
   -- handled through the first one.

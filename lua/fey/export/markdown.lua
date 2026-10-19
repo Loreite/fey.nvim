@@ -18,8 +18,14 @@ render_inlines = function(items, cell)
     if item.t == 'text' then
       out[#out + 1] = escape(item.s, cell)
     elseif item.t == 'code' then
-      local ticks = item.s:find('`', 1, true) and '``' or '`'
-      out[#out + 1] = ticks .. item.s .. ticks
+      -- the delimiter is longer than any run of backticks inside, and a space keeps one that starts or ends the text from joining it
+      local longest = 0
+      for run in item.s:gmatch('`+') do
+        longest = math.max(longest, #run)
+      end
+      local ticks = string.rep('`', longest + 1)
+      local pad = (item.s:sub(1, 1) == '`' or item.s:sub(-1) == '`') and ' ' or ''
+      out[#out + 1] = ticks .. pad .. item.s .. pad .. ticks
     elseif item.t == 'em' then
       local inner = render_inlines(item.children, cell)
       if item.kind == 'bold' then
