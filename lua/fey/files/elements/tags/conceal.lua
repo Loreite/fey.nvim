@@ -8,7 +8,7 @@
 --            'icon'   the head becomes an icon (`icon`, over `fey_conceal_icons[name]`), the rest of the tag goes
 --            'values' only the chosen parts of the head stay, in place: `values` lists positional values (numbers)
 --                     and keys (strings); `hl` (or `hl_of(tag, key)`) gives them a face. `virtual(tag)` instead
---                     returns virtual text chunks shown where the head was
+--                     returns virtual text chunks shown where the head was (nil: the head only goes)
 --   whole    the icon replaces the whole tag, body included (a `query` tag: its body is the query)
 --   companion  fun(tag): TSNode|nil, a pair tag that goes with this tag as one object (a query and its result): its opener
 --            and closer are hidden with it, the cursor rule covers both, and it does not conceal again on its own
@@ -38,7 +38,7 @@ local parse
 ---@field values? (string|integer)[]
 ---@field hl? string
 ---@field hl_of? fun(tag: FeyTag, key: string|integer): string|nil
----@field virtual? fun(tag: FeyTag): table[]
+---@field virtual? fun(tag: FeyTag): table[]|nil
 
 ---@class FeyConcealGroup
 ---@field first integer
@@ -186,8 +186,8 @@ local function render(bufnr, ids, tag, decl)
     end
   elseif decl.virtual then
     hide(bufnr, ids, head)
-    local sr, sc = head[1], head[2]
-    mark(bufnr, ids, sr, sc, { virt_text = decl.virtual(tag), virt_text_pos = 'inline' })
+    local chunks = decl.virtual(tag)
+    if chunks then mark(bufnr, ids, head[1], head[2], { virt_text = chunks, virt_text_pos = 'inline' }) end
   else
     local row, from = head[1], head[2]
     local last = head[4]

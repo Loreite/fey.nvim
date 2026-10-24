@@ -206,7 +206,7 @@ function Tag.setup(handlers)
   hl.setup_query(Tag.parse_all_tags)
   comment_handler.setup_query(Tag.parse_all_tags)
   require('fey.files.elements.tags.handlers.conceal').declare()
-  require('fey.files.elements.tags.handlers.link_conceal').setup_query(Tag.parse_all_tags)
+  require('fey.files.elements.tags.handlers.link_conceal').declare()
   require('fey.embed').setup()
 
   -- a handler module that declares `conceal = { ... }` next to `handlers` conceals its tag (tags/conceal.lua)
