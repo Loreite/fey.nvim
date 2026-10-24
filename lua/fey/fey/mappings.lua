@@ -1451,6 +1451,7 @@ function FeyMappings:toggle_conceal_task_tags()
   local bufnr = vim.api.nvim_get_current_buf()
   local enabled = not require('fey.colors.highlighter.task_tags').enabled(bufnr)
   vim.b[bufnr].fey_conceal_task_tags = enabled
+  pcall(require('fey.files.elements.tags.handlers.conceal').refresh, bufnr)
   vim.api.nvim__redraw({ buf = bufnr, valid = false })
   utils.echo_info('Task tags are ' .. (enabled and 'concealed' or 'shown'))
 end

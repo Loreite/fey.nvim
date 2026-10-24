@@ -12,6 +12,10 @@
 --   whole    the icon replaces the whole tag, body included (a `query` tag: its body is the query)
 --   companion  fun(tag): TSNode|nil, a pair tag that goes with this tag as one object (a query and its result): its opener
 --            and closer are hidden with it, the cursor rule covers both, and it does not conceal again on its own
+--   parts    fun(tag): { from, to, face }[], `values` mode only: the columns (of the first row) that stay, in place of the
+--            ones `values` names, when what stays depends on what the tag holds
+--   where    fun(tag): boolean, the tag conceals only where this holds (a status tag: in the title of a heading)
+--   state    fun(tag): boolean|nil, the default of this tag when it differs from the option (a buffer variable); nil: the option
 --   default  the name of the option that decides when the tag has no `conceal` key (absent: not concealed)
 --   icon     the icon, or { nerd = '', unicode = '' } to follow `fey_checkbox_icons`
 --
@@ -36,6 +40,9 @@ local parse
 ---@field whole? boolean
 ---@field companion? fun(tag: FeyTag): TSNode|nil
 ---@field values? (string|integer)[]
+---@field parts? fun(tag: FeyTag): { from: integer, to: integer, face: string|nil }[]
+---@field where? fun(tag: FeyTag): boolean
+---@field state? fun(tag: FeyTag): boolean|nil
 ---@field hl? string
 ---@field hl_of? fun(tag: FeyTag, key: string|integer): string|nil
 ---@field virtual? fun(tag: FeyTag): table[]|nil
@@ -70,8 +77,13 @@ function M.any() return next(registry) ~= nil end
 function M.is_concealed(tag)
   local decl = registry[tag.name]
   if not decl then return false end
+  if decl.where and not decl.where(tag) then return false end
   local value = tag.key_values.conceal
   if value ~= nil then return value:lower() == 'true' end
+  if decl.state then
+    local state = decl.state(tag)
+    if state ~= nil then return state end
+  end
   return decl.default ~= nil and config[decl.default] == true
 end
 
@@ -139,6 +151,7 @@ end
 ---@param tag FeyTag
 ---@param decl FeyConcealDecl
 local function kept_spans(tag, decl)
+  if decl.parts then return decl.parts(tag) end
   local head = tag.head
   local row = head:range()
   local spans = {}
@@ -276,6 +289,7 @@ end
 function M.apply(bufnr, tags)
   vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
   state[bufnr] = { groups = groups_of(bufnr, tags), active = {} }
+  if #state[bufnr].groups > 0 then require('fey.colors.highlighter.markup.emphasis').ensure_conceallevel(bufnr) end
   for i = 1, #state[bufnr].groups do
     draw(bufnr, i)
   end

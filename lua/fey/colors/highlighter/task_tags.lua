@@ -1,33 +1,14 @@
 -- Heading metadata tags (status: todo keyword and priority, labels) in a title are shown as their values: the
 -- rest of the tag (`{# status, `, ` #}` and any keys) is concealed, and the value gets the face of what it
--- is. The cursor line shows the tags as written (the default 'concealcursor'), so editing them is not
--- blind. Switched with `fey_conceal_task_tags`, per buffer with `b:fey_conceal_task_tags`
--- (`<prefix>Tc` toggles it).
+-- is. The cursor line shows the tags as written, so editing them is not blind. Switched with
+-- `fey_conceal_task_tags`, per buffer with `b:fey_conceal_task_tags` (`<prefix>Tc` toggles it).
 --
--- These tags do not conceal through the registry of tags/conceal.lua, on purpose:
---   - they are drawn from the highlighter, per line and ephemeral, in step with the other passes (the face of the
---     value is set at priority 250 over the markup pass) and with no delay; the registry keeps extmarks, drawn again
---     100 ms after an edit, so a heading would show the raw tag while one types in it
---   - only the scope tags in the title of a heading conceal, and `b:fey_conceal_task_tags` overrides the option for
---     one buffer; the registry knows a tag by its name only, and a `conceal` key on a status tag is not read here
---   - what stays is chosen by the value (the keyword and the priority of a status, the whole run of values of
---     labels with the commas between them, a priority given as a key), and its face by what the value is; `values`
---     mode keeps a fixed list of keys and positions, with one blank between two of them, not the commas
--- `fey_conceal_task_tags` is its own option for the same reason; it is not a `fey_*_conceal_default`.
+-- The tags conceal through the registry of tags/conceal.lua, in `values` mode: this file declares them (`declare`) and
+-- says what stays of each (`visible_parts`: the keyword and the priority of a status, the whole run of values of
+-- labels with the commas between them, a priority given as a key) and the face of it.
 local config = require('fey.config')
 
----@class FeyTaskTagsHighlighter
----@field private namespace integer
 local TaskTags = {}
-TaskTags.__index = TaskTags
-
-local query
-
----@return vim.treesitter.Query
-local function get_query()
-  query = query or vim.treesitter.query.parse('fey', '(heading title: (title [(scope_tag)] @tag))')
-  return query
-end
 
 ---@param bufnr integer
 ---@return boolean
@@ -36,9 +17,6 @@ function TaskTags.enabled(bufnr)
   if override ~= nil then return override and true or false end
   return config.fey_conceal_task_tags and true or false
 end
-
----@param opts { highlighter: FeyHighlighter }
-function TaskTags:new(opts) return setmetatable({ highlighter = opts.highlighter }, self) end
 
 ---@param name string
 ---@return 'status'|'labels'|nil
@@ -117,43 +95,31 @@ local function visible_parts(node, kind, bufnr)
   return parts
 end
 
----@param bufnr integer
----@param line integer 0-based
----@param tree TSTree
-function TaskTags:on_line(bufnr, line, tree)
-  if not TaskTags.enabled(bufnr) then return end
-  local ns = self.highlighter.namespace
-  local ephemeral = self.ephemeral ~= false -- (tests read real extmarks)
-  require('fey.colors.highlighter.markup.emphasis').ensure_conceallevel(bufnr)
+---Is the tag a status or labels tag in the title of a heading, on one row
+---@param tag FeyTag
+---@return boolean
+local function in_title(tag)
+  local sr, _, er = tag.node:range()
+  local parent = tag.node:parent()
+  return sr == er and parent ~= nil and parent:type() == 'title' and not tag.node:has_error()
+end
 
-  for _, node in get_query():iter_captures(tree:root(), bufnr, line, line + 1) do
-    local sr, sc, er, ec = node:range()
-    local name = node:field('name')[1]
-    local kind = name and kind_of(vim.treesitter.get_node_text(name, bufnr))
-    if kind and sr == line and er == line and not node:has_error() then
-      local parts = visible_parts(node, kind, bufnr)
-      if #parts > 0 then
-        -- everything but the visible parts
-        local from = sc
-        for _, part in ipairs(parts) do
-          if part.from > from then
-            vim.api.nvim_buf_set_extmark(bufnr, ns, line, from, { ephemeral = ephemeral, end_col = part.from, conceal = '' })
-          end
-          from = part.to
-          if part.face then
-            vim.api.nvim_buf_set_extmark(bufnr, ns, line, part.from, {
-              ephemeral = ephemeral,
-              end_col = part.to,
-              hl_group = part.face,
-              priority = 250,
-            })
-          end
-        end
-        if ec > from then
-          vim.api.nvim_buf_set_extmark(bufnr, ns, line, from, { ephemeral = ephemeral, end_col = ec, conceal = '' })
-        end
-      end
-    end
+---Declare the status and labels tags to the registry
+function TaskTags.declare()
+  local conceal = require('fey.files.elements.tags.conceal')
+  local names = { config.fey_status_tag_name, config.fey_labels_tag_name }
+  vim.list_extend(names, config.vault.label_tags or {})
+  for _, name in ipairs(names) do
+    conceal.register(name, {
+      mode = 'values',
+      default = 'fey_conceal_task_tags',
+      where = in_title,
+      state = function(tag)
+        local override = vim.b[tag.bufnr].fey_conceal_task_tags
+        if override ~= nil then return override and true or false end
+      end,
+      parts = function(tag) return visible_parts(tag.node, kind_of(tag.name), tag.bufnr) end,
+    })
   end
 end
 

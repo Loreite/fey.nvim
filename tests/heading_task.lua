@@ -230,14 +230,12 @@ check('open at point', { Tag.at_point.status, Tag.at_point.date, Tag.at_point.la
 -- concealment -------------------------------------------------------------------
 buf = open({ '  I. {# status, TODO, A #} Write {# labels, work, urgent #}', '  I.A. {# status; priority: B #} Prio', '  I.B. {# status, DONE #} Done', '' })
 local TaskTags = require('fey.colors.highlighter.task_tags')
-local ns = vim.api.nvim_create_namespace('fey_test_task_tags')
-local hl = TaskTags:new({ highlighter = { namespace = ns } })
-hl.ephemeral = false
-local tree = vim.treesitter.get_parser(buf, 'fey'):parse()[1]
+local registry = require('fey.files.elements.tags.conceal')
+local ns = registry.ns
 local function marks(row)
   row = row or 0
-  vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-  hl:on_line(buf, row, tree)
+  vim.api.nvim_win_set_cursor(0, { 4, 0 }) -- away from the tags, they are shown as written under the cursor
+  registry.apply(buf, Tag.parse_all_tags(buf))
   local line = vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1]
   local concealed, shown = {}, {}
   for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, { row, 0 }, { row, -1 }, { details = true })) do
