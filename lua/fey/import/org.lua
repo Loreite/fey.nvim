@@ -6,7 +6,7 @@ local inline = require('fey.export.inline')
 
 local M = {}
 
-local KINDS = { ['*'] = 'bold', ['/'] = 'italic', ['_'] = 'underline', ['+'] = 'strike', ['='] = 'code', ['~'] = 'code' }
+local KINDS = { ['*'] = 'bold', ['/'] = 'italic', ['_'] = 'underline', ['+'] = 'strike', ['='] = 'verbatim', ['~'] = 'code' }
 
 local function node_text(ctx, node) return vim.treesitter.get_node_text(node, ctx.src) end
 
@@ -40,12 +40,47 @@ end
 
 -- inline ----------------------------------------------------------------------------------------------------------------------
 
+---Compound spans as one Fey marker: `opts.compound` maps `outer>inner` (the kinds `bold`, `italic`, `underline`, `strike`, `code`,
+---`verbatim`) to the kind of the writer (a colour, `verbatim`...), and a plain `code` or `verbatim` to one. It applies only when the
+---inner span is the only thing inside the outer one (and the outer kind written again inside the inner one is dropped).
+---@param items table[]
+---@param map table<string, string>
+---@return table[]
+local function fold(items, map)
+  for i, item in ipairs(items) do
+    local only = item.t == 'em' and #item.children == 1 and item.children[1] or nil
+    if only and only.t == 'em' then
+      local to = map[item.kind .. '>' .. only.kind]
+      if to then
+        -- `*/*x*/*`: the same marker inside again (org will not nest `*/x/*` as it is written) adds nothing
+        local inner = only.children
+        if #inner == 1 and inner[1].t == 'em' and inner[1].kind == item.kind then inner = inner[1].children end
+        item.kind, item.children = to, inner
+      end
+    elseif only and only.t == 'code' then
+      local to = map[item.kind .. '>' .. (only.verbatim and 'verbatim' or 'code')]
+      if to then
+        item.kind, item.children = to, { { t = 'text', s = only.s } }
+      end
+    end
+    if item.children then fold(item.children, map) end
+    if item.t == 'code' then
+      local to = map[item.verbatim and 'verbatim' or 'code']
+      if to then items[i] = { t = 'em', kind = to, children = { { t = 'text', s = item.s } } } end
+    end
+  end
+  return items
+end
+
 ---Emphasis in a run of plain text
+---@param ctx table
 ---@param s string
 ---@return table[]
-local function emphasis(s)
+local function emphasis(ctx, s)
   if s == '' then return {} end
-  return inline.parse(s, { kinds = KINDS, escapes = false })
+  local items = inline.parse(s, { kinds = KINDS, escapes = false })
+  if ctx.opts.compound then fold(items, ctx.opts.compound) end
+  return items
 end
 
 ---A timestamp node as the text of a `date` tag: the inside of the brackets, and whether it is active
@@ -73,9 +108,72 @@ local function target_of(ctx, url)
   return url
 end
 
+---A web path (`../`, `./page`, `/book/page`) as the Fey file it points at, relative to the file being imported: the page `name` of a
+---directory has the address `dir/name/` (so `../` is `dir/`), an `_index` page the address `dir/`. The target is a page `x.org` or `x.fey`,
+---or the `_index` of a directory `x/`.
+---@return string|nil file
+local function page_of(ctx, path)
+  local source = ctx.opts.path and vim.fn.fnamemodify(ctx.opts.path, ':p')
+  if not source then return nil end
+  local dir = vim.fs.dirname(source)
+  local name = vim.fn.fnamemodify(source, ':t:r')
+  local base
+  if path:sub(1, 1) == '/' then
+    if not ctx.opts.root then return nil end
+    base = vim.fs.normalize(vim.fn.fnamemodify(ctx.opts.root, ':p') .. '/' .. path)
+  else
+    base = vim.fs.normalize((name == '_index' and dir or dir .. '/' .. name) .. '/' .. path)
+  end
+  base = base:gsub('/+$', '')
+  local function exists(f) return vim.uv.fs_stat(f) ~= nil end
+  local found
+  for _, candidate in ipairs({ base .. '.fey', base .. '.org', base .. '/_index.fey', base .. '/_index.org' }) do
+    if exists(candidate) then
+      found = candidate:gsub('%.org$', '.fey')
+      break
+    end
+  end
+  found = found or (base .. '.fey')
+  -- relative to the directory of the source
+  local from, to = vim.split(dir, '/', { plain = true }), vim.split(found, '/', { plain = true })
+  local i = 1
+  while from[i] and from[i] == to[i] do
+    i = i + 1
+  end
+  local parts = {}
+  for _ = i, #from do
+    parts[#parts + 1] = '..'
+  end
+  for j = i, #to do
+    parts[#parts + 1] = to[j]
+  end
+  local rel = table.concat(parts, '/')
+  return rel:sub(1, 3) == '../' and rel or './' .. rel
+end
+
+---With `opts.anchors == 'tag'`, a link to a heading (`#id`, `../#id`, `./page#id`, `/book/page#id`) as its target page and anchor, and a link
+---to a directory (`../`, `/book`) as the `_index` page of it. Nothing for any other link.
+---@return { id?: string, file?: string }|nil
+local function anchor_of(ctx, url)
+  if ctx.opts.anchors ~= 'tag' then return nil end
+  url = vim.trim(url)
+  local path, id = url:match('^([^#]*)#(.*)$')
+  if not path then path, id = url, '' end
+  if url:match('^%a[%w+.-]*:') or path:match('%.org$') or path:match('%.fey$') then return nil end
+  if path == '' then return id ~= '' and { id = id } or nil end
+  if not (path:match('^%.%.?/') or path:match('^%.%.?$') or path:match('^/')) then return nil end
+  local file = page_of(ctx, path)
+  if not file then
+    if id == '' then return nil end
+    -- no source path to resolve from: the target is the path as it was written, for the conversion to settle
+    file = path
+  end
+  return { id = id ~= '' and id or nil, file = file }
+end
+
 local function descr(ctx, node)
   if not node then return {} end
-  return emphasis(node_text(ctx, node))
+  return emphasis(ctx, node_text(ctx, node))
 end
 
 ---Inline items of the children of a node, from a byte on
@@ -90,7 +188,7 @@ local function inlines(ctx, node, from, to)
   local items, pos, buf = {}, from, {}
   local function flush()
     if #buf > 0 then
-      vim.list_extend(items, emphasis(table.concat(buf)))
+      vim.list_extend(items, emphasis(ctx, table.concat(buf)))
       buf = {}
     end
   end
@@ -116,8 +214,13 @@ local function inlines(ctx, node, from, to)
           raw_url = alias_of
           children = { { t = 'text', s = alias } }
         end
+        local anchor = url and anchor_of(ctx, raw_url)
         local href = url and target_of(ctx, raw_url)
-        if not href then
+        if anchor and anchor.id then
+          items[#items + 1] = { t = 'anchor', id = anchor.id, file = anchor.file, children = children }
+        elseif anchor and anchor.file then
+          items[#items + 1] = { t = 'link', href = anchor.file, children = children }
+        elseif not href then
           ctx.dropped.internal = true
           vim.list_extend(items, #children > 0 and children or { { t = 'text', s = url and node_text(ctx, url) or '' } })
         else
@@ -324,7 +427,7 @@ blocks_of = function(ctx, node)
       made = nil
     else
       local raw = vim.trim(node_text(ctx, c))
-      if raw ~= '' then made = { { t = 'paragraph', inlines = emphasis(raw) } } end
+      if raw ~= '' then made = { { t = 'paragraph', inlines = emphasis(ctx, raw) } } end
     end
     if made then vim.list_extend(out, made) end
   end

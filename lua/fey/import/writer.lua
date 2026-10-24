@@ -10,7 +10,7 @@
 --   Block    { t = 'paragraph', inlines }  { t = 'list', ordered, items = { { box, blocks }... } }  { t = 'code', lang, name, text }
 --            { t = 'quote', blocks, callout, title }  { t = 'table', header, rows }  { t = 'math', s }  { t = 'comment', s }  { t = 'tblfm', s }
 --            { t = 'fndef', label, blocks }
---   Inline   { t = 'text', s }  { t = 'em', kind, children }  { t = 'code', s }  { t = 'link', href, children, embed }  { t = 'fnref', label }
+--   Inline   { t = 'text', s }  { t = 'em', kind, children }  { t = 'code', s }  { t = 'link', href, children, embed }  { t = 'fnref', label }  { t = 'anchor', id, file, children }
 --            { t = 'math', s }  { t = 'date', value, active }  { t = 'label', name }  { t = 'br' }
 local edit = require('fey.files.elements.tags.edit')
 local sequences = require('fey.utils.sequences')
@@ -23,7 +23,14 @@ local STYLES = { 'roman_upper', 'alpha_upper', 'roman_lower', 'alpha_lower', 'de
 -- a blank line inside a fenced block: it takes the indent of the list item or tag that holds the block, and is a plain blank line otherwise
 local BLANK = '\1'
 
-local MARKERS = { bold = '!', italic = '/', underline = '_', strike = '~' }
+local MARKERS = {
+  bold = '!', italic = '/', underline = '_', strike = '~',
+  red = '$', green = '*', fuscia = '%', purple = '=', orange = '^', yellow = '&', blue = '#', teal = '-', bg2 = '+',
+  verbatim = '?',
+}
+
+-- the pair tag that gives a span the look of its marker where the marker cannot be used: markers pair on one line only
+local ELEMENTS = { bold = { 'strong' }, italic = { 'em' }, underline = { 'u' }, strike = { 's' }, bg2 = { 'span', 'fey-dim' } }
 
 ---@class FeyImportWriter
 ---@field warnings string[]
@@ -61,7 +68,7 @@ function Writer:text(s)
     local c = s:sub(i, i)
     if c == '\\' then
       out[#out + 1] = '\\\\'
-    elseif (c == '!' or c == '/' or c == '_' or c == '~' or c == '`') and opens_marker(s, i) then
+    elseif (c == '!' or c == '/' or c == '_' or c == '~' or c == '`' or c == '$' or c == '*' or c == '^' or c == '=' or c == '?') and opens_marker(s, i) then
       out[#out + 1] = '\\' .. c
     else
       out[#out + 1] = c
@@ -159,7 +166,15 @@ function Writer:inlines(items)
       out[#out + 1] = self:text(item.s)
     elseif t == 'em' then
       local m = MARKERS[item.kind] or ''
-      out[#out + 1] = m .. self:inlines(item.children) .. m
+      local inner = self:inlines(item.children)
+      if inner:find('\n', 1, true) and m ~= '' then
+        local el = ELEMENTS[item.kind] or { 'span', 'fey-' .. item.kind }
+        local keys = el[2] and { class = el[2] } or nil
+        local head = self:build(el[1], nil, keys, { bracket = '[' })
+        out[#out + 1] = (head and head:gsub('^%[#', '[', 1) or '') .. inner .. '[# ' .. el[1] .. ' ]'
+      else
+        out[#out + 1] = m .. inner .. m
+      end
     elseif t == 'code' then
       if item.s:find('`', 1, true) then
         self:warn('inline code with a backquote lost its markup')
@@ -169,6 +184,10 @@ function Writer:inlines(items)
       end
     elseif t == 'link' then
       out[#out + 1] = self:link(item)
+    elseif t == 'anchor' then
+      -- a link to a heading: kept for the conversion to settle (`anchor` is not a tag of the site, so a page that keeps one is unfinished)
+      local desc = plain(item.children)
+      out[#out + 1] = self:tag('anchor', { item.id }, { file = item.file, desc = desc ~= '' and desc or nil }, { sigil = '@' })
     elseif t == 'fnref' then
       out[#out + 1] = self:tag('fn', { item.label }, nil, { sigil = '@' })
     elseif t == 'math' then

@@ -446,6 +446,63 @@ if org_ok then
   vim.fn.mkdir(root .. '/.fey', 'p')
   local extract = require('fey.vault.extract').extract(otext, {})
   check('org: the index finds the task', extract.tasks and extract.tasks[1] and extract.tasks[1].state, 'TODO')
+
+  -- compound emphasis: opts.compound maps an outer and an inner span to one marker
+  local compound = {
+    ['bold>italic'] = 'red', ['bold>underline'] = 'green', ['bold>strike'] = 'blue',
+    ['bold>code'] = 'orange', ['bold>verbatim'] = 'purple', verbatim = 'verbatim',
+  }
+  local function comp(line, map) return (Import.text(line, 'org', { compound = map or compound, check = false })) end
+  has('compound: none keeps two markers', comp('*/x/*', {}), '!/x/!')
+  has('compound: bold italic is red', comp('a */x/* b', nil), 'a $x$ b')
+  has('compound: the outer marker again inside is dropped', comp('a */*x*/* b', nil), 'a $x$ b')
+  has('compound: bold underline is green', comp('*_x_*', nil), '*x*')
+  has('compound: bold strike is blue', comp('*+x+*', nil), '#x#')
+  has('compound: bold code is orange', comp('*~x~*', nil), '^x^')
+  has('compound: bold verbatim is purple', comp('*=x=*', nil), '=x=')
+  has('compound: plain verbatim', comp('a =x= b', nil), 'a ?x? b')
+  has('compound: plain code stays code', comp('a ~x~ b', nil), 'a `x` b')
+  has('compound: italic around bold stays two markers', comp('/*x*/', nil), '/!x!/')
+  has('compound: not the only child stays two markers', comp('*/x/ y*', nil), '!/x/ y!')
+  has('compound: text with a dollar is escaped', comp('costs $5 now', nil), 'costs \\$5 now')
+  -- a span over a line end is a pair tag (the markers pair on one line only)
+  has('span: two lines', comp('a /one\ntwo/ b', {}), 'a [ em #]one\ntwo[# em ] b')
+  has('span: three lines', comp('*a\nb\nc*', {}), '[ strong #]a\nb\nc[# strong ]')
+  has('span: nested over a line end', comp('/a *b\nc* d/', {}), '[ em #]a [ strong #]b\nc[# strong ] d[# em ]')
+  has('span: a colour', comp('*/a\nb/*', nil), '[ span; class: fey-red #]a\nb[# span ]')
+  has('span: one line keeps the marker', comp('/one/\n/two/', {}), '/one/\n/two/')
+  parses('span: parses', comp('a /one\ntwo/ b and *x\ny*', {}))
+  -- links to headings
+  local site = vim.fn.tempname()
+  vim.fn.mkdir(site .. '/book/senses', 'p')
+  for _, f in ipairs({ '_index.org', 'book/_index.org', 'book/senses/_index.org', 'book/senses/smell.org', 'book/senses/taste.org' }) do
+    vim.fn.writefile({ '' }, site .. '/' .. f)
+  end
+  local function lnk(path, line, opts)
+    return (Import.text(line, 'org', vim.tbl_extend('force', { path = site .. '/' .. path, root = site, check = false }, opts or { anchors = 'tag' })))
+  end
+  has('anchors: before, a same-file link is its words', lnk('book/senses/smell.org', 'x [[#top][Top]] y', {}), 'x Top y')
+  has('anchors: before, a relative one is a link', lnk('book/senses/smell.org', '[[../#smell][Back]]', {}), '{@ link, ../#smell; desc: Back @}')
+  has('anchors: the same file', lnk('book/senses/smell.org', 'x [[#top][Top]] y'), 'x {@ anchor, top; desc: Top @} y')
+  has('anchors: the index of the directory above a page', lnk('book/senses/smell.org', '[[../#smell][Back]]'),
+    '{@ anchor, smell; desc: Back; file: ./_index.fey @}')
+  has('anchors: a sibling page', lnk('book/senses/_index.org', '[[./taste#bitter][Bitter]]'),
+    '{@ anchor, bitter; desc: Bitter; file: ./taste.fey @}')
+  has('anchors: a page by its absolute address', lnk('book/senses/smell.org', '[[/book/senses/taste#sour][Sour]]'),
+    '{@ anchor, sour; desc: Sour; file: ./taste.fey @}')
+  has('anchors: a directory with no id is a link to its index', lnk('book/senses/smell.org', '[[../][Senses]]'), '{@ link, ./_index.fey; desc: Senses @}')
+  has('anchors: an absolute directory', lnk('book/senses/smell.org', '[[/book][Book]]'), '{@ link, ../_index.fey; desc: Book @}')
+  has('anchors: an outside link stays', lnk('book/senses/smell.org', '[[https://x.y/#z][Z]]'), '{@ link, https://x.y/#z; desc: Z @}')
+  do
+    -- a relative root and a relative source path give the same answer
+    local cwd = vim.fn.getcwd()
+    vim.cmd('cd ' .. vim.fn.fnameescape(site))
+    local rel = (Import.text('[[/book][Book]]', 'org', { path = 'book/senses/smell.org', root = '.', anchors = 'tag', check = false }))
+    vim.cmd('cd ' .. vim.fn.fnameescape(cwd))
+    has('anchors: a relative root', rel, '{@ link, ../_index.fey; desc: Book @}')
+  end
+  parses('anchors: parses', lnk('book/senses/smell.org', '[[#top][Top]] [[../#smell][Back]]'))
+  parses('compound: parses', comp('a */x/* and *=y=* and =z= *+w+* *~v~*', nil))
 else
   print('skip org: the tree-sitter parser for org is not installed')
 end

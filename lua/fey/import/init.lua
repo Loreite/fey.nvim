@@ -57,7 +57,7 @@ end
 ---Fey text from a Markdown or org text
 ---@param src string
 ---@param format FeyImportFormat
----@param opts? { link_extension?: boolean, parser?: string, check?: boolean, root?: string, db_dir?: string } `root` is the directory of the vault and `db_dir` where the database files of Database Folder views go (`.fey/dbs`): with either, dataview queries and those views are converted; `link_extension` (default true) turns links to `.md` and `.org` files into links to `.fey` files; `check` (default true) reads the result back and warns about syntax errors
+---@param opts? { link_extension?: boolean, parser?: string, check?: boolean, compound?: table<string, string>, anchors?: 'tag', path?: string, root?: string, db_dir?: string } `root` is the directory of the vault and `db_dir` where the database files of Database Folder views go (`.fey/dbs`): with either, dataview queries and those views are converted; `link_extension` (default true) turns links to `.md` and `.org` files into links to `.fey` files; `compound` (org) maps `outer>inner` emphasis kinds, or a plain `code` / `verbatim`, to one marker kind of the writer (`bold>italic` = `red`); `anchors = 'tag'` (org) writes a link to a heading as an `anchor` tag with the target page and the id, and a link to a directory as one to its `_index` page (`path`, set by `file`, is where the source is); `check` (default true) reads the result back and warns about syntax errors
 ---@return string|nil text
 ---@return string[]|string warnings the things that did not come across, or the reason for the failure when there is no text
 function M.text(src, format, opts)
@@ -174,7 +174,7 @@ function M.file(path, opts)
     result.err = err
     return result
   end
-  local text, warnings = M.text(src, format, opts)
+  local text, warnings = M.text(src, format, vim.tbl_extend('force', opts, { path = vim.fn.fnamemodify(path, ':p') }))
   if not text then
     result.err = type(warnings) == 'string' and warnings or 'the import failed'
     return result

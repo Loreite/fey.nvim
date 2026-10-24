@@ -1,6 +1,6 @@
 -- The command line of Fey, run by `bin/fey` with `nvim --headless -l`:
 --
---   fey import [--format markdown|org] [--write adjacent|replace|rename] [--force] [--dry-run] [--no-link-rewrite] FILE...
+--   fey import [--format markdown|org] [--write adjacent|replace|rename] [--force] [--dry-run] [--no-link-rewrite] [--compound FILE.lua] [--anchors] FILE...
 --   fey export --format markdown|html|latex|pdf|docx|odt|epub|rst|ics [--outdir DIR] [--force] FILE...
 --
 -- Set FEY_PARSER to the built fey parser when it is not where Neovim finds it, FEY_ORG_PARSER for the org one.
@@ -26,6 +26,8 @@ import: Markdown (Obsidian's too) or org into Fey
                              rename: write over the file and give it the extension .fey
   --force                    write over a file that exists
   --dry-run                  convert and report, write nothing
+  --compound FILE.lua        org: a Lua file returning the table of `opts.compound` (emphasis kinds to one marker)
+  --anchors                  org: links to a heading as `anchor` tags (target page and id), links to a directory as its `_index` page
   --no-link-rewrite          keep the .md and .org targets of links as they are
   --root DIR                 the directory of the vault: dataview queries (their FROM folders) and Database Folder views are converted
   --db-dir DIR               where the databases of those views are written (the `.fey/dbs` of the vault)
@@ -71,6 +73,13 @@ while i <= #args do
     opts.root = value()
   elseif a == '--db-dir' then
     opts.db_dir = value()
+  elseif a == '--compound' then
+    -- a Lua file that returns the table of `opts.compound`
+    local ok, map = pcall(dofile, value())
+    if not ok or type(map) ~= 'table' then fail('--compound needs a Lua file that returns a table: ' .. tostring(map)) end
+    opts.compound = map
+  elseif a == '--anchors' then
+    opts.anchors = 'tag'
   elseif a == '--no-link-rewrite' then
     opts.link_extension = false
   elseif a:sub(1, 2) == '--' then

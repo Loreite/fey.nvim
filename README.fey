@@ -1018,7 +1018,14 @@ in). What the grammars do not know is matched in the text between the nodes: the
   -  org comes in as: `#+title:` and the other keywords as document data (`#+filetags:` as labels, `#+todo:` as the keywords), headings with their keyword and priority as the `status` tag and their
      tags as labels, `SCHEDULED:`, `DEADLINE:` and `CLOSED:` as planning tags, the property drawer as a `prop` tag, `CLOCK:` lines as `clock` tags in a `logbook`, other drawers as block tags, lists with boxes
      (`[-]` is `[/]`), tables (a `#+tblfm:` line becomes a `tblfm` line tag under the table, the formula as its body), source blocks with their arguments and `#+name:`, quote blocks, footnotes, timestamps in the text as `date` tags, and links (`file:` and `.org` targets become `.fey`)
-  -  not carried: highlights (`==x==`), links to a heading of the same file, blocks of other kinds in org (kept as comments), and tag openers in
+  -  org compound emphasis: `opts.compound` (on the command line `--compound FILE.lua`, a file that returns the table) maps an outer and an inner span to one marker kind of the writer. The key is `outer>inner` with the kinds
+     `bold`, `italic`, `underline`, `strike`, `code` and `verbatim` (org `=x=`, kept apart from `~x~`), the value a colour (`red`, `green`, `blue`, `orange`, `purple`, `fuscia`, `yellow`, `teal`), `bg2` or `verbatim`; a key
+     with no `>` (`verbatim`, `code`) maps a plain span. It applies only when the inner span is the only thing inside the outer one; every other compound stays two markers
+  -  an emphasis span that holds a line end is written as a pair tag, because the markers pair on one line only: `[ em #]one\ntwo[# em ]` (`strong`, `em`, `u`, `s`; a colour, verbatim or `bg2` is a `span` with the class of the marker, `fey-red`...)
+  -  org links to a heading: with `opts.anchors = 'tag'` (`--anchors` on the command line) a link to a heading (`[[#id]]`, `[[../#id]]`, `[[./page#id]]`, `[[/book/page#id]]`) is written as `{@ anchor, id; desc: words; file: page.fey @}` (no `file` for the same page),
+     and a link to a directory (`../`, `/book`) as a `link` to its `_index.fey`. The web paths are read the way the site's addresses are: a page `dir/name.org` has the address `dir/name/`, an `_index` page `dir/`; the target is the
+     file that exists next to the source (`opts.path`, set by `file`; `opts.root` for an absolute address). The `anchor` tag belongs to no plugin: a page that keeps one is unfinished
+  -  not carried: highlights (`==x==`), blocks of other kinds in org (kept as comments), and tag openers in
      the text, which cannot be written in a paragraph (a blank is put inside). Each of these is named in the notes the import gives back. The result is read back with the Fey grammar and a syntax error is one of the notes
   -  adjacent lists of different kinds (a bulleted and a numbered one) are one list in Fey
 

@@ -20,7 +20,7 @@ local function closes(text, i, marker)
     and (after == '' or after:match('[%s%)%]}"\'%.,;:!?]') ~= nil)
 end
 
----Split plain text into inline items: `{ t = 'text', s }` and `{ t = 'em', kind, children }`, `{ t = 'code', s }`
+---Split plain text into inline items: `{ t = 'text', s }` and `{ t = 'em', kind, children }`, `{ t = 'code', s }` (`verbatim = true` for the kind `verbatim`)
 ---@param text string
 ---@param opts? { kinds?: table<string, string>, escapes?: boolean } other markers (the importer reads other markup with its own) and whether a backslash escapes
 ---@return table[]
@@ -55,6 +55,9 @@ function M.parse(text, opts)
         local inner = text:sub(i + 1, found - 1)
         if KINDS[c] == 'code' then
           out[#out + 1] = { t = 'code', s = inner }
+        elseif KINDS[c] == 'verbatim' then
+          -- raw like code, but the item says it was verbatim (`=x=` against `~x~`)
+          out[#out + 1] = { t = 'code', s = inner, verbatim = true }
         else
           out[#out + 1] = { t = 'em', kind = KINDS[c], children = M.parse(inner, opts) }
         end
