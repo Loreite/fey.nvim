@@ -208,6 +208,19 @@ function Tag.setup(handlers)
   require('fey.files.elements.tags.handlers.conceal').setup_query(Tag.parse_all_tags)
   require('fey.files.elements.tags.handlers.link_conceal').setup_query(Tag.parse_all_tags)
   require('fey.embed').setup()
+
+  -- a handler module that declares `conceal = { ... }` next to `handlers` conceals its tag (tags/conceal.lua)
+  local conceal = require('fey.files.elements.tags.conceal')
+  for name, module in pairs({
+    [config.fey_hl_tag_name] = hl,
+    [config.fey_query_tag_name] = query_handler,
+    [config.fey_db_tag_name] = feydb_handler,
+    [config.fey_link_tag_name] = link_handler,
+    [config.fey_status_tag_name] = status_handler,
+  }) do
+    if module.conceal then conceal.register(name, module.conceal) end
+  end
+  if conceal.any() then conceal.setup(Tag.parse_all_tags) end
 end
 
 return Tag
