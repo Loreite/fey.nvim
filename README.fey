@@ -940,7 +940,7 @@ The file goes next to the note and the menu offers to open it.
      `fey_agenda_text_search_extra_files`, `emacs_config`, `hyperlinks`
   -  `:checkhealth fey` also reports the options of `setup`, and for every hollow: the state of the index and its schema (an old one is rebuilt at the next
      scan), the files that changed, appeared or went since they were indexed, the files that did not parse cleanly, and the tags nothing in the setup knows
-  -  the toggles are under `<prefix>T`: `Tc` task tags, `Tl` links, `Tq` queries, `Ti` checkbox icons, `To` overdue dates, `Te` running the commands of a note when it is
+  -  the toggles are under `<prefix>T`: `Tc` task tags, `Tl` links, `Tq` queries, `Th` hl tags, `Ti` checkbox icons, `To` overdue dates, `Te` running the commands of a note when it is
      entered, `Ts` applying its settings (`<prefix>!e` and `<prefix>?e` still do the last two); each is the option of the same name switched until you set it again
   -  the heading commands that were waiting for their feature are on: `<prefix>*` toggle heading, `<prefix>iT` and `<prefix>it` insert a todo heading, `g?` the help
 
@@ -1289,6 +1289,7 @@ In Fey files:
 | <prefix>Tc            | Show or hide the tag syntax around the todo keyword, priority and labels of headings                                                                 | fey_toggle_conceal_task_tags                       |
 | <prefix>d!            | Toggle date active/inactive type                                                                                                                     | fey_toggle_date_type                               |
 | <prefix>*             | Toggle current line to heading and vice versa                                                                                                        | fey_toggle_heading                                 |
+| <prefix>Th            | Hide the hl tags (only the coloured words show), or show them                                                                                        | fey_toggle_hl_conceal                              |
 | <prefix>Tl            | Hide the head of links, or show it                                                                                                                   | fey_toggle_link_conceal                            |
 | <prefix>To            | Paint the overdue dates, or stop                                                                                                                     | fey_toggle_overdue                                 |
 | <prefix>Tq            | Hide queries and their result heads, or show them                                                                                                    | fey_toggle_query_conceal                           |

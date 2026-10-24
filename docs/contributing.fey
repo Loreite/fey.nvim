@@ -43,11 +43,25 @@ of the grammar. `scripts/test.sh --fast` skips the screen checks and the corpus;
 
 If you prefer working on an issue that has been reported, please leave a comment voicing your interest. Document new code with {@ link, https://emmylua.github.io/annotation.html; desc: EmmyLua annotations @}.
 
-  III.E. Parser
+  III.E. A tag that conceals
+
+A tag conceals by saying so next to its handlers; `lua/fey/files/elements/tags/conceal.lua` does the hiding, the icon, the redraw and the rule that the cursor row shows the tag as written. Declare it in the handler module,
+and `Tag.setup` registers it (a module that is not in the list there is registered with `conceal.register(name, decl)`):
+
+###  src lua
+-- lua/fey/files/elements/tags/handlers/mytag.lua
+M.conceal = { mode = 'hide', default = 'fey_mytag_conceal_default' }
+###
+
+-  `mode`: `hide` (the tag goes, its body stays), `icon` (an icon in place of the head, `whole = true` for the body too, the icon follows `fey_conceal_icons[name]`), `values` (the `values` it lists stay, or `parts(tag)` says which, or `virtual(tag)` gives text)
+-  `default`: the option that decides when the tag has no `conceal` key; `conceal: true|false` on a tag beats it. `where(tag)` and `state(tag)` limit a tag to a place, or give it a default of its own (a buffer variable)
+-  add the option to `defaults.lua`, `_meta.lua` and `settings/fey_options.lua`, and a toggle to `config/mappings/init.lua` (`fey_mappings.toggle_option`, with the option in `TOGGLES`)
+
+  III.F. Parser
 
 Parsing is done with the builtin tree-sitter and the {@ link, https://github.com/Loreite/tree-sitter-fey; desc: tree-sitter-fey @} grammar.
 
-  III.F. Commits
+  III.G. Commits
 
 Follow the {@ link, https://www.conventionalcommits.org/; desc: Conventional Commits @} specification: `feat: add new feature`, `fix: correct bug`, `docs: update documentation`.
 

@@ -1579,6 +1579,7 @@ In Fey files:
   <prefix>Tc              Show or hide the tag syntax around the todo keyword, priority and labels of headings                                                                   fey_toggle_conceal_task_tags
   <prefix>d!              Toggle date active/inactive type                                                                                                                       fey_toggle_date_type
   <prefix>*               Toggle current line to heading and vice versa                                                                                                          fey_toggle_heading
+  <prefix>Th              Hide the hl tags (only the coloured words show), or show them                                                                                          fey_toggle_hl_conceal
   <prefix>Tl              Hide the head of links, or show it                                                                                                                     fey_toggle_link_conceal
   <prefix>To              Paint the overdue dates, or stop                                                                                                                       fey_toggle_overdue
   <prefix>Tq              Hide queries and their result heads, or show them                                                                                                      fey_toggle_query_conceal
@@ -1865,6 +1866,24 @@ comment voicing your interest. Document new code with EmmyLua annotations
 <https://emmylua.github.io/annotation.html>.
 
 
+A tag that conceals                                  *fey-A-tag-that-conceals*
+
+A tag conceals by saying so next to its handlers;
+`lua/fey/files/elements/tags/conceal.lua` does the hiding, the icon, the redraw
+and the rule that the cursor row shows the tag as written. Declare it in the
+handler module, and `Tag.setup` registers it (a module that is not in the list
+there is registered with `conceal.register(name, decl)`):
+
+>lua
+    -- lua/fey/files/elements/tags/handlers/mytag.lua
+    M.conceal = { mode = 'hide', default = 'fey_mytag_conceal_default' }
+<
+
+- `mode`: `hide` (the tag goes, its body stays), `icon` (an icon in place of the head, `whole = true` for the body too, the icon follows `fey_conceal_icons[name]`), `values` (the `values` it lists stay, or `parts(tag)` says which, or `virtual(tag)` gives text)
+- `default`: the option that decides when the tag has no `conceal` key; `conceal: true|false` on a tag beats it. `where(tag)` and `state(tag)` limit a tag to a place, or give it a default of its own (a buffer variable)
+- add the option to `defaults.lua`, `_meta.lua` and `settings/fey_options.lua`, and a toggle to `config/mappings/init.lua` (`fey_mappings.toggle_option`, with the option in `TOGGLES`)
+
+
 Parser                                                            *fey-Parser*
 
 Parsing is done with the builtin tree-sitter and the tree-sitter-fey
@@ -1932,6 +1951,10 @@ Fixes:
 
 Changes:
 
+- plan XI.F: status and label tags conceal through the registry (parts, where, state) (e165d69)
+- plan XI.F: status and label tags stay in task_tags.lua (reason in its header) (78448c5)
+- plan XI.E: link, embed and section tags conceal through the registry (442180d)
+- plan XI.A: hl conceals by default (fey_hl_conceal_default) (64c4e60)
 - plan XI.A: hl conceals through the registry (conceal key, fey_query_conceal_default) (bcce631)
 - plan XI.D: query, feydb and clocktable conceal through the registry (32a0fc0)
 - tests: read TASKS files from misc/ (b402dd6)

@@ -830,6 +830,10 @@ return {
       args = { 'fey_query_conceal_default' },
       opts = { desc = 'fey toggle query concealment', help_desc = 'Hide queries and their result heads, or show them' },
     }),
+    fey_toggle_hl_conceal = m.action('fey_mappings.toggle_option', {
+      args = { 'fey_hl_conceal_default' },
+      opts = { desc = 'fey toggle hl concealment', help_desc = 'Hide the hl tags (only the coloured words show), or show them' },
+    }),
     fey_toggle_checkbox_icons = m.action('fey_mappings.toggle_option', {
       args = { 'fey_show_checkbox_state_as_icons' },
       opts = { desc = 'fey toggle checkbox icons', help_desc = 'Show checkboxes as icons, or as written' },

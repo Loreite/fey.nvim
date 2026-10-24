@@ -1460,6 +1460,7 @@ end
 local TOGGLES = {
   fey_link_conceal_default = 'Links are concealed',
   fey_query_conceal_default = 'Queries are concealed',
+  fey_hl_conceal_default = 'hl tags are concealed',
   fey_show_checkbox_state_as_icons = 'Checkboxes are icons',
   fey_highlight_overdue = 'Overdue dates are painted',
 }

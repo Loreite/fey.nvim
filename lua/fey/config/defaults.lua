@@ -379,6 +379,7 @@ local DefaultConfig = {
       fey_toggle_conceal_task_tags = '<prefix>Tc',
       fey_toggle_link_conceal = '<prefix>Tl',
       fey_toggle_query_conceal = '<prefix>Tq',
+      fey_toggle_hl_conceal = '<prefix>Th',
       fey_toggle_checkbox_icons = '<prefix>Ti',
       fey_toggle_overdue = '<prefix>To',
       fey_insert_link = '<prefix>li',

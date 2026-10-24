@@ -171,6 +171,7 @@
 ---@field fey_embed_scroll_up? FeyMappingValue Default: '<prefix>lk'
 ---@field fey_toggle_link_conceal? FeyMappingValue Default: '<prefix>Tl'
 ---@field fey_toggle_query_conceal? FeyMappingValue Default: '<prefix>Tq'
+---@field fey_toggle_hl_conceal? FeyMappingValue Default: '<prefix>Th'
 ---@field fey_toggle_checkbox_icons? FeyMappingValue Default: '<prefix>Ti'
 ---@field fey_toggle_overdue? FeyMappingValue Default: '<prefix>To'
 ---@field fey_clock_in? FeyMappingValue Default: '<prefix>xi'

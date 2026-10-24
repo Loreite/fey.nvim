@@ -19,6 +19,10 @@ Fixes:
 
 Changes:
 
+-  plan XI.F: status and label tags conceal through the registry (parts, where, state) (e165d69)
+-  plan XI.F: status and label tags stay in task_tags.lua (reason in its header) (78448c5)
+-  plan XI.E: link, embed and section tags conceal through the registry (442180d)
+-  plan XI.A: hl conceals by default (fey_hl_conceal_default) (64c4e60)
 -  plan XI.A: hl conceals through the registry (conceal key, fey_query_conceal_default) (bcce631)
 -  plan XI.D: query, feydb and clocktable conceal through the registry (32a0fc0)
 -  tests: read TASKS files from misc/ (b402dd6)

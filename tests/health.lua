@@ -109,7 +109,7 @@ check('overdue', config.fey_highlight_overdue, false)
 config:extend({ fey_highlight_overdue = true })
 local prefix = config.mappings.prefix or '<Leader>;'
 local function mapped(lhs) return vim.fn.maparg(vim.api.nvim_replace_termcodes(prefix .. lhs, true, false, true), 'n') ~= '' end
-check('the tree of toggles', { mapped('Tc'), mapped('Tl'), mapped('Tq'), mapped('Ti'), mapped('To'), mapped('Te'), mapped('Ts') }, { true, true, true, true, true, true, true })
+check('the tree of toggles', { mapped('Tc'), mapped('Tl'), mapped('Tq'), mapped('Th'), mapped('Ti'), mapped('To'), mapped('Te'), mapped('Ts') }, { true, true, true, true, true, true, true, true })
 check('the old keys of the toggles work', { mapped('!e'), mapped('?e') }, { true, true })
 check('the commands of the finished features are on', { mapped('*'), mapped('iT'), mapped('it'), vim.fn.maparg('g?', 'n') ~= '' }, { true, true, true, true })
 
