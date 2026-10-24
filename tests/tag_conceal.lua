@@ -125,6 +125,20 @@ conceal.register('zz', { mode = 'values', virtual = function(tag) return { { tag
 apply(b)
 check('virtual text', shown(b, 0), 'one!text  more')
 
+-- the query family, declared by handlers/conceal.lua: a query and its result are one object
+conceal.clear()
+require('fey.files.elements.tags.handlers.conceal').declare()
+b = buffer({ '{# query, LIST FROM #a; conceal: true #}', '', '[ query_result; conceal: true #]', 'row', '[# query_result ]', '', 'last' })
+apply(b)
+local qicon = require('fey.colors.highlighter.checkbox_icons').style() == 'nerd' and '\u{f1c0}' or '≣'
+check('query shows an icon', shown(b, 0), qicon)
+check('result opener hidden', shown(b, 2), nil)
+check('result body stays', shown(b, 3), 'row')
+check('result closer hidden', shown(b, 4), nil)
+vim.api.nvim_win_set_cursor(0, { 4, 0 })
+conceal.on_cursor(b)
+check('cursor in the result shows the query', shown(b, 0), '{# query, LIST FROM #a; conceal: true #}')
+
 print(('%d checks, %d failed'):format(total, failures))
 if failures > 0 then os.exit(1) end
 vim.cmd('qa!')

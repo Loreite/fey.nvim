@@ -9,6 +9,9 @@
 --            'values' only the chosen parts of the head stay, in place: `values` lists positional values (numbers)
 --                     and keys (strings); `hl` (or `hl_of(tag, key)`) gives them a face. `virtual(tag)` instead
 --                     returns virtual text chunks shown where the head was
+--   whole    the icon replaces the whole tag, body included (a `query` tag: its body is the query)
+--   companion  fun(tag): TSNode|nil, a pair tag that goes with this tag as one object (a query and its result): its opener
+--            and closer are hidden with it, the cursor rule covers both, and it does not conceal again on its own
 --   default  the name of the option that decides when the tag has no `conceal` key (absent: not concealed)
 --   icon     the icon, or { nerd = '', unicode = '' } to follow `fey_checkbox_icons`
 --
@@ -30,6 +33,8 @@ local parse
 ---@field mode 'hide'|'icon'|'values'
 ---@field default? string
 ---@field icon? string|{ nerd: string, unicode: string }
+---@field whole? boolean
+---@field companion? fun(tag: FeyTag): TSNode|nil
 ---@field values? (string|integer)[]
 ---@field hl? string
 ---@field hl_of? fun(tag: FeyTag, key: string|integer): string|nil
@@ -116,13 +121,13 @@ end
 ---The head of a tag and its tail (what follows the body), as ranges; a tag with no body is all head
 ---@param tag FeyTag
 ---@return integer[] head, integer[]|nil tail
-local function pieces(tag)
+local function pieces(tag, decl_whole)
   local node = tag.node
   if tag.type == 'pair_tag' then
     local open, close = node:field('open')[1], node:field('close')[1]
     return { open:range() }, close and { close:range() } or nil
   end
-  local body = tag.type ~= 'scope_tag' and tag.body or nil
+  local body = tag.type ~= 'scope_tag' and not decl_whole and tag.body or nil
   local sr, sc, er, ec = node:range()
   if not body then return { sr, sc, er, ec } end
   local bsr, bsc, ber, bec = body:range()
@@ -163,7 +168,7 @@ end
 ---@param tag FeyTag
 ---@param decl FeyConcealDecl
 local function render(bufnr, ids, tag, decl)
-  local head, tail = pieces(tag)
+  local head, tail = pieces(tag, decl.whole)
   if decl.mode == 'hide' then
     hide(bufnr, ids, head)
   elseif decl.mode == 'icon' then
@@ -205,6 +210,12 @@ local function render(bufnr, ids, tag, decl)
     if head[3] ~= row then hide(bufnr, ids, { row + 1, 0, head[3], head[4] }) end
   end
   if tail then hide(bufnr, ids, tail) end
+  local companion = decl.companion and decl.companion(tag)
+  if companion then
+    local open, close = companion:field('open')[1], companion:field('close')[1]
+    if open then hide(bufnr, ids, { open:range() }) end
+    if close then hide(bufnr, ids, { close:range() }) end
+  end
 end
 
 ---Is the cursor of a window of the buffer in the group
@@ -233,10 +244,20 @@ end
 ---@return FeyConcealGroup[]
 local function groups_of(bufnr, tags)
   local groups = {}
+  local used = {}
   for _, tag in ipairs(tags) do
     local decl = registry[tag.name]
-    if decl and M.is_concealed(tag) then
+    local companion = decl and decl.companion and M.is_concealed(tag) and decl.companion(tag)
+    if companion then used[companion:id()] = true end
+  end
+  for _, tag in ipairs(tags) do
+    local decl = registry[tag.name]
+    if decl and M.is_concealed(tag) and not used[tag.node:id()] then
       local sr, _, er, ec = tag.node:range()
+      local companion = decl.companion and decl.companion(tag)
+      if companion then
+        _, _, er, ec = companion:range()
+      end
       if ec == 0 and er > sr then er = er - 1 end
       groups[#groups + 1] = {
         first = sr,
