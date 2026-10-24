@@ -24,8 +24,8 @@ end
 
 -- the README ----------------------------------------------------------------------------------------------
 check('README.fey parses', has_error(root .. '/README.fey'), false)
-check('TASKS.fey parses', has_error(root .. '/TASKS.fey'), false)
-check('TASKS_COMPLETED.fey parses', has_error(root .. '/TASKS_COMPLETED.fey'), false)
+check('misc/TASKS.fey parses', has_error(root .. '/misc/TASKS.fey'), false)
+check('TASKS_COMPLETED.fey parses', has_error(root .. '/misc/TASKS_COMPLETED.fey'), false)
 local docs = require('fey.docs.mappings')
 local lines = vim.fn.readfile(root .. '/README.fey')
 local replaced, err = docs.replace(lines)
