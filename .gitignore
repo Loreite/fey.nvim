@@ -48,3 +48,4 @@ doc/tags
 
 # Lock file
 .fey-ts-lock.json
+misc/
