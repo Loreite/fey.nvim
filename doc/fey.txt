@@ -637,35 +637,8 @@ are read when the plugin is set up, so they are written in the setup.
 - `fey_babel_extensions` (table<string, string>, default `{}`; a note may set it: no, read when the plugin is set up) The file extension of a language for `:tangle yes`, over the built in ones.
 - `fey_blank_before_new_entry.heading` (boolean, default `true`; a note may set it: no, read when the plugin is set up)
 - `fey_blank_before_new_entry.list_item` (boolean, default `false`; a note may set it: no, read when the plugin is set up)
-- `fey_capture_templates` (table<string, FeyCaptureTemplateOpts>, default `{ t = { description = "Task", template = " I....`; a note may set it: no, read when the plugin is set up) Templates for capture.
-- `fey_checkbox_icon_overrides` (table<string, string>, default `{}`; a note may set it: yes, at once) Icon of single marks.
-- `fey_checkbox_icons` ('auto'|'nerd'|'unicode', default `"auto"`; a note may set it: yes, at once) Which icons: Nerd Font glyphs, plain Unicode symbols, or by nvim-web-devicons.
-- `fey_clock_tag_name` (string, default `"clock"`; a note may set it: no, read when the plugin is set up) Tag name of one clock.
-- `fey_clocktable_result_tag_name` (string, default `"clocktable_result"`; a note may set it: no, read when the plugin is set up) Tag name of the pair tag that holds the clock table.
-- `fey_clocktable_tag_name` (string, default `"clocktable"`; a note may set it: no, read when the plugin is set up) Tag name of a clock table.
-- `fey_closed_tag_name` (string, default `"closed"`; a note may set it: no, read when the plugin is set up) Tag name of the date a heading was closed.
-- `fey_comment_index_default` (boolean, default `false`; a note may set it: no, read when the plugin is set up) Is what a comment tag comments indexed when the tag has no boolean (`a tag` or `index: true`)?
-- `fey_comment_tag_name` (string, default `"comment"`; a note may set it: no, read when the plugin is set up)
-- `fey_conceal_icons` (table<string, string>, default `{}`; a note may set it: yes, at once) The icon shown for a concealed query, feydb or clocktable tag, by the name of the tag, over the defaults (a Nerd Font glyph, or a one cell Unicode symbol without a Nerd Font, see `fey_checkbox_icons`).
-- `fey_conceal_task_tags` (boolean, default `true`; a note may set it: yes, at once) Hide everything of the todo, priority and labels tags in a heading title except their values.
-- `fey_court_dir` (string, default `"~/feyhollow"`; a note may set it: no, read when the plugin is set up) The court directory, the top of the tree of hollows: its vault, its agenda files (in `agenda/`) and the registrations of every hollow below it (in `.fey/hollows/`). Created when missing.
-- `fey_custom_exports` (table<string, FeyCustomExport>, default `{}`; a note may set it: no, read when the plugin is set up) List of custom exports.
-- `fey_cycle_separator_lines` (number, default `2`; a note may set it: yes, at once) Min number of spaces are needed at the end of heading to show empty line between folds.
-- `fey_date_rounding_minutes` (number, default `5`; a note may set it: yes, at once) Rounding minutes for dates.
-- `fey_date_tag_name` (string, default `"date"`; a note may set it: no, read when the plugin is set up) Tag name of a date.
-- `fey_db_result_tag_name` (string, default `"feydb_result"`; a note may set it: no, read when the plugin is set up) Tag name of the pair tag that holds an imported view.
-- `fey_db_tag_name` (string, default `"feydb"`; a note may set it: no, read when the plugin is set up) Tag name of tags that import a database view.
-- `fey_deadline_tag_name` (string, default `"deadline"`; a note may set it: no, read when the plugin is set up) Tag name of the deadline of a heading.
-- `fey_deadline_warning_days` (number, default `14`; a note may set it: yes, at once) Number of days during which deadline becomes visible in today's agenda.
-- `fey_default_notes_file` (string, default `""`; a note may set it: no, read when the plugin is set up) Path to default file for captures.
-- `fey_default_subheading_delimiter` (string, default `"."`; a note may set it: no, read when the plugin is set up)
-- `fey_default_subheading_delimiter_order` (string, default `""`; a note may set it: no, read when the plugin is set up)
-- `fey_default_subheading_index_order` (table, default `{ "roman_upper", "alpha_upper", "roman_lower"...`; a note may set it: no, read when the plugin is set up)
-- `fey_default_sublist_index_order` (table, default `{ "roman_upper", "alpha_upper", "roman_lower"...`; a note may set it: no, read when the plugin is set up)
-- `fey_drawer_form` ('pair'|'block', default `"pair"`; a note may set it: no, read when the plugin is set up) The form of a drawer the plugin makes (the logbook): a pair tag or a block tag. Drawers found in either form are used.
-- `fey_edit_src_content_indentation` (number, default `0`; a note may set it: no, read when the plugin is set up) Addditional ndentation number applied when editing a SRC block through special edit.
-- `fey_edit_src_filetype_map` (table, default `{}`; a note may set it: no, read when the plugin is set up)
-- `fey_ellipsis` (string, default `"..."`; a note may set it: no, read when the plugin is set up) Ellipsis character to use when folding text.
+- `fey_capture_templates` (table<string, FeyCaptureTemplateOpts>, default `{ t = { description = "Task", template = " I.`; a note may set it: no, read when the plugin is set up)  Templates for capture. \-  `fey_checkbox_icon_overrides`  (table<string, string>, default `{}`; a note may set it: yes, at once)  Icon of single marks. \-  `fey_checkbox_icons`  ('auto'|'nerd'|'unicode', default `"auto"`; a note may set it: yes, at once)  Which icons: Nerd Font glyphs, plain Unicode symbols, or by nvim-web-devicons. \-  `fey_clock_tag_name`  (string, default `"clock"`; a note may set it: no, read when the plugin is set up)  Tag name of one clock. \-  `fey_clocktable_result_tag_name`  (string, default `"clocktable_result"`; a note may set it: no, read when the plugin is set up)  Tag name of the pair tag that holds the clock table. \-  `fey_clocktable_tag_name`  (string, default `"clocktable"`; a note may set it: no, read when the plugin is set up)  Tag name of a clock table. \-  `fey_closed_tag_name`  (string, default `"closed"`; a note may set it: no, read when the plugin is set up)  Tag name of the date a heading was closed. \-  `fey_comment_index_default`  (boolean, default `false`; a note may set it: no, read when the plugin is set up)  Is what a comment tag comments indexed when the tag has no boolean (`a tag` or `index: true`)? \-  `fey_comment_tag_name`  (string, default `"comment"`; a note may set it: no, read when the plugin is set up) \-  `fey_conceal_icons`  (table<string, string>, default `{}`; a note may set it: yes, at once)  The icon shown for a concealed query, feydb or clocktable tag, by the name of the tag, over the defaults (a Nerd Font glyph, or a one cell Unicode symbol without a Nerd Font, see `fey_checkbox_icons`). \-  `fey_conceal_task_tags`  (boolean, default `true`; a note may set it: yes, at once)  Hide everything of the todo, priority and labels tags in a heading title except their values. \-  `fey_court_dir`  (string, default `"~/feyhollow"`; a note may set it: no, read when the plugin is set up)  The court directory, the top of the tree of hollows: its vault, its agenda files (in `agenda/`) and the registrations of every hollow below it (in `.fey/hollows/`). Created when missing. \-  `fey_custom_exports`  (table<string, FeyCustomExport>, default `{}`; a note may set it: no, read when the plugin is set up)  List of custom exports. \-  `fey_cycle_separator_lines`  (number, default `2`; a note may set it: yes, at once)  Min number of spaces are needed at the end of heading to show empty line between folds. \-  `fey_date_rounding_minutes`  (number, default `5`; a note may set it: yes, at once)  Rounding minutes for dates. \-  `fey_date_tag_name`  (string, default `"date"`; a note may set it: no, read when the plugin is set up)  Tag name of a date. \-  `fey_db_result_tag_name`  (string, default `"feydb_result"`; a note may set it: no, read when the plugin is set up)  Tag name of the pair tag that holds an imported view. \-  `fey_db_tag_name`  (string, default `"feydb"`; a note may set it: no, read when the plugin is set up)  Tag name of tags that import a database view. \-  `fey_deadline_tag_name`  (string, default `"deadline"`; a note may set it: no, read when the plugin is set up)  Tag name of the deadline of a heading. \-  `fey_deadline_warning_days`  (number, default `14`; a note may set it: yes, at once)  Number of days during which deadline becomes visible in today's agenda. \-  `fey_default_notes_file`  (string, default `""`; a note may set it: no, read when the plugin is set up)  Path to default file for captures. \-  `fey_default_subheading_delimiter`  (string, default `"."`; a note may set it: no, read when the plugin is set up) \-  `fey_default_subheading_delimiter_order`  (string, default `""`; a note may set it: no, read when the plugin is set up) \-  `fey_default_subheading_index_order`  (table, default `{ "roman_upper", "alpha_upper", "roman_lower"`; a note may set it: no, read when the plugin is set up)
+- `fey_default_sublist_index_order` (table, default `{ "roman_upper", "alpha_upper", "roman_lower"`; a note may set it: no, read when the plugin is set up) \-  `fey_drawer_form`  ('pair'|'block', default `"pair"`; a note may set it: no, read when the plugin is set up)  The form of a drawer the plugin makes (the logbook): a pair tag or a block tag. Drawers found in either form are used. \-  `fey_edit_src_content_indentation`  (number, default `0`; a note may set it: no, read when the plugin is set up)  Addditional ndentation number applied when editing a SRC block through special edit. \-  `fey_edit_src_filetype_map`  (table, default `{}`; a note may set it: no, read when the plugin is set up) \-  `fey_ellipsis`  (string, default `""`; a note may set it: no, read when the plugin is set up) Ellipsis character to use when folding text.
 - `fey_embed_expand_on_cursor` (boolean, default `true`; a note may set it: no, read when the plugin is set up) Show the text of an embed under it while the cursor is on its line.
 - `fey_embed_files_default` (boolean, default `false`; a note may set it: no, read when the plugin is set up) Show the text of every file embed, not only on the cursor line and after a toggle.
 - `fey_embed_highlight` (boolean, default `true`; a note may set it: no, read when the plugin is set up) Colour the text of a file embed with the tree-sitter parser of its language (plain text when there is none).
@@ -704,7 +677,7 @@ are read when the plugin is set up, so they are written in the setup.
 - `fey_priority_lowest` (string | number, default `"C"`; a note may set it: no, read when the plugin is set up) Lowest priority level.
 - `fey_priority_start_cycle_with_default` (boolean, default `true`; a note may set it: no, read when the plugin is set up) If true, cycling priorities will start with the default priority.
 - `fey_property_tag_name` (string, default `"prop"`; a note may set it: no, read when the plugin is set up) Tag name of the properties of a heading.
-- `fey_query_conceal_default` (boolean, default `false`; a note may set it: yes, at once) Conceal every query, feydb and clocktable tag and its result, unless the tag has `conceal: false`. Can be set from a note with the plugin tag.
+- `fey_query_conceal_default` (boolean, default `false`; a note may set it: yes, at once) Conceal every query, feydb, clocktable and hl tag and the result of a query, unless the tag has `conceal: false`. Can be set from a note with the plugin tag.
 - `fey_query_result_tag_name` (string, default `"query_result"`; a note may set it: no, read when the plugin is set up) Tag name of the pair tag that holds a query's result.
 - `fey_query_tag_name` (string, default `"query"`; a note may set it: no, read when the plugin is set up) Tag name of query tags.
 - `fey_refile_leave_link` (boolean, default `false`; a note may set it: yes, at once) Leave a link where a refiled heading was.
@@ -1150,7 +1123,7 @@ The name is `tblfm`; the option `fey_tblfm_tag_name` changes it.
 - Where: right under a table, with no blank line; tags one after the other are one.
 - The index: as a tag only.
 - Open at point: nothing; `fey_table_recalculate` computes the table under the cursor, `fey_table_recalculate_all` all of the note, and `fey_table_recalculate_on_save` does it on save.
-- Related: `fey_table_recalculate_on_save`, the rule row of a table (`+:===+===:+` aligns the columns).
+- Related: `fey_table_recalculate_on_save`, the rule row of a table (`+:+:+` aligns the columns).
 
 >fey
     {# tblfm; tblwidth: 60; total: qty * price #}
@@ -1304,14 +1277,16 @@ hl                                                                    *fey-hl*
 The name is `hl`; the option `fey_hl_tag_name` changes it.
 
 - Forms: scope: colours what the tag applies to; line: colours the words; block: colours the body; pair: colours the body.
-- Head: the keys `fg`, `bg`, `bold`, `italic`, `strike`, `underline`, `link` (a highlight group).
+- Head: the keys `fg`, `bg`, `bold`, `italic`, `strike`, `underline`, `link` (a highlight group), and `conceal` (`true` hides the tag and its closer, so only the coloured words show, until the cursor is on it).
 - Body: what is coloured, in the forms that have a body.
 - Where: anywhere in the text.
 - The index: as a tag only.
 - Open at point: nothing.
+- Related: `fey_query_conceal_default`.
 
 >fey
     some {# hl; fg: red; bold: true #} words
+    some [ hl; fg: red; conceal: true #]coloured[# hl ] words
 <
 
 
@@ -1950,10 +1925,21 @@ Features:
 
 - feature: insert (sub)heading respect content (347b9b4)
 
+Fixes:
+
+- fixed embed virtual text quirk (55ac038)
+
 Changes:
 
-- embeds: syntax colours for the text of file embeds (fey_embed_highlight) (60f4401)
-- embeds: the embed tag, file and image embeds, hollow paths, import and export, completion (7071ad9)
+- plan XI.D: query, feydb and clocktable conceal through the registry (32a0fc0)
+- tests: read TASKS files from misc/ (b402dd6)
+- plan XI.C: conceal registry with hide, icon and values modes (cefbf48)
+- cleaned up docs (b89e740)
+- updated emphasis to better handle inline fenced raw text blocks (78992f4)
+- update for new inline block grammarl level verbatim text (2b765c6)
+- embeds: syntax colours for the text of file embeds (fey_embed_highlight) (5aff503)
+- embeds: the embed tag, file and image embeds, hollow paths, import and export, completion (7c8553c)
+- update vaults location so that it works with cloud storage (2ecc176)
 - added variable tags (1440371)
 - updates to do with the importer, and database view (b1bb476)
 - update importer (803497c)

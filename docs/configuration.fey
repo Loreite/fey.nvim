@@ -191,7 +191,7 @@ those, and the change takes effect as soon as it is applied; the others are read
 -  `fey_priority_lowest`  (string | number, default `"C"`; a note may set it: no, read when the plugin is set up)  Lowest priority level.
 -  `fey_priority_start_cycle_with_default`  (boolean, default `true`; a note may set it: no, read when the plugin is set up)  If true, cycling priorities will start with the default priority.
 -  `fey_property_tag_name`  (string, default `"prop"`; a note may set it: no, read when the plugin is set up)  Tag name of the properties of a heading.
--  `fey_query_conceal_default`  (boolean, default `false`; a note may set it: yes, at once)  Conceal every query, feydb and clocktable tag and its result, unless the tag has `conceal: false`. Can be set from a note with the plugin tag.
+-  `fey_query_conceal_default`  (boolean, default `false`; a note may set it: yes, at once)  Conceal every query, feydb, clocktable and hl tag and the result of a query, unless the tag has `conceal: false`. Can be set from a note with the plugin tag.
 -  `fey_query_result_tag_name`  (string, default `"query_result"`; a note may set it: no, read when the plugin is set up)  Tag name of the pair tag that holds a query's result.
 -  `fey_query_tag_name`  (string, default `"query"`; a note may set it: no, read when the plugin is set up)  Tag name of query tags.
 -  `fey_refile_leave_link`  (boolean, default `false`; a note may set it: yes, at once)  Leave a link where a refiled heading was.

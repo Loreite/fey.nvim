@@ -13,10 +13,21 @@ Features:
 
 -  feature: insert (sub)heading respect content (347b9b4)
 
+Fixes:
+
+-  fixed embed virtual text quirk (55ac038)
+
 Changes:
 
--  embeds: syntax colours for the text of file embeds (fey_embed_highlight) (60f4401)
--  embeds: the embed tag, file and image embeds, hollow paths, import and export, completion (7071ad9)
+-  plan XI.D: query, feydb and clocktable conceal through the registry (32a0fc0)
+-  tests: read TASKS files from misc/ (b402dd6)
+-  plan XI.C: conceal registry with hide, icon and values modes (cefbf48)
+-  cleaned up docs (b89e740)
+-  updated emphasis to better handle inline fenced raw text blocks (78992f4)
+-  update for new inline block grammarl level verbatim text (2b765c6)
+-  embeds: syntax colours for the text of file embeds (fey_embed_highlight) (5aff503)
+-  embeds: the embed tag, file and image embeds, hollow paths, import and export, completion (7c8553c)
+-  update vaults location so that it works with cloud storage (2ecc176)
 -  added variable tags (1440371)
 -  updates to do with the importer, and database view (b1bb476)
 -  update importer (803497c)

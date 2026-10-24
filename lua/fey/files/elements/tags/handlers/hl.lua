@@ -67,6 +67,9 @@ M.handlers = {
   pair_tag = M.handler,
 }
 
+---Hidden with `conceal: true`, or by `fey_query_conceal_default`; the coloured words stay (tags/conceal.lua)
+M.conceal = { mode = 'hide', default = 'fey_query_conceal_default' }
+
 function M.setup_query(parse_tags)
   local group = vim.api.nvim_create_augroup('FeyTagHl', { clear = true })
 
