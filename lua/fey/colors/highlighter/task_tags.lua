@@ -3,6 +3,17 @@
 -- is. The cursor line shows the tags as written (the default 'concealcursor'), so editing them is not
 -- blind. Switched with `fey_conceal_task_tags`, per buffer with `b:fey_conceal_task_tags`
 -- (`<prefix>Tc` toggles it).
+--
+-- These tags do not conceal through the registry of tags/conceal.lua, on purpose:
+--   - they are drawn from the highlighter, per line and ephemeral, in step with the other passes (the face of the
+--     value is set at priority 250 over the markup pass) and with no delay; the registry keeps extmarks, drawn again
+--     100 ms after an edit, so a heading would show the raw tag while one types in it
+--   - only the scope tags in the title of a heading conceal, and `b:fey_conceal_task_tags` overrides the option for
+--     one buffer; the registry knows a tag by its name only, and a `conceal` key on a status tag is not read here
+--   - what stays is chosen by the value (the keyword and the priority of a status, the whole run of values of
+--     labels with the commas between them, a priority given as a key), and its face by what the value is; `values`
+--     mode keeps a fixed list of keys and positions, with one blank between two of them, not the commas
+-- `fey_conceal_task_tags` is its own option for the same reason; it is not a `fey_*_conceal_default`.
 local config = require('fey.config')
 
 ---@class FeyTaskTagsHighlighter
