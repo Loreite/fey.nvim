@@ -592,7 +592,7 @@ is optional. A function instead of the table is the same as `apply` alone.
 
 EVERY OPTION                                  *fey-configuration-every-option*
 
-166 options. "A note may set it" is the white list of the `plugin` tag
+167 options. "A note may set it" is the white list of the `plugin` tag
 (`fey.settings.fey_options`): a `plugin` tag, in the court, a hollow or a note,
 can set those, and the change takes effect as soon as it is applied; the others
 are read when the plugin is set up, so they are written in the setup.
@@ -652,6 +652,7 @@ are read when the plugin is set up, so they are written in the setup.
 - `fey_hide_emphasis_markers` (boolean, default `false`; a note may set it: yes, at once) If true, emphasis markers will be hidden with conceal feature.
 - `fey_hide_leading_signature` (boolean, default `false`; a note may set it: no, read when the plugin is set up) If true, leading signature on the headings with level > 1 will be hidden.
 - `fey_highlight_overdue` (boolean, default `true`; a note may set it: yes, at once) Paint the deadline dates and the scheduled dates of open tasks that are past, from the index (`@fey.date.overdue`, `@fey.date.scheduled_past`).
+- `fey_hl_conceal_default` (boolean, default `true`; a note may set it: yes, at once) Hide the head and closer of every hl tag, so only the coloured words show (back on the cursor line), unless the tag has `conceal: false`. Can be set from a note with the plugin tag.
 - `fey_hl_tag_name` (string, default `"hl"`; a note may set it: no, read when the plugin is set up)
 - `fey_id_link_to_fey_use_id` (boolean, default `false`; a note may set it: no, read when the plugin is set up) If true, Storing a link to the heading will automatically generate ID for that heading.
 - `fey_id_method` ('uuid' | 'ts' | 'fey', default `"uuid"`; a note may set it: no, read when the plugin is set up) What method to use to generate ids via fey.id module.
@@ -677,7 +678,7 @@ are read when the plugin is set up, so they are written in the setup.
 - `fey_priority_lowest` (string | number, default `"C"`; a note may set it: no, read when the plugin is set up) Lowest priority level.
 - `fey_priority_start_cycle_with_default` (boolean, default `true`; a note may set it: no, read when the plugin is set up) If true, cycling priorities will start with the default priority.
 - `fey_property_tag_name` (string, default `"prop"`; a note may set it: no, read when the plugin is set up) Tag name of the properties of a heading.
-- `fey_query_conceal_default` (boolean, default `false`; a note may set it: yes, at once) Conceal every query, feydb, clocktable and hl tag and the result of a query, unless the tag has `conceal: false`. Can be set from a note with the plugin tag.
+- `fey_query_conceal_default` (boolean, default `false`; a note may set it: yes, at once) Conceal every query, feydb and clocktable tag and its result, unless the tag has `conceal: false`. Can be set from a note with the plugin tag.
 - `fey_query_result_tag_name` (string, default `"query_result"`; a note may set it: no, read when the plugin is set up) Tag name of the pair tag that holds a query's result.
 - `fey_query_tag_name` (string, default `"query"`; a note may set it: no, read when the plugin is set up) Tag name of query tags.
 - `fey_refile_leave_link` (boolean, default `false`; a note may set it: yes, at once) Leave a link where a refiled heading was.
@@ -1277,16 +1278,16 @@ hl                                                                    *fey-hl*
 The name is `hl`; the option `fey_hl_tag_name` changes it.
 
 - Forms: scope: colours what the tag applies to; line: colours the words; block: colours the body; pair: colours the body.
-- Head: the keys `fg`, `bg`, `bold`, `italic`, `strike`, `underline`, `link` (a highlight group), and `conceal` (`true` hides the tag and its closer, so only the coloured words show, until the cursor is on it).
+- Head: the keys `fg`, `bg`, `bold`, `italic`, `strike`, `underline`, `link` (a highlight group), and `conceal` (`false` keeps the tag in view; otherwise `fey_hl_conceal_default` hides the tag and its closer, so only the coloured words show, until the cursor is on it).
 - Body: what is coloured, in the forms that have a body.
 - Where: anywhere in the text.
 - The index: as a tag only.
 - Open at point: nothing.
-- Related: `fey_query_conceal_default`.
+- Related: `fey_hl_conceal_default`.
 
 >fey
     some {# hl; fg: red; bold: true #} words
-    some [ hl; fg: red; conceal: true #]coloured[# hl ] words
+    some [ hl; fg: red; conceal: false #]shown[# hl ] as written
 <
 
 
@@ -1931,6 +1932,7 @@ Fixes:
 
 Changes:
 
+- plan XI.A: hl conceals through the registry (conceal key, fey_query_conceal_default) (bcce631)
 - plan XI.D: query, feydb and clocktable conceal through the registry (32a0fc0)
 - tests: read TASKS files from misc/ (b402dd6)
 - plan XI.C: conceal registry with hide, icon and values modes (cefbf48)

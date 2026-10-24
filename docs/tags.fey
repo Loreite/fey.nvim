@@ -436,16 +436,16 @@ The name is `clocktable_result`; the option `fey_clocktable_result_tag_name` cha
 The name is `hl`; the option `fey_hl_tag_name` changes it.
 
 -  Forms:  scope: colours what the tag applies to; line: colours the words; block: colours the body; pair: colours the body.
--  Head:  the keys `fg`, `bg`, `bold`, `italic`, `strike`, `underline`, `link` (a highlight group), and `conceal` (`true` hides the tag and its closer, so only the coloured words show, until the cursor is on it).
+-  Head:  the keys `fg`, `bg`, `bold`, `italic`, `strike`, `underline`, `link` (a highlight group), and `conceal` (`false` keeps the tag in view; otherwise `fey_hl_conceal_default` hides the tag and its closer, so only the coloured words show, until the cursor is on it).
 -  Body:  what is coloured, in the forms that have a body.
 -  Where:  anywhere in the text.
 -  The index:  as a tag only.
 -  Open at point:  nothing.
--  Related:  `fey_query_conceal_default`.
+-  Related:  `fey_hl_conceal_default`.
 
 ###  src fey
 some {# hl; fg: red; bold: true #} words
-some [ hl; fg: red; conceal: true #]coloured[# hl ] words
+some [ hl; fg: red; conceal: false #]shown[# hl ] as written
 ###
 
   IV.B. nvim

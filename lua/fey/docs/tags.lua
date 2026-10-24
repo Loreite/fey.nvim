@@ -262,13 +262,13 @@ M.TAGS = {
   {
     option = 'fey_hl_tag_name',
     forms = { scope_tag = 'colours what the tag applies to', line_tag = 'colours the words', block_tag = 'colours the body', pair_tag = 'colours the body' },
-    head = 'the keys `fg`, `bg`, `bold`, `italic`, `strike`, `underline`, `link` (a highlight group), and `conceal` (`true` hides the tag and its closer, so only the coloured words show, until the cursor is on it)',
+    head = 'the keys `fg`, `bg`, `bold`, `italic`, `strike`, `underline`, `link` (a highlight group), and `conceal` (`false` keeps the tag in view; otherwise `fey_hl_conceal_default` hides the tag and its closer, so only the coloured words show, until the cursor is on it)',
     body = 'what is coloured, in the forms that have a body',
     where = 'anywhere in the text',
     indexed = 'as a tag only',
     open = 'nothing',
-    related = '`fey_query_conceal_default`',
-    example = { 'some {# hl; fg: red; bold: true #} words', 'some [ hl; fg: red; conceal: true #]coloured[# hl ] words' },
+    related = '`fey_hl_conceal_default`',
+    example = { 'some {# hl; fg: red; bold: true #} words', 'some [ hl; fg: red; conceal: false #]shown[# hl ] as written' },
   },
   {
     option = 'fey_nvim_config_tag_name',

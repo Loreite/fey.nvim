@@ -12,6 +12,7 @@ M.LIST = {
   'fey_checkbox_icons',
   'fey_checkbox_icon_overrides',
   'fey_query_conceal_default',
+  'fey_hl_conceal_default',
   'fey_link_conceal_default',
   'fey_conceal_icons',
   'fey_footnote_superscript',

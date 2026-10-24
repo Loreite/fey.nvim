@@ -139,18 +139,18 @@ vim.api.nvim_win_set_cursor(0, { 4, 0 })
 conceal.on_cursor(b)
 check('cursor in the result shows the query', shown(b, 0), '{# query, LIST FROM #a; conceal: true #}')
 
--- hl, declared by its handler
+-- hl, declared by its handler: concealed unless it says otherwise
 conceal.clear()
 conceal.register('hl', require('fey.files.elements.tags.handlers.hl').conceal)
-config.fey_query_conceal_default = false
-b = buffer({ 'a [ hl; fg: red; conceal: true #]coloured[# hl ] b', '', 'a {# hl; fg: red #} b', '', 'last' })
+check('hl option defaults to true', config.fey_hl_conceal_default, true)
+b = buffer({ 'a [ hl; fg: red #]coloured[# hl ] b', '', 'a {# hl; fg: red; conceal: false #} b', '', 'last' })
 apply(b)
-check('hl conceal: true', shown(b, 0), 'a coloured b')
-check('hl no key follows the default', shown(b, 2), 'a {# hl; fg: red #} b')
-config.fey_query_conceal_default = true
+check('hl no key conceals', shown(b, 0), 'a coloured b')
+check('hl conceal: false shows it', shown(b, 2), 'a {# hl; fg: red; conceal: false #} b')
+config.fey_hl_conceal_default = false
 apply(b)
-check('hl default true', shown(b, 2), 'a  b')
-config.fey_query_conceal_default = false
+check('hl default false', shown(b, 0), 'a [ hl; fg: red #]coloured[# hl ] b')
+config.fey_hl_conceal_default = true
 
 print(('%d checks, %d failed'):format(total, failures))
 if failures > 0 then os.exit(1) end

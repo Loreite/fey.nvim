@@ -19,6 +19,7 @@ Fixes:
 
 Changes:
 
+-  plan XI.A: hl conceals through the registry (conceal key, fey_query_conceal_default) (bcce631)
 -  plan XI.D: query, feydb and clocktable conceal through the registry (32a0fc0)
 -  tests: read TASKS files from misc/ (b402dd6)
 -  plan XI.C: conceal registry with hide, icon and values modes (cefbf48)
