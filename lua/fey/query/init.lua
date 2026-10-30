@@ -291,7 +291,7 @@ local function plan(bufnr, node, vault, this, silent)
   -- a concealed query has a concealed result: its head and its closer, the body stays
   local tag_for_keys = require('fey.files.elements.tags').parse_tag_node(bufnr, node)
   local conceal = require('fey.files.elements.tags.handlers.conceal').is_concealed(tag_for_keys.key_values)
-  local block = { indent .. (conceal and ('[ %s; conceal: true #]') or '[ %s #]'):format(result_name) }
+  local block = { indent .. (conceal and '[ %s; conceal: true #]' or '[ %s #]'):format(result_name) }
   for _, l in ipairs(body) do
     block[#block + 1] = l == '' and l or (indent .. l)
   end
@@ -347,7 +347,10 @@ end
 function M.run_tag(bufnr, node)
   local vault, this = context(bufnr)
   if not vault then
-    return vim.notify('fey query: no vault (a ' .. require('fey.config').vault.dirname .. ' directory) here', vim.log.levels.WARN)
+    return vim.notify(
+      'fey query: no vault (a ' .. require('fey.config').vault.dirname .. ' directory) here',
+      vim.log.levels.WARN
+    )
   end
   if vault.state == 'indexing' then vim.notify('fey query: the vault is still being indexed', vim.log.levels.INFO) end
   apply(bufnr, { plan(bufnr, node, vault, this) })
@@ -427,9 +430,7 @@ local function on_load(bufnr)
 
   local fey_vault = require('fey.vault')
   local vault = fey_vault.for_path(name) or fey_vault.current()
-  if vault and vault.state == 'ready' then
-    return M.run_all(bufnr, { silent = true })
-  end
+  if vault and vault.state == 'ready' then return M.run_all(bufnr, { silent = true }) end
   -- the vault is not attached or still indexing: continue when a scan finished
   if vim.b[bufnr].fey_query_load_pending then return end
   vim.b[bufnr].fey_query_load_pending = true
@@ -451,7 +452,9 @@ function M.setup()
   vim.api.nvim_create_autocmd('BufReadPost', {
     group = vim.api.nvim_create_augroup('fey_query_load', { clear = true }),
     pattern = { '*.fey' },
-    callback = function(event) vim.schedule(function() on_load(event.buf) end) end,
+    callback = function(event)
+      vim.schedule(function() on_load(event.buf) end)
+    end,
   })
 end
 

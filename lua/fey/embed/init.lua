@@ -19,8 +19,22 @@ local ns = vim.api.nvim_create_namespace('fey_embed')
 local marks_ns = vim.api.nvim_create_namespace('fey_embed_marks')
 
 M.IMAGE_EXT = {
-  png = true, jpg = true, jpeg = true, gif = true, bmp = true, webp = true, tiff = true, heic = true, avif = true, svg = true,
-  mp4 = true, mov = true, avi = true, mkv = true, webm = true, pdf = true,
+  png = true,
+  jpg = true,
+  jpeg = true,
+  gif = true,
+  bmp = true,
+  webp = true,
+  tiff = true,
+  heic = true,
+  avif = true,
+  svg = true,
+  mp4 = true,
+  mov = true,
+  avi = true,
+  mkv = true,
+  webm = true,
+  pdf = true,
 }
 
 local MAX_BYTES = 1024 * 1024
@@ -302,7 +316,16 @@ local function embeds_of(bufnr, tags)
       local sr, sc, er, ec = tag.node:range()
       local target = M.target_of(tag.values, tag.key_values)
       local path = target and M.resolve(target, from)
-      out[#out + 1] = { tag = tag, row = sr, col = sc, last = er, ecol = ec, target = target, path = path, kind = target and M.kind_of(path or target) or nil }
+      out[#out + 1] = {
+        tag = tag,
+        row = sr,
+        col = sc,
+        last = er,
+        ecol = ec,
+        target = target,
+        path = path,
+        kind = target and M.kind_of(path or target) or nil,
+      }
     end
   end
   return out
@@ -320,8 +343,12 @@ function M.images(bufnr)
       local _, col = e.tag.node:range()
       local keys = e.tag.key_values
       out[#out + 1] = {
-        row = e.row + 1, col = col, path = e.path,
-        desc = keys.desc and unescape(keys.desc) or nil, width = tonumber(keys.width), height = tonumber(keys.height),
+        row = e.row + 1,
+        col = col,
+        path = e.path,
+        desc = keys.desc and unescape(keys.desc) or nil,
+        width = tonumber(keys.width),
+        height = tonumber(keys.height),
       }
     end
   end
@@ -421,7 +448,8 @@ local function body_of(embed)
   if #lines == 0 then add('no lines there', 'DiagnosticWarn') end
   -- the last line may be the note of a cut (`… 3 more lines`), which is not of the file
   local cut = #lines > 0 and lines[#lines]:sub(1, 3) == '… ' and #lines or nil
-  local coloured = config.fey_embed_highlight ~= false and first and colours(embed.path, first, first + (cut or #lines + 1) - 2) or nil
+  local coloured = config.fey_embed_highlight ~= false and first and colours(embed.path, first, first + (cut or #lines + 1) - 2)
+    or nil
   for n, line in ipairs(lines) do
     if coloured and coloured[n] and n ~= cut then
       rows[#rows + 1] = coloured[n]
@@ -459,7 +487,12 @@ local function draw_one(bufnr, embed)
     virt[#virt + 1] = chunk
   end
   if #body > view then
-    virt[#virt + 1] = { { ('╰ lines %d-%d of %d (scroll: fey_embed_scroll_down and _up, all of it: fey_embed_peek)'):format(from, to, #body), 'FeyEmbedBorder' } }
+    virt[#virt + 1] = {
+      {
+        ('╰ lines %d-%d of %d (scroll: fey_embed_scroll_down and _up, all of it: fey_embed_peek)'):format(from, to, #body),
+        'FeyEmbedBorder',
+      },
+    }
   end
   local ok, id = pcall(vim.api.nvim_buf_set_extmark, bufnr, ns, embed.last, 0, { virt_lines = virt })
   embed.drawn = ok and id or nil
@@ -521,9 +554,7 @@ function M.on_cursor(bufnr)
       if not all_shown(bufnr, true) and cursor_inside(bufnr, embed) then on_image = embed.row end
     else
       local want = shown(bufnr, embed)
-      if (embed.drawn ~= nil) ~= want then
-        draw_one(bufnr, embed)
-      end
+      if (embed.drawn ~= nil) ~= want then draw_one(bufnr, embed) end
       -- the cursor came to an embed that was drawn already: the text under it may be below the screen
       if embed.drawn and cursor_inside(bufnr, embed) and entered[bufnr] ~= scroll_key(embed) then reveal(bufnr, embed) end
     end
@@ -564,7 +595,8 @@ function M.scroll(direction)
   local buf_scrolls = scrolls[bufnr] or {}
   scrolls[bufnr] = buf_scrolls
   local step = math.max(1, math.floor(view / 2))
-  buf_scrolls[scroll_key(embed)] = math.max(0, math.min((buf_scrolls[scroll_key(embed)] or 0) + direction * step, embed.total - view))
+  buf_scrolls[scroll_key(embed)] =
+    math.max(0, math.min((buf_scrolls[scroll_key(embed)] or 0) + direction * step, embed.total - view))
   draw_one(bufnr, embed)
 end
 
@@ -575,10 +607,14 @@ function M.peek()
   M.refresh(bufnr)
   local embed = M.embed_at(bufnr)
   if not embed then return vim.notify('fey: no embed under the cursor', vim.log.levels.INFO) end
-  if not embed.path then return vim.notify(('fey: cannot find %s'):format(embed.target or 'the target'), vim.log.levels.WARN) end
+  if not embed.path then
+    return vim.notify(('fey: cannot find %s'):format(embed.target or 'the target'), vim.log.levels.WARN)
+  end
   if embed.kind == 'image' then
     local ok, err = vim.ui.open(embed.path)
-    if not ok then vim.notify('fey: cannot open ' .. embed.path .. (err and (': ' .. tostring(err)) or ''), vim.log.levels.WARN) end
+    if not ok then
+      vim.notify('fey: cannot open ' .. embed.path .. (err and (': ' .. tostring(err)) or ''), vim.log.levels.WARN)
+    end
     return
   end
   local lines, err, first = M.content(embed.path, embed.tag.key_values, true)
@@ -643,14 +679,21 @@ function M.toggle(scope)
       if (embed.kind == 'image') == images then set(embed, false) end
     end
     if images then refresh_images(bufnr) end
-    vim.notify(('fey: %s %s'):format(images and 'images' or 'file embeds', now and 'shown' or 'only on the cursor'), vim.log.levels.INFO)
+    vim.notify(
+      ('fey: %s %s'):format(images and 'images' or 'file embeds', now and 'shown' or 'only on the cursor'),
+      vim.log.levels.INFO
+    )
     return
   end
   local pick = M.embed_at(bufnr)
   if pick then
     -- the cursor on the line shows it anyway: the toggle flips what it is without the cursor
     set(pick, toggled(bufnr, pick) == nil)
-    if pick.kind == 'image' then refresh_images(bufnr) elseif shown(bufnr, pick) then reveal(bufnr, pick) end
+    if pick.kind == 'image' then
+      refresh_images(bufnr)
+    elseif shown(bufnr, pick) then
+      reveal(bufnr, pick)
+    end
     return
   end
   vim.notify('fey: no embed under the cursor', vim.log.levels.INFO)
@@ -685,7 +728,9 @@ function M.node_is_embed(node, source)
   local keys = {}
   for _, kv in ipairs(node:field('key_value')) do
     local k, v = kv:field('key')[1], kv:field('value')[1]
-    if k and v then keys[vim.trim(vim.treesitter.get_node_text(k, source))] = vim.trim(vim.treesitter.get_node_text(v, source)) end
+    if k and v then
+      keys[vim.trim(vim.treesitter.get_node_text(k, source))] = vim.trim(vim.treesitter.get_node_text(v, source))
+    end
   end
   return M.is_embed(vim.trim(vim.treesitter.get_node_text(name, source)), keys)
 end

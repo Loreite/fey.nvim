@@ -31,8 +31,12 @@ local function open_head(line)
     if closed_by and rest:find(closed_by) then return end
     if not best or from > best then best = from end
   end
-  for _, e in line:gmatch('(){[#@]%s*()') do consider(e, '[#@]}') end
-  for _, e in line:gmatch('()#%[%s*()') do consider(e, '%]') end
+  for _, e in line:gmatch('(){[#@]%s*()') do
+    consider(e, '[#@]}')
+  end
+  for _, e in line:gmatch('()#%[%s*()') do
+    consider(e, '%]')
+  end
   -- `[ name` of a block and a pair tag; `[#` is a closer
   for s, e in line:gmatch('()%[ %s*()') do
     if line:sub(s - 1, s - 1) ~= '#' and line:sub(s + 1, s + 1) ~= '#' then consider(e, '%]') end
@@ -123,9 +127,7 @@ function M.parse(line)
     local value_lead = #text:match('^[%w_%-]+%s*:%s*')
     return { kind = 'key_value', tag = name, key = key, values = values, base = value, start = base_start + value_lead }
   end
-  if text:match('^[%w_%-]*$') then
-    return { kind = 'key', tag = name, values = values, base = text, start = base_start }
-  end
+  if text:match('^[%w_%-]*$') then return { kind = 'key', tag = name, values = values, base = text, start = base_start } end
   return nil
 end
 

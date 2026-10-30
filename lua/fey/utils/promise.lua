@@ -24,38 +24,28 @@ local managed_threads = setmetatable({}, { __mode = 'k' })
 
 ---@param value any
 ---@return boolean
-local function is_promise(value)
-  return type(value) == 'table' and getmetatable(value) == Promise
-end
+local function is_promise(value) return type(value) == 'table' and getmetatable(value) == Promise end
 
 ---@return FeyPromisePackedValues
-local function pack_values(...)
-  return vim.F.pack_len(...)
-end
+local function pack_values(...) return vim.F.pack_len(...) end
 
 ---@param values FeyPromisePackedValues
 ---@param from? integer
 local function unpack_values(values, from)
-  if (from or 1) == 1 then
-    return vim.F.unpack_len(values)
-  end
+  if (from or 1) == 1 then return vim.F.unpack_len(values) end
   return unpack(values, from, values.n)
 end
 
 ---@param values FeyPromisePackedValues
 ---@return any
-local function first_value(values)
-  return values[1]
-end
+local function first_value(values) return values[1] end
 
 ---@param fn fun(...: any)
 ---@param ... any
 local function schedule(fn, ...)
   local args = pack_values(...)
 
-  vim.schedule(function()
-    fn(unpack_values(args))
-  end)
+  vim.schedule(function() fn(unpack_values(args)) end)
 end
 
 ---@generic T
@@ -83,11 +73,8 @@ local function run_coroutine(fn, on_success, on_error, ...)
 
     if result[2] == AWAIT then
       local promise = result[3]
-      Promise.resolve(promise):next(function(...)
-        step(true, pack_values(...))
-      end, function(...)
-        step(false, pack_values(...))
-      end)
+      Promise.resolve(promise)
+        :next(function(...) step(true, pack_values(...)) end, function(...) step(false, pack_values(...)) end)
       return
     end
 
@@ -100,9 +87,7 @@ end
 ---@generic T
 ---@param promise FeyPromise<T>
 local function flush(promise)
-  if promise._state == PENDING then
-    return
-  end
+  if promise._state == PENDING then return end
 
   local subscribers = promise._subscribers
   promise._subscribers = {}
@@ -115,23 +100,17 @@ end
 ---@generic T
 ---@param promise FeyPromise<T>
 local function schedule_unhandled_check(promise)
-  if promise._unhandled_check_scheduled then
-    return
-  end
+  if promise._unhandled_check_scheduled then return end
 
   promise._unhandled_check_scheduled = true
 
   vim.schedule(function()
     promise._unhandled_check_scheduled = false
 
-    if promise._state ~= REJECTED or promise._handled then
-      return
-    end
+    if promise._state ~= REJECTED or promise._handled then return end
 
     local reason = first_value(promise._value)
-    if reason == 'Keyboard interrupt' then
-      return
-    end
+    if reason == 'Keyboard interrupt' then return end
 
     error('unhandled promise rejection: ' .. vim.inspect({ reason }, { newline = '', indent = '' }), 0)
   end)
@@ -141,9 +120,7 @@ end
 ---@param promise FeyPromise<T>
 ---@param ... any
 local function reject_promise(promise, ...)
-  if promise._state ~= PENDING then
-    return
-  end
+  if promise._state ~= PENDING then return end
 
   promise._state = REJECTED
   promise._value = pack_values(...)
@@ -156,9 +133,7 @@ end
 ---@param promise FeyPromise<T>
 ---@param ... T
 local function fulfill_promise(promise, ...)
-  if promise._state ~= PENDING then
-    return
-  end
+  if promise._state ~= PENDING then return end
 
   promise._state = FULFILLED
   promise._value = pack_values(...)
@@ -178,11 +153,7 @@ local function resolve_promise(promise, ...)
   end
 
   if argc == 1 and is_promise(first) then
-    first:next(function(...)
-      fulfill_promise(promise, ...)
-    end, function(...)
-      reject_promise(promise, ...)
-    end)
+    first:next(function(...) fulfill_promise(promise, ...) end, function(...) reject_promise(promise, ...) end)
     return
   end
 
@@ -207,26 +178,20 @@ function Promise.new(executor)
   local settled = false
 
   local function resolve(...)
-    if settled then
-      return
-    end
+    if settled then return end
 
     settled = true
     resolve_promise(promise, ...)
   end
 
   local function reject(...)
-    if settled then
-      return
-    end
+    if settled then return end
 
     settled = true
     reject_promise(promise, ...)
   end
 
-  run_coroutine(function()
-    executor(resolve, reject)
-  end, function() end, reject)
+  run_coroutine(function() executor(resolve, reject) end, function() end, reject)
 
   return promise
 end
@@ -238,9 +203,7 @@ function Promise.resolve(...)
   local argc = select('#', ...)
   local first = ...
 
-  if argc == 1 and is_promise(first) then
-    return first
-  end
+  if argc == 1 and is_promise(first) then return first end
 
   ---@type FeyPromise<T>
   local promise = setmetatable({
@@ -262,9 +225,7 @@ function Promise.reject(...)
   local argc = select('#', ...)
   local first = ...
 
-  if argc == 1 and is_promise(first) then
-    return first
-  end
+  if argc == 1 and is_promise(first) then return first end
 
   ---@type FeyPromise<any>
   local promise = setmetatable({
@@ -312,21 +273,17 @@ function Promise:next(on_fulfilled, on_rejected)
       return
     end
 
-    run_coroutine(function()
-      return callback(unpack_values(self._value))
-    end, function(...)
-      resolve_promise(child, ...)
-    end, function(...)
-      reject_promise(child, ...)
-    end)
+    run_coroutine(
+      function() return callback(unpack_values(self._value)) end,
+      function(...) resolve_promise(child, ...) end,
+      function(...) reject_promise(child, ...) end
+    )
   end
 
   self._handled = true
   table.insert(self._subscribers, run_callback)
 
-  if self._state ~= PENDING then
-    schedule(run_callback)
-  end
+  if self._state ~= PENDING then schedule(run_callback) end
 
   return child
 end
@@ -335,9 +292,7 @@ end
 ---@param self FeyPromise<T>
 ---@param on_rejected fun(reason: any): U|FeyPromise<U>
 ---@return FeyPromise<T|U>
-function Promise:catch(on_rejected)
-  return self:next(nil, on_rejected)
-end
+function Promise:catch(on_rejected) return self:next(nil, on_rejected) end
 
 ---@generic T
 ---@param self FeyPromise<T>
@@ -365,18 +320,12 @@ function Promise:wait(timeout, interval)
 
   if self._state == PENDING then
     local timeout_ms = timeout or 30000
-    local ok = vim.wait(timeout_ms, function()
-      return self._state ~= PENDING
-    end, interval or 10)
+    local ok = vim.wait(timeout_ms, function() return self._state ~= PENDING end, interval or 10)
 
-    if not ok then
-      error(('Promise timed out after %dms'):format(timeout_ms), 0)
-    end
+    if not ok then error(('Promise timed out after %dms'):format(timeout_ms), 0) end
   end
 
-  if self._state == REJECTED then
-    error(first_value(self._value), 0)
-  end
+  if self._state == REJECTED then error(first_value(self._value), 0) end
 
   return unpack_values(self._value)
 end
@@ -390,9 +339,7 @@ function Promise.async(callback, ...)
   assert(type(callback) == 'function', 'Promise.async expects a callback function')
   local args = pack_values(...)
 
-  return Promise.new(function(resolve, reject)
-    run_coroutine(callback, resolve, reject, unpack_values(args))
-  end)
+  return Promise.new(function(resolve, reject) run_coroutine(callback, resolve, reject, unpack_values(args)) end)
 end
 
 ---Await promise resolution without blocking the event loop.
@@ -401,37 +348,26 @@ end
 ---@return T
 function Promise:await()
   local thread, is_main = coroutine.running()
-  if not thread or is_main then
-    error('promise:await() must be called from a yieldable async context', 0)
-  end
+  if not thread or is_main then error('promise:await() must be called from a yieldable async context', 0) end
 
-  if self._state == FULFILLED then
-    return unpack_values(self._value)
-  end
+  if self._state == FULFILLED then return unpack_values(self._value) end
 
-  if self._state == REJECTED then
-    error(first_value(self._value), 0)
-  end
+  if self._state == REJECTED then error(first_value(self._value), 0) end
 
   if not managed_threads[thread] then
-    self:next(function(...)
-      coroutine.resume(thread, true, pack_values(...))
-    end, function(...)
-      coroutine.resume(thread, false, pack_values(...))
-    end)
+    self:next(
+      function(...) coroutine.resume(thread, true, pack_values(...)) end,
+      function(...) coroutine.resume(thread, false, pack_values(...)) end
+    )
 
     local ok, values = coroutine.yield()
-    if not ok then
-      error(first_value(values), 0)
-    end
+    if not ok then error(first_value(values), 0) end
 
     return unpack_values(values)
   end
 
   local ok, values = coroutine.yield(AWAIT, self)
-  if not ok then
-    error(first_value(values), 0)
-  end
+  if not ok then error(first_value(values), 0) end
 
   return unpack_values(values)
 end
@@ -444,9 +380,7 @@ function Promise.all(items)
 
   local total = #items
 
-  if total == 0 then
-    return Promise.resolve({})
-  end
+  if total == 0 then return Promise.resolve({}) end
 
   return Promise.new(function(resolve, reject)
     ---@type T[]
@@ -456,9 +390,7 @@ function Promise.all(items)
 
     for index, item in ipairs(items) do
       Promise.resolve(item):next(function(value)
-        if settled then
-          return
-        end
+        if settled then return end
 
         results[index] = value
         completed = completed + 1
@@ -468,9 +400,7 @@ function Promise.all(items)
           resolve(results)
         end
       end, function(reason)
-        if settled then
-          return
-        end
+        if settled then return end
 
         settled = true
         reject(reason)
@@ -491,9 +421,7 @@ function Promise.map(mapper, items, concurrency)
   local total = #items
   concurrency = concurrency or total
 
-  if total == 0 then
-    return Promise.resolve({})
-  end
+  if total == 0 then return Promise.resolve({}) end
 
   assert(type(concurrency) == 'number' and concurrency >= 1, 'Promise.map concurrency must be >= 1')
   concurrency = math.floor(concurrency)
@@ -508,22 +436,16 @@ function Promise.map(mapper, items, concurrency)
     local settled = false
 
     local function pump()
-      if settled then
-        return
-      end
+      if settled then return end
 
       while active < concurrency and next_index <= total do
         local index = next_index
         next_index = next_index + 1
         active = active + 1
 
-        run_coroutine(function()
-          return mapper(items[index], index, items)
-        end, function(value)
+        run_coroutine(function() return mapper(items[index], index, items) end, function(value)
           Promise.resolve(value):next(function(resolved)
-            if settled then
-              return
-            end
+            if settled then return end
 
             results[index] = resolved
             active = active - 1
@@ -537,18 +459,14 @@ function Promise.map(mapper, items, concurrency)
 
             pump()
           end, function(reason)
-            if settled then
-              return
-            end
+            if settled then return end
 
             settled = true
             active = active - 1
             reject(reason)
           end)
         end, function(reason)
-          if settled then
-            return
-          end
+          if settled then return end
 
           settled = true
           active = active - 1
@@ -565,8 +483,6 @@ end
 ---@param mapper fun(item: T, index: integer, items: T[]): U|FeyPromise<U>
 ---@param items T[]
 ---@return FeyPromise<U[]>
-function Promise.mapSeries(mapper, items)
-  return Promise.map(mapper, items, 1)
-end
+function Promise.mapSeries(mapper, items) return Promise.map(mapper, items, 1) end
 
 return Promise

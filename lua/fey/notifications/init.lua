@@ -18,8 +18,7 @@ function Notifications:new(opts)
   opts = opts or {}
   local data = {
     timer = nil,
-    source = opts.source
-      or require('fey.agenda.source').new({ scope = (config.notifications or {}).scope }),
+    source = opts.source or require('fey.agenda.source').new({ scope = (config.notifications or {}).scope }),
   }
   setmetatable(data, self)
   self.__index = self
@@ -30,13 +29,7 @@ function Notifications:start_timer()
   self:stop_timer()
   self.timer = vim.uv.new_timer()
   self:notify(Date.now())
-  self.timer:start(
-    (60 - os.date('%S')) * 1000,
-    60000,
-    vim.schedule_wrap(function()
-      self:notify(Date.now())
-    end)
-  )
+  self.timer:start((60 - os.date('%S')) * 1000, 60000, vim.schedule_wrap(function() self:notify(Date.now()) end))
   return self
 end
 
@@ -51,9 +44,7 @@ end
 function Notifications:notify(time)
   local tasks = self:get_tasks(time)
 
-  if type(config.notifications.notifier) == 'function' then
-    return config.notifications.notifier(tasks)
-  end
+  if type(config.notifications.notifier) == 'function' then return config.notifications.notifier(tasks) end
 
   local result = {}
   for _, task in ipairs(tasks) do
@@ -64,9 +55,7 @@ function Notifications:notify(time)
     })
   end
 
-  if not vim.tbl_isempty(result) then
-    NotificationPopup:new({ content = result, border = config.win_border })
-  end
+  if not vim.tbl_isempty(result) then NotificationPopup:new({ content = result, border = config.win_border }) end
 end
 
 function Notifications:cron()
@@ -139,12 +128,8 @@ end
 function Notifications:_check_reminders(date, time)
   local result = {}
   local notifications = config.notifications or {}
-  if date:is_deadline() and not notifications.deadline_reminder then
-    return result
-  end
-  if date:is_scheduled() and not notifications.scheduled_reminder then
-    return result
-  end
+  if date:is_deadline() and not notifications.deadline_reminder then return result end
+  if date:is_scheduled() and not notifications.scheduled_reminder then return result end
 
   if notifications.repeater_reminder_time and date:get_repeater() then
     local repeater_time = date:apply_repeater_until(time)

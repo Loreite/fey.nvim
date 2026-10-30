@@ -40,35 +40,25 @@ function Capture:new(opts)
   return this
 end
 
-function Capture:prompt()
-  self:_create_prompt(self.templates:get_list())
-end
+function Capture:prompt() self:_create_prompt(self.templates:get_list()) end
 
 ---@private
 function Capture:setup_mappings()
   local maps = config:get_mappings('capture', vim.api.nvim_get_current_buf())
-  if not maps then
-    return
-  end
+  if not maps then return end
   local capture_map = maps.fey_capture_finalize
   capture_map.map_entry
-    :with_handler(function()
-      return self:refile()
-    end)
+    :with_handler(function() return self:refile() end)
     :attach(capture_map.default_map, capture_map.user_map, capture_map.opts)
 
   local refile_map = maps.fey_capture_refile
   refile_map.map_entry
-    :with_handler(function()
-      return self:refile_to_destination()
-    end)
+    :with_handler(function() return self:refile_to_destination() end)
     :attach(refile_map.default_map, refile_map.user_map, refile_map.opts)
 
   local kill_map = maps.fey_capture_kill
   kill_map.map_entry
-    :with_handler(function()
-      return self:kill(true)
-    end)
+    :with_handler(function() return self:kill(true) end)
     :attach(kill_map.default_map, kill_map.user_map, kill_map.opts)
 end
 
@@ -81,9 +71,7 @@ function Capture:open_template(template)
       self._windows[capture_window.id] = capture_window
       return self:setup_mappings()
     end,
-    on_close = function(capture_window)
-      return self:_on_window_closed(capture_window)
-    end,
+    on_close = function(capture_window) return self:_on_window_closed(capture_window) end,
   })
 
   return window:open()
@@ -92,9 +80,7 @@ end
 ---@param shortcut string
 function Capture:open_template_by_shortcut(shortcut)
   local template = self.templates:get_list()[shortcut]
-  if not template then
-    return utils.echo_error('No capture template with shortcut ' .. shortcut)
-  end
+  if not template then return utils.echo_error('No capture template with shortcut ' .. shortcut) end
   return self:open_template(template)
 end
 
@@ -117,9 +103,7 @@ function Capture:_on_window_closed(capture_window)
     if self.on_cancel_refile then self.on_cancel_refile(self) end
     return utils.echo_info('Canceled.')
   end
-  vim.schedule(function()
-    self:_write(capture_window, nil, lines)
-  end)
+  vim.schedule(function() self:_write(capture_window, nil, lines) end)
 end
 
 ---Write the capture to the destination of its template (the mapping `fey_capture_finalize`)
@@ -235,9 +219,7 @@ function Capture.query_destination(src)
   -- a link names the hollow it is in when it is not the hollow of the vault the query ran in
   local tree = require('fey.hollow.tree')
   local root = own and own.root
-  if link.hollow then
-    root = tree.resolve_ref(link.hollow, root)
-  end
+  if link.hollow then root = tree.resolve_ref(link.hollow, root) end
   if not root then return nil end
   local abs = vim.fs.joinpath(root, link.path)
   local signature = link.subpath
@@ -305,9 +287,11 @@ function Capture.title_exists(title)
   local spec = config.fey_refile_scope or 'court'
   if spec == 'court' and not require('fey.hollow.court').root() then spec = 'current' end
   local root = require('fey.hollow.tree').hollow_root_of(vim.fn.getcwd())
-  local rows = scope.collect(spec, root, function(vault)
-    return vault:query('SELECT 1 FROM headings WHERE title = :t COLLATE NOCASE LIMIT 1', { t = title })
-  end)
+  local rows = scope.collect(
+    spec,
+    root,
+    function(vault) return vault:query('SELECT 1 FROM headings WHERE title = :t COLLATE NOCASE LIMIT 1', { t = title }) end
+  )
   return #rows > 0
 end
 
@@ -326,46 +310,30 @@ function Capture:build_note_capture(title)
       for _, line in ipairs(content) do
         local is_non_empty_line = not line:match('^%s*#%s') and vim.trim(line) ~= ''
 
-        if trim_obsolete and is_non_empty_line then
-          trim_obsolete = false
-        end
+        if trim_obsolete and is_non_empty_line then trim_obsolete = false end
 
-        if not trim_obsolete then
-          table.insert(result, line)
-        end
+        if not trim_obsolete then table.insert(result, line) end
       end
 
-      if #result == 0 then
-        return nil
-      end
+      if #result == 0 then return nil end
 
-      local has_non_empty_line = vim.tbl_filter(function(line)
-        return vim.trim(line) ~= ''
-      end, result)
+      local has_non_empty_line = vim.tbl_filter(function(line) return vim.trim(line) ~= '' end, result)
 
-      if has_non_empty_line then
-        return result
-      end
+      if has_non_empty_line then return result end
 
       return nil
     end,
     on_open = function(capture_window)
       local maps = config:get_mappings('note', vim.api.nvim_get_current_buf())
-      if not maps then
-        return
-      end
+      if not maps then return end
       local finalize_map = maps.fey_note_finalize
       finalize_map.map_entry
-        :with_handler(function()
-          return capture_window:finish()
-        end)
+        :with_handler(function() return capture_window:finish() end)
         :attach(finalize_map.default_map, finalize_map.user_map, finalize_map.opts)
 
       local kill_map = maps.fey_note_kill
       kill_map.map_entry
-        :with_handler(function()
-          return capture_window:kill()
-        end)
+        :with_handler(function() return capture_window:kill() end)
         :attach(kill_map.default_map, kill_map.user_map, kill_map.opts)
     end,
     on_close = function(capture_window)
@@ -374,9 +342,7 @@ function Capture:build_note_capture(title)
       if is_modified then
         local choice = vim.fn.confirm('Do you want to capture this note?', '&Yes\n&No')
         vim.cmd([[redraw!]])
-        if choice ~= 1 then
-          return utils.echo_info('Canceled.')
-        end
+        if choice ~= 1 then return utils.echo_info('Canceled.') end
       end
 
       capture_window:finish()
@@ -389,9 +355,7 @@ end
 function Capture:kill(from_mapping, window_id)
   local window = self._windows[window_id or vim.b.fey_capture_window_id]
   if window then
-    if from_mapping and self.on_cancel_refile then
-      self.on_cancel_refile(self)
-    end
+    if from_mapping and self.on_cancel_refile then self.on_cancel_refile(self) end
     window.done = true
     self._windows[window.id] = nil
     window:kill()
@@ -400,9 +364,7 @@ end
 
 ---@deprecated
 ---@private
-function Capture:_setup_closing_note()
-  return self:build_note_capture('Insert note for closed todo item')
-end
+function Capture:_setup_closing_note() return self:build_note_capture('Insert note for closed todo item') end
 
 ---@private
 ---@param base_key string
@@ -428,19 +390,13 @@ function Capture:_create_menu_items(templates)
       }
       if type(template) == 'string' then
         item.label = template .. '...'
-        item.action = function()
-          self:_create_prompt(self:_get_subtemplates(key, templates))
-        end
+        item.action = function() self:_create_prompt(self:_get_subtemplates(key, templates)) end
       elseif vim.tbl_count(template.subtemplates) > 0 then
         item.label = template.description .. '...'
-        item.action = function()
-          self:_create_prompt(template.subtemplates)
-        end
+        item.action = function() self:_create_prompt(template.subtemplates) end
       else
         item.label = template.description
-        item.action = function()
-          return self:open_template(template)
-        end
+        item.action = function() return self:open_template(template) end
       end
       table.insert(menu_items, item)
     end

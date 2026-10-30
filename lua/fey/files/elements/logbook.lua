@@ -55,7 +55,9 @@ local function parse_clock_line(line)
   if not body then return nil end
   local head, keys = body, ''
   local semi = body:find(';', 1, true)
-  if semi then head, keys = body:sub(1, semi - 1), body:sub(semi + 1) end
+  if semi then
+    head, keys = body:sub(1, semi - 1), body:sub(semi + 1)
+  end
   local end_text = keys:match('end:%s*([^;]-)%s*$') or keys:match('end:%s*([^;]-)%s*;')
   return vim.trim(head), end_text and vim.trim(end_text) or nil
 end
@@ -73,9 +75,13 @@ function Logbook.from_heading(heading)
   local lines = vim.api.nvim_buf_get_lines(bufnr, first - 1, last, false)
   local open, close, block
   for i, l in ipairs(lines) do
-    if not open and l:match(open_pattern()) then open = i
-    elseif not open and l:match(block_pattern()) then open, block = i, true
-    elseif open and not block and not close and l:match(close_pattern()) then close = i end
+    if not open and l:match(open_pattern()) then
+      open = i
+    elseif not open and l:match(block_pattern()) then
+      open, block = i, true
+    elseif open and not block and not close and l:match(close_pattern()) then
+      close = i
+    end
   end
   if not open then return nil end
   local indent, last = '', nil
@@ -157,7 +163,9 @@ function Logbook:get_total_with_active()
   local total = self:get_total()
   local active = self:get_active()
   if not active then return total end
-  return Duration.from_minutes(total.minutes + Duration.from_seconds(Date.now().timestamp - active.start_time.timestamp).minutes)
+  return Duration.from_minutes(
+    total.minutes + Duration.from_seconds(Date.now().timestamp - active.start_time.timestamp).minutes
+  )
 end
 
 ---The text of a clock tag
@@ -169,7 +177,12 @@ local function clock_text(start_text, end_text, dur_text)
   local keys = {}
   if end_text then keys['end'] = end_text end
   if dur_text then keys.dur = dur_text end
-  return require('fey.files.elements.tags.edit').build(config.fey_clock_tag_name, { start_text }, keys, { order = { 'end', 'dur' } })
+  return require('fey.files.elements.tags.edit').build(
+    config.fey_clock_tag_name,
+    { start_text },
+    keys,
+    { order = { 'end', 'dur' } }
+  )
 end
 
 ---Start a clock now in a heading: into its logbook, or into a new one under its metadata
@@ -180,7 +193,13 @@ function Logbook.add_clock_in(heading)
   local text = clock_text(now:to_tag_value())
   local logbook = Logbook.from_heading(heading)
   if logbook then
-    vim.api.nvim_buf_set_lines(logbook.bufnr, logbook.range.start_line, logbook.range.start_line, false, { logbook.indent .. text })
+    vim.api.nvim_buf_set_lines(
+      logbook.bufnr,
+      logbook.range.start_line,
+      logbook.range.start_line,
+      false,
+      { logbook.indent .. text }
+    )
     return now
   end
   local bufnr = heading.file:get_valid_bufnr()

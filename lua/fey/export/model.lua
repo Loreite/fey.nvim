@@ -91,9 +91,21 @@ local function kind_of(name)
   if name == config.fey_var_tag_name then return 'var' end
   if name == config.fey_labels_tag_name or vim.tbl_contains(config.vault.label_tags or {}, name) then return 'labels' end
   for _, n in ipairs({
-    config.fey_property_tag_name, config.fey_scheduled_tag_name, config.fey_deadline_tag_name, config.fey_closed_tag_name,
-    config.fey_clock_tag_name, config.fey_logbook_tag_name, config.fey_query_tag_name, config.fey_db_tag_name,
-    config.fey_clocktable_tag_name, config.fey_nvim_config_tag_name, config.fey_plugin_tag_name, config.fey_tblfm_tag_name, 'table', 'array', 'value',
+    config.fey_property_tag_name,
+    config.fey_scheduled_tag_name,
+    config.fey_deadline_tag_name,
+    config.fey_closed_tag_name,
+    config.fey_clock_tag_name,
+    config.fey_logbook_tag_name,
+    config.fey_query_tag_name,
+    config.fey_db_tag_name,
+    config.fey_clocktable_tag_name,
+    config.fey_nvim_config_tag_name,
+    config.fey_plugin_tag_name,
+    config.fey_tblfm_tag_name,
+    'table',
+    'array',
+    'value',
   }) do
     if name == n then return 'machinery' end
   end
@@ -163,9 +175,7 @@ local function resolve_var_tag(ctx, values, keys)
   if not ref then return nil end
   local vopts = { vars = ctx.vars, path = ctx.path, src = ctx.src }
   local resolved = vars.get(ref, vopts)
-  if resolved and resolved:find('$', 1, true) then
-    resolved = vars.interpolate(resolved, vopts)
-  end
+  if resolved and resolved:find('$', 1, true) then resolved = vars.interpolate(resolved, vopts) end
   return resolved
 end
 
@@ -188,7 +198,9 @@ local function inline_tag(ctx, node)
   local function body_items() return body and convert_inlines(ctx, body) or {} end
   if kind == 'link' or kind == 'section' then
     local target, sig = values[1] or keys.url or keys.file, keys.section or keys.heading
-    if kind == 'section' then target, sig = values[2] or keys.file, values[1] end
+    if kind == 'section' then
+      target, sig = values[2] or keys.file, values[1]
+    end
     local children = body and #body_items() > 0 and body_items() or nil
     if not children then
       local label = keys.desc
@@ -200,7 +212,15 @@ local function inline_tag(ctx, node)
     end
     -- an embedded image is drawn where it is written; any other embed is a link
     if require('fey.embed').is_embed(name, keys) and target and require('fey.embed').kind_of(target) == 'image' then
-      return { { t = 'image', src = href(ctx, target, sig), alt = keys.desc or vim.fn.fnamemodify(target, ':t:r'), width = tonumber(keys.width), height = tonumber(keys.height) } }
+      return {
+        {
+          t = 'image',
+          src = href(ctx, target, sig),
+          alt = keys.desc or vim.fn.fnamemodify(target, ':t:r'),
+          width = tonumber(keys.width),
+          height = tonumber(keys.height),
+        },
+      }
     end
     return { { t = 'link', href = href(ctx, target, sig), children = children } }
   elseif kind == 'fn' then
@@ -223,14 +243,19 @@ local function inline_tag(ctx, node)
   if spec ~= nil then
     -- a tag with an export of its own: a line tag wraps its text; a scope tag is dealt with where its body is (`ctx.wrap`)
     if body then
-      return { { t = 'wrap', spec = spec, tag = { name = name, form = node:type(), values = values, keys = keys }, children = body_items() } }
+      return {
+        {
+          t = 'wrap',
+          spec = spec,
+          tag = { name = name, form = node:type(), values = values, keys = keys },
+          children = body_items(),
+        },
+      }
     end
     return {}
   end
   local element = body and html_element(name)
-  if element then
-    return { { t = 'html', tag = element, attrs = html_attrs(keys), children = body_items() } }
-  end
+  if element then return { { t = 'html', tag = element, attrs = html_attrs(keys), children = body_items() } } end
   -- a tag of another kind keeps what it holds
   return body_items()
 end
@@ -507,13 +532,22 @@ local function convert_tag_block(ctx, node)
     -- a block, a pair or a line tag: what it holds is the link
     local _, keys = tag_head(ctx, node)
     local target, sig = values[1] or keys.url or keys.file, keys.section or keys.heading
-    if kind == 'section' then target, sig = values[2] or keys.file, values[1] end
+    if kind == 'section' then
+      target, sig = values[2] or keys.file, values[1]
+    end
     return { { t = 'linkblock', href = href(ctx, target, sig), blocks = inner() } }
   end
   local _, keys = tag_head(ctx, node)
   local spec = exports.lookup(name)
   if spec ~= nil then
-    return { { t = 'wrapblock', spec = spec, tag = { name = name, form = node:type(), values = values, keys = keys }, blocks = inner() } }
+    return {
+      {
+        t = 'wrapblock',
+        spec = spec,
+        tag = { name = name, form = node:type(), values = values, keys = keys },
+        blocks = inner(),
+      },
+    }
   end
   local element = html_element(name)
   if element then return { { t = 'htmlblock', tag = element, attrs = html_attrs(keys), blocks = inner() } } end
@@ -657,7 +691,10 @@ function M.parse(src, opts)
       if target then
         local values, keys = tag_head(ctx, node)
         ctx.wrap[target:id()] = ctx.wrap[target:id()] or {}
-        table.insert(ctx.wrap[target:id()], { spec = spec, tag = { name = name, form = 'scope_tag', values = values, keys = keys } })
+        table.insert(
+          ctx.wrap[target:id()],
+          { spec = spec, tag = { name = name, form = 'scope_tag', values = values, keys = keys } }
+        )
       end
     end
   end

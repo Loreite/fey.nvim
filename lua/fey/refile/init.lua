@@ -91,8 +91,12 @@ end
 ---@return string[]
 local function trim_blank_ends(lines)
   local first, last = 1, #lines
-  while first <= last and lines[first]:match('^%s*$') do first = first + 1 end
-  while last >= first and lines[last]:match('^%s*$') do last = last - 1 end
+  while first <= last and lines[first]:match('^%s*$') do
+    first = first + 1
+  end
+  while last >= first and lines[last]:match('^%s*$') do
+    last = last - 1
+  end
   return vim.list_slice(lines, first, last)
 end
 
@@ -106,7 +110,9 @@ end
 local function insert_block(buf, lines, after_line, exact, bare)
   local all = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
   local at = math.min(after_line or #all, #all)
-  while not exact and at > 0 and all[at]:match('^%s*$') do at = at - 1 end
+  while not exact and at > 0 and all[at]:match('^%s*$') do
+    at = at - 1
+  end
   local block = (at > 0 and not bare) and vim.list_extend({ '' }, lines) or vim.deepcopy(lines)
   vim.api.nvim_buf_set_lines(buf, at, at, false, block)
   return at + (at > 0 and 2 or 1)
@@ -119,7 +125,9 @@ end
 local function remove_block(buf, first, last)
   local all = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
   local stop = last
-  while stop < #all and all[stop + 1]:match('^%s*$') do stop = stop + 1 end
+  while stop < #all and all[stop + 1]:match('^%s*$') do
+    stop = stop + 1
+  end
   -- keep one blank line between what is left, none at the very end or start
   if stop >= #all or first == 1 then
     vim.api.nvim_buf_set_lines(buf, first - 1, stop, false, {})
@@ -177,12 +185,14 @@ function M.move(source, destination, opts)
     end)
     local pre = ok_range
     local result = pre:next(function() return collect() end)
-    return result:next(function() return M._insert_and_remove(source, destination, moved, opts, same_file, src_hollow_root, old_signature) end)
+    return result:next(
+      function() return M._insert_and_remove(source, destination, moved, opts, same_file, src_hollow_root, old_signature) end
+    )
   end
 
-  return collect():next(function()
-    return M._insert_and_remove(source, destination, moved, opts, same_file, src_hollow_root, old_signature)
-  end)
+  return collect():next(
+    function() return M._insert_and_remove(source, destination, moved, opts, same_file, src_hollow_root, old_signature) end
+  )
 end
 
 ---@private
@@ -231,7 +241,9 @@ function M._insert_and_remove(source, destination, moved, opts, same_file, src_h
         new.signature = current_signature()
         if opts.props then
           local h = require('fey').instance().files:get_closest_heading({ new.line, 0 })
-          for k, v in pairs(opts.props) do h:set_property(k, v) end
+          for k, v in pairs(opts.props) do
+            h:set_property(k, v)
+          end
         end
       end)
     end
@@ -243,7 +255,9 @@ function M._insert_and_remove(source, destination, moved, opts, same_file, src_h
       new.signature = current_signature()
       if opts.props then
         local h = require('fey').instance().files:get_closest_heading({ new.line, 0 })
-        for k, v in pairs(opts.props) do h:set_property(k, v) end
+        for k, v in pairs(opts.props) do
+          h:set_property(k, v)
+        end
       end
     end)
   end
@@ -263,9 +277,9 @@ function M._insert_and_remove(source, destination, moved, opts, same_file, src_h
     end)
   end
 
-  return insert():next(function() return remove() end):next(function()
-    return { signature = new.signature, line = new.line, inbound = inbound, message = opts.message }
-  end)
+  return insert()
+    :next(function() return remove() end)
+    :next(function() return { signature = new.signature, line = new.line, inbound = inbound, message = opts.message } end)
 end
 
 ---Insert text into a file. The text is put at the end of the destination heading's subtree (or of the
@@ -297,7 +311,9 @@ function M.insert(destination, lines, opts)
       after = dest.end_line
     elseif opts.regexp then
       local found = vim.fn.search(opts.regexp, 'ncw')
-      if found > 0 then after, exact, bare = found, true, true end
+      if found > 0 then
+        after, exact, bare = found, true, true
+      end
     end
     if opts.adapt then lines = adapt_lines(trim_blank_ends(lines), dest.level and dest.level + 1 or 1) end
     local first = insert_block(buf, lines, after, exact, bare)
@@ -316,7 +332,9 @@ function M.insert(destination, lines, opts)
     local ok, heading = pcall(files.get_closest_heading, files, { first, 0 })
     local signature = ok and heading and heading:get_range().start_line == first and current_signature() or ''
     if opts.props and signature ~= '' then
-      for k, v in pairs(opts.props) do heading:set_property(k, v) end
+      for k, v in pairs(opts.props) do
+        heading:set_property(k, v)
+      end
     end
     return { signature = signature, line = first }
   end)
@@ -334,12 +352,14 @@ function M.destinations(spec, root)
   root = root or require('fey.hollow.tree').hollow_root_of(vim.fn.getcwd())
   local scope = require('fey.hollow.scope')
   local files = scope.collect(spec, root, function(vault) return vault:files() end)
-  local headings = scope.collect(spec, root, function(vault)
-    return vault:query(
-      [[SELECT f.path, h.ord, h.line, h.end_line, h.level, h.signature, h.title FROM headings h
-        JOIN files f ON f.id = h.file_id ORDER BY f.path, h.ord]]
-    )
-  end)
+  local headings = scope.collect(
+    spec,
+    root,
+    function(vault)
+      return vault:query([[SELECT f.path, h.ord, h.line, h.end_line, h.level, h.signature, h.title FROM headings h
+        JOIN files f ON f.id = h.file_id ORDER BY f.path, h.ord]])
+    end
+  )
   local out = {}
   for _, row in ipairs(files) do
     if not row.path:match('%.fey_archive$') then
@@ -462,22 +482,25 @@ function M.archive(source)
   local root = tree.hollow_root_of(source.abs)
   local id = root and tree.id_of(root)
   local rel = root and vim.fs.relpath(root, realpath(source.abs)) or source.abs
-  local props = { archived_from = id and (id .. '/' .. rel) or rel, archived_at = require('fey.objects.date').now():to_string() }
+  local props =
+    { archived_from = id and (id .. '/' .. rel) or rel, archived_at = require('fey.objects.date').now():to_string() }
 
   -- what is written needs the heading before it is moved
   local outline, state
   return Edit.run(source, function()
     local heading = heading_here()
     outline, state = heading:get_heading_path(), heading:get_todo()
-  end):next(function()
-    if outline and outline ~= '' then props.archived_path = outline end
-    if state then props.archived_state = state end
-    return M.move(source, { abs = location }, { props = props })
-  end):next(function(result)
-    local utils = require('fey.utils')
-    utils.echo_info(('Archived to %s'):format(vim.fn.fnamemodify(location, ':t')))
-    return result
   end)
+    :next(function()
+      if outline and outline ~= '' then props.archived_path = outline end
+      if state then props.archived_state = state end
+      return M.move(source, { abs = location }, { props = props })
+    end)
+    :next(function(result)
+      local utils = require('fey.utils')
+      utils.echo_info(('Archived to %s'):format(vim.fn.fnamemodify(location, ':t')))
+      return result
+    end)
 end
 
 ---Archive the heading under the cursor (the mapping `fey_archive_subtree`)

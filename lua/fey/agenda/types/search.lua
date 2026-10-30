@@ -27,23 +27,17 @@ function FeyAgendaSearchType:_get_header()
 end
 
 function FeyAgendaSearchType:prepare()
-  if not self.heading_query or self.heading_query == '' then
-    return self:get_search_term()
-  end
+  if not self.heading_query or self.heading_query == '' then return self:get_search_term() end
   return self
 end
 
 ---The headings whose title or text has the term
 ---@return FeyAgendaEntry[]
-function FeyAgendaSearchType:get_entries()
-  return self.source:search(vim.pesc(self.heading_query or ''))
-end
+function FeyAgendaSearchType:get_entries() return self.source:search(vim.pesc(self.heading_query or '')) end
 
 function FeyAgendaSearchType:get_search_term()
   return Input.open('Enter search term: ', self.heading_query or ''):next(function(value)
-    if not value then
-      return false
-    end
+    if not value then return false end
     self.heading_query = value
     return self
   end)
@@ -51,9 +45,7 @@ end
 
 function FeyAgendaSearchType:redraw()
   -- Skip prompt for custom views
-  if self.id then
-    return self
-  end
+  if self.id then return self end
   return self:get_search_term()
 end
 

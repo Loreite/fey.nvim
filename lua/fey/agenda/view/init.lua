@@ -15,9 +15,7 @@ function FeyAgendaView:new(opts)
   local line_nr = vim.api.nvim_buf_line_count(opts.bufnr)
   -- Increase the line if the view is not the first one
   -- Since nvim_buf_set_lines overrides line from the previous view
-  if line_nr > 1 then
-    line_nr = line_nr + 1
-  end
+  if line_nr > 1 then line_nr = line_nr + 1 end
   return setmetatable({
     bufnr = opts.bufnr,
     highlighter = opts.highlighter,
@@ -59,9 +57,7 @@ function FeyAgendaView:replace_line(old_line, new_line)
 end
 
 function FeyAgendaView:render()
-  if #self.lines == 0 then
-    return self
-  end
+  if #self.lines == 0 then return self end
   local lines = {}
   local highlights = {}
   local virt_texts = {}

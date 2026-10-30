@@ -28,7 +28,8 @@ function M.refresh(bufnr)
   if not vault then return end
   local rel = vault:rel_of(vim.api.nvim_buf_get_name(bufnr))
   if not rel then return end
-  local today = os.time({ year = tonumber(os.date('%Y')), month = tonumber(os.date('%m')), day = tonumber(os.date('%d')), hour = 0 })
+  local today =
+    os.time({ year = tonumber(os.date('%Y')), month = tonumber(os.date('%m')), day = tonumber(os.date('%d')), hour = 0 })
   local edit = require('fey.files.elements.tags.edit')
   local groups = { deadline = '@fey.date.overdue', scheduled = '@fey.date.scheduled_past' }
   for _, row in ipairs(vault:dates({ kinds = { 'deadline', 'scheduled' }, path = rel, open_only = true })) do

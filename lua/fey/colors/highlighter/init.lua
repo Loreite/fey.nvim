@@ -32,12 +32,8 @@ function FeyHighlighter:_setup()
   require('fey.colors.highlighter.overdue').setup()
 
   vim.api.nvim_set_decoration_provider(self.namespace, {
-    on_win = function(...)
-      return self:_on_win(...)
-    end,
-    on_line = function(...)
-      return self:_on_line(...)
-    end,
+    on_win = function(...) return self:_on_win(...) end,
+    on_line = function(...) return self:_on_line(...) end,
   })
 end
 
@@ -58,25 +54,19 @@ function FeyHighlighter:_parse_tree(bufnr, win, range)
         self.buffers[bufnr].tree = parsed_trees and parsed_trees[1]
         if self.parsing[win] then
           self.parsing[win] = false
-          if vim.api.nvim_win_is_valid(win) then
-            vim.api.nvim__redraw({ win = win, valid = false, flush = false })
-          end
+          if vim.api.nvim_win_is_valid(win) then vim.api.nvim__redraw({ win = win, valid = false, flush = false }) end
         end
       end)
 end
 
 function FeyHighlighter:_on_win(_, win, bufnr, topline, botline)
   local is_fey_buffer = vim.bo[bufnr].filetype == 'fey'
-  if not is_fey_buffer then
-    return false
-  end
+  if not is_fey_buffer then return false end
   if not self.buffers[bufnr] then
     self.buffers[bufnr] = { language_tree = vim.treesitter.get_parser(bufnr, 'fey') }
     self:_parse_tree(bufnr, win, false)
     self.buffers[bufnr].language_tree:register_cbs({
-      on_detach = function(buf)
-        self:_on_detach(buf)
-      end,
+      on_detach = function(buf) self:_on_detach(buf) end,
     })
   else
     self.foldtext:check_cache(bufnr)
@@ -90,9 +80,7 @@ function FeyHighlighter:_on_win(_, win, bufnr, topline, botline)
   end
 end
 
-function FeyHighlighter:_on_line(_, winid, bufnr, line)
-  self:_on_line_impl(bufnr, line, false, winid)
-end
+function FeyHighlighter:_on_line(_, winid, bufnr, line) self:_on_line_impl(bufnr, line, false, winid) end
 
 ---@param bufnr number
 ---@param line number

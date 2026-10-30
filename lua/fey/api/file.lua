@@ -164,7 +164,11 @@ function FeyFile:remove_property(key) return self:set_property(key, nil) end
 function FeyFile:add_label(label)
   local current = self:property('labels')
   local list = {}
-  if type(current) == 'table' then list = vim.deepcopy(current) elseif type(current) == 'string' then list = { current } end
+  if type(current) == 'table' then
+    list = vim.deepcopy(current)
+  elseif type(current) == 'string' then
+    list = { current }
+  end
   for _, l in ipairs(list) do
     if tostring(l):lower() == label:lower() then return true end
   end

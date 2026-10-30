@@ -11,9 +11,7 @@ local M = {}
 
 ---Escape text for a tag head value (`,` `;` and `\` are the head's delimiters)
 ---@param s string
-local function head_text(s)
-  return (s:gsub('\\', '\\\\'):gsub(',', '\\,'):gsub(';', '\\;'):gsub('[\r\n]+', ' '))
-end
+local function head_text(s) return (s:gsub('\\', '\\\\'):gsub(',', '\\,'):gsub(';', '\\;'):gsub('[\r\n]+', ' ')) end
 
 ---A link as a Fey scope tag: `{@ link, path; desc: Title; section: I.A. @}`
 ---@param link table
@@ -52,7 +50,7 @@ local function value_text(v, opts)
     end
     return '{ ' .. table.concat(parts, ', ') .. ' }'
   end
-  return ((ops.tostring(v):gsub('[\r\n]+', ' ')))
+  return (ops.tostring(v):gsub('[\r\n]+', ' '))
 end
 
 ---@param s string

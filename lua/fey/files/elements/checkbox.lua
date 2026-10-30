@@ -32,7 +32,9 @@ local M = {}
 ---@param nerd integer
 ---@param unicode string
 ---@return FeyCheckboxState
-local function s(mark, name, class, nerd, unicode) return { mark = mark, name = name, class = class, nerd = nerd, unicode = unicode } end
+local function s(mark, name, class, nerd, unicode)
+  return { mark = mark, name = name, class = class, nerd = nerd, unicode = unicode }
+end
 
 -- Symbols first, then the letters of the Primary theme of Obsidian, then a few more letters. The names and
 -- classes follow the common Obsidian checkbox themes where they have a meaning.

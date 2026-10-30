@@ -25,9 +25,7 @@ FeyAgendaTagsType.__index = FeyAgendaTagsType
 function FeyAgendaTagsType:new(opts)
   opts.todo_only = opts.todo_only or false
   opts.sorting_strategy = opts.sorting_strategy or vim.tbl_get(config.fey_agenda_sorting_strategy, 'tags') or {}
-  if not opts.id then
-    opts.subheader = 'Press "r" to update search'
-  end
+  if not opts.id then opts.subheader = 'Press "r" to update search' end
   setmetatable(self, { __index = FeyAgendaTodosType })
   local obj = FeyAgendaTodosType:new(opts)
   setmetatable(obj, self)
@@ -38,17 +36,13 @@ function FeyAgendaTagsType:new(opts)
 end
 
 function FeyAgendaTagsType:_get_header()
-  if self.header then
-    return self.header
-  end
+  if self.header then return self.header end
 
   return 'Headings with TAGS match: ' .. (self.match_query or '')
 end
 
 function FeyAgendaTagsType:prepare()
-  if self.id or self.match_query and self.match_query ~= '' then
-    return self
-  end
+  if self.id or self.match_query and self.match_query ~= '' then return self end
 
   return self:get_labels()
 end
@@ -63,18 +57,15 @@ function FeyAgendaTagsType:get_entries()
     self._cached_search = Search:new(self.match_query)
   end
   local search = self._cached_search
-  local headings = vim.tbl_filter(function(entry)
-    return search:check(entry:search_item())
-  end, self.source:headings({ todo_only = self.todo_only }))
+  local headings = vim.tbl_filter(
+    function(entry) return search:check(entry:search_item()) end,
+    self.source:headings({ todo_only = self.todo_only })
+  )
   if self.todo_ignore_deadlines then
     headings = vim.tbl_filter(function(heading) ---@cast heading FeyAgendaEntry
       local deadline_date = heading:get_deadline_date()
-      if not deadline_date then
-        return true
-      end
-      if self.todo_ignore_deadlines == 'all' then
-        return false
-      end
+      if not deadline_date then return true end
+      if self.todo_ignore_deadlines == 'all' then return false end
       if self.todo_ignore_deadlines == 'near' then
         local diff = deadline_date:diff(Date.now(), 'day')
         return diff > config.fey_deadline_warning_days
@@ -83,30 +74,18 @@ function FeyAgendaTagsType:get_entries()
         local diff = deadline_date:diff(Date.now(), 'day')
         return diff <= config.fey_deadline_warning_days
       end
-      if self.todo_ignore_deadlines == 'past' then
-        return not deadline_date:is_same_or_before(Date.today(), 'day')
-      end
-      if self.todo_ignore_deadlines == 'future' then
-        return not deadline_date:is_after(Date.today(), 'day')
-      end
+      if self.todo_ignore_deadlines == 'past' then return not deadline_date:is_same_or_before(Date.today(), 'day') end
+      if self.todo_ignore_deadlines == 'future' then return not deadline_date:is_after(Date.today(), 'day') end
       return true
     end, headings)
   end
   if self.todo_ignore_scheduled then
     headings = vim.tbl_filter(function(heading) ---@cast heading FeyAgendaEntry
       local scheduled_date = heading:get_scheduled_date()
-      if not scheduled_date then
-        return true
-      end
-      if self.todo_ignore_scheduled == 'all' then
-        return false
-      end
-      if self.todo_ignore_scheduled == 'past' then
-        return not scheduled_date:is_same_or_before(Date.today(), 'day')
-      end
-      if self.todo_ignore_scheduled == 'future' then
-        return not scheduled_date:is_after(Date.today(), 'day')
-      end
+      if not scheduled_date then return true end
+      if self.todo_ignore_scheduled == 'all' then return false end
+      if self.todo_ignore_scheduled == 'past' then return not scheduled_date:is_same_or_before(Date.today(), 'day') end
+      if self.todo_ignore_scheduled == 'future' then return not scheduled_date:is_after(Date.today(), 'day') end
       return true
     end, headings)
   end
@@ -114,12 +93,12 @@ function FeyAgendaTagsType:get_entries()
 end
 
 function FeyAgendaTagsType:get_labels()
-  return Input.open('Match: ', self.match_query or '', function(arg_lead)
-    return utils.prompt_autocomplete(arg_lead, self.source:labels())
-  end):next(function(tags)
-    if not tags then
-      return false
-    end
+  return Input.open(
+    'Match: ',
+    self.match_query or '',
+    function(arg_lead) return utils.prompt_autocomplete(arg_lead, self.source:labels()) end
+  ):next(function(tags)
+    if not tags then return false end
     if vim.trim(tags) == '' then
       utils.echo_warning('Invalid tag.')
       return false
@@ -131,9 +110,7 @@ end
 
 function FeyAgendaTagsType:redraw()
   -- Skip prompt for custom views
-  if self.id then
-    return self
-  end
+  if self.id then return self end
   return self:get_labels()
 end
 

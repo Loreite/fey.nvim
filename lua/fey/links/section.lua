@@ -266,9 +266,17 @@ local function plan(src, file_path, target_path, old, map, current, resolve)
     local head = node:type() == 'pair_tag' and node:field('open')[1] or node
     local name = head and head:field('name')[1]
     local tag_name = name and vim.treesitter.get_node_text(name, src)
-    if tag_name == config.fey_section_tag_name or tag_name == config.fey_link_tag_name or tag_name == config.fey_embed_tag_name then
+    if
+      tag_name == config.fey_section_tag_name
+      or tag_name == config.fey_link_tag_name
+      or tag_name == config.fey_embed_tag_name
+    then
       local ref
-      if tag_name == config.fey_section_tag_name then ref = M.read(node, src) else ref = M.read_link(node, src) end
+      if tag_name == config.fey_section_tag_name then
+        ref = M.read(node, src)
+      else
+        ref = M.read_link(node, src)
+      end
       if ref then
         local target = ref.file and resolve(ref.file, file_path) or file_path
         if target and vim.uv.fs_realpath(target) == vim.uv.fs_realpath(target_path) then

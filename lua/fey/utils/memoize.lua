@@ -32,14 +32,10 @@ function Memoize:setup()
     local method = self.class[key]
 
     -- Not memoizable or not required to be memoized
-    if type(method) ~= 'function' or not self.methods_to_memoize[key] then
-      return method
-    end
+    if type(method) ~= 'function' or not self.methods_to_memoize[key] then return method end
 
     -- Already memoized
-    if self.memoized_methods[key] then
-      return self.memoized_methods[key]
-    end
+    if self.memoized_methods[key] then return self.memoized_methods[key] end
 
     self.memoized_methods[key] = function(method_self, ...)
       local memoize_key = self.key_getter(method_self)
@@ -55,9 +51,7 @@ function Memoize:setup()
 
       if cached_value then
         local result = { pcall(vim.F.unpack_len, cached_value) }
-        if result[1] then
-          return unpack(result, 2)
-        end
+        if result[1] then return unpack(result, 2) end
       end
     end
 
@@ -79,9 +73,7 @@ function Memoize:_get_cache_for_key(memoize_key)
     }
   end
 
-  if not self.cache[filename][id] then
-    self.cache[filename][id] = {}
-  end
+  if not self.cache[filename][id] then self.cache[filename][id] = {} end
 
   return self.cache[filename][id]
 end

@@ -23,9 +23,18 @@ M.ENUMS = {
 
 -- options that take more than one type, the check of the type leaves them alone
 local UNION = {
-  fey_agenda_start_on_weekday = true, fey_agenda_files = true, fey_agenda_scope = true, fey_refile_scope = true,
-  fey_todo_keywords = true, fey_default_notes_file = true, fey_archive_location = true, fey_id_prefix = true,
-  fey_agenda_start_day = true, fey_startup_folded = true, fey_footnote_superscript = true, fey_conceal_task_tags = true,
+  fey_agenda_start_on_weekday = true,
+  fey_agenda_files = true,
+  fey_agenda_scope = true,
+  fey_refile_scope = true,
+  fey_todo_keywords = true,
+  fey_default_notes_file = true,
+  fey_archive_location = true,
+  fey_id_prefix = true,
+  fey_agenda_start_day = true,
+  fey_startup_folded = true,
+  fey_footnote_superscript = true,
+  fey_conceal_task_tags = true,
 }
 
 local known
@@ -78,7 +87,8 @@ function M.check(opts, defaults)
           want = 'boolean'
         end
         if want and type_of(value) ~= want then
-          problems[#problems + 1] = { name = name, message = ('`%s` has to be a %s, not a %s'):format(name, want, type_of(value)) }
+          problems[#problems + 1] =
+            { name = name, message = ('`%s` has to be a %s, not a %s'):format(name, want, type_of(value)) }
         end
       end
     end

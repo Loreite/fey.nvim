@@ -12,13 +12,9 @@ function FeyState.new()
   -- This is done so we can later iterate the 'data'
   -- subtable cleanly and shove it into a cache
   setmetatable(FeyState, {
-    __index = function(tbl, key)
-      return tbl.data[key]
-    end,
+    __index = function(tbl, key) return tbl.data[key] end,
     __newindex = function(tbl, key, value)
-      if tbl.data[key] ~= value then
-        tbl._ctx.dirty = true
-      end
+      if tbl.data[key] ~= value then tbl._ctx.dirty = true end
       tbl.data[key] = value
     end,
   })
@@ -31,9 +27,7 @@ end
 ---Save the current state to cache
 ---@return FeyPromise
 function FeyState:save()
-  if not FeyState._ctx.dirty then
-    return Promise.resolve(self)
-  end
+  if not FeyState._ctx.dirty then return Promise.resolve(self) end
   FeyState._ctx.saved = false
   --- We want to ensure the state was loaded before saving.
   self:load()
@@ -49,9 +43,7 @@ function FeyState:save()
     end)
     :catch(function(err_msg)
       self._ctx.savers = self._ctx.savers - 1
-      vim.schedule_wrap(function()
-        utils.echo_warning('Failed to save current state! Error: ' .. err_msg)
-      end)
+      vim.schedule_wrap(function() utils.echo_warning('Failed to save current state! Error: ' .. err_msg) end)
     end)
 end
 
@@ -60,9 +52,7 @@ end
 function FeyState:save_sync(timeout)
   FeyState._ctx.saved = false
   self:save()
-  vim.wait(timeout or 500, function()
-    return FeyState._ctx.saved
-  end, 20)
+  vim.wait(timeout or 500, function() return FeyState._ctx.saved end, 20)
 end
 
 ---Load the state cache into the current state
@@ -72,14 +62,10 @@ function FeyState:load()
   --- promise. This avoids a race condition of sorts as without this there's
   --- potential to have two FeyState:load operations occuring and whichever
   --- finishes last sets the state. Not desirable.
-  if self._ctx.curr_loader ~= nil then
-    return self._ctx.curr_loader
-  end
+  if self._ctx.curr_loader ~= nil then return self._ctx.curr_loader end
 
   --- If we've already loaded the state from cache we don't need to do so again
-  if self._ctx.loaded then
-    return Promise.resolve(self)
-  end
+  if self._ctx.loaded then return Promise.resolve(self) end
 
   self._ctx.curr_loader = utils
     .readfile(cache_path, { raw = true })
@@ -99,9 +85,7 @@ function FeyState:load()
       -- Because the state cache repair happens potentially after the data has
       -- been added to the cache, we need to ensure the decoded table is set to
       -- empty if we got an error back on the json decode operation.
-      if type(decoded) ~= 'table' then
-        decoded = {}
-      end
+      if type(decoded) ~= 'table' then decoded = {} end
 
       -- It is possible that while the state was loading from cache values
       -- were saved into the state. We want to preference the newer values in
@@ -137,26 +121,13 @@ end
 function FeyState:load_sync(timeout)
   local state
   local err
-  self
-    :load()
-    :next(function(loaded_state)
-      state = loaded_state
-    end)
-    :catch(function(reject)
-      err = reject
-    end)
+  self:load():next(function(loaded_state) state = loaded_state end):catch(function(reject) err = reject end)
 
-  vim.wait(timeout or 500, function()
-    return state ~= nil or err ~= nil
-  end, 20)
+  vim.wait(timeout or 500, function() return state ~= nil or err ~= nil end, 20)
 
-  if err then
-    error(err)
-  end
+  if err then error(err) end
 
-  if err == nil and state == nil then
-    error('Did not load FeyState in time')
-  end
+  if err == nil and state == nil then error('Did not load FeyState in time') end
 
   return state
 end
@@ -171,9 +142,7 @@ function FeyState:wipe(overwrite)
   self._ctx.loaded = false
   self._ctx.saved = false
   self._ctx.dirty = true
-  if overwrite then
-    state:save_sync()
-  end
+  if overwrite then state:save_sync() end
 end
 
 return FeyState.new()

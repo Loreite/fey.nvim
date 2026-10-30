@@ -14,18 +14,14 @@ local function get_heading_symbol(heading)
     selectionRange = range,
   }
   local child_headings = heading:get_child_headings()
-  if #child_headings > 0 then
-    result.children = vim.tbl_map(get_heading_symbol, child_headings)
-  end
+  if #child_headings > 0 then result.children = vim.tbl_map(get_heading_symbol, child_headings) end
   return result
 end
 
 FeyLspHandlers[methods.textDocument_documentSymbol] = function(params)
   local filename = vim.uri_to_fname(params.textDocument.uri)
   local feyfile = require('fey').files:load_file_sync(filename)
-  if not feyfile then
-    return {}
-  end
+  if not feyfile then return {} end
 
   return vim.tbl_map(get_heading_symbol, feyfile:get_top_level_headings())
 end
@@ -38,13 +34,13 @@ FeyLspHandlers[methods.workspace_symbol] = function(params)
   local vault = (name ~= '' and fey_vault.for_path(name)) or fey_vault.current()
   if not vault or not vault.db then return results end
   local term = (params.query or ''):lower()
-  for _, row in ipairs(
-    vault:query(
+  for _, row in
+    ipairs(vault:query(
       [[SELECT f.path, h.title, h.line, h.end_line FROM headings h JOIN files f ON f.id = h.file_id
         WHERE instr(lower(h.title), :term) > 0 ORDER BY f.path, h.line LIMIT 200]],
       { term = term }
-    )
-  ) do
+    ))
+  do
     local line = row.line - 1
     table.insert(results, {
       name = row.title,
@@ -75,19 +71,22 @@ FeyLspHandlers[methods.textDocument_completion] = function(params)
     fuzzy = true,
   })
 
-  local results = vim.tbl_map(function(item)
-    return {
-      label = item.word,
-      labelDetails = item.menu and { description = item.menu } or nil,
-      textEdit = {
-        newText = item.word,
-        range = {
-          start = { line = params.position.line, character = offset - 1 },
-          ['end'] = { line = params.position.line, character = params.position.character },
+  local results = vim.tbl_map(
+    function(item)
+      return {
+        label = item.word,
+        labelDetails = item.menu and { description = item.menu } or nil,
+        textEdit = {
+          newText = item.word,
+          range = {
+            start = { line = params.position.line, character = offset - 1 },
+            ['end'] = { line = params.position.line, character = params.position.character },
+          },
         },
-      },
-    }
-  end, completion)
+      }
+    end,
+    completion
+  )
 
   return {
     isIncomplete = true,
@@ -105,7 +104,9 @@ FeyLspHandlers[methods.textDocument_references] = function(params)
   if not rel then return {} end
   local signature
   for _, h in ipairs(vault:headings(rel)) do
-    if h.line <= params.position.line + 1 and (h.end_line or h.line) >= params.position.line + 1 then signature = h.signature end
+    if h.line <= params.position.line + 1 and (h.end_line or h.line) >= params.position.line + 1 then
+      signature = h.signature
+    end
   end
   local locations = {}
   for _, row in ipairs(vault:backlinks(rel, signature)) do

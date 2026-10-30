@@ -4,9 +4,7 @@ local last_seq_last = {}
 
 function M.get_undotree(buf)
   local ut
-  vim.api.nvim_buf_call(buf, function()
-    ut = vim.fn.undotree()
-  end)
+  vim.api.nvim_buf_call(buf, function() ut = vim.fn.undotree() end)
   return ut
 end
 

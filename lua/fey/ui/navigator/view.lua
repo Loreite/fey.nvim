@@ -53,9 +53,7 @@ local function scratch_buf(ft, hidden)
   vim.bo[buf].bufhidden = hidden and 'hide' or 'wipe'
   vim.bo[buf].swapfile = false
   vim.bo[buf].undolevels = -1
-  if ft then
-    vim.bo[buf].filetype = ft
-  end
+  if ft then vim.bo[buf].filetype = ft end
   return buf
 end
 
@@ -67,26 +65,16 @@ end
 
 local function border()
   local b = config.options.border
-  if b then
-    return b
-  end
-  local ok, wb = pcall(function()
-    return vim.o.winborder
-  end)
-  if ok and wb and wb ~= '' then
-    return wb
-  end
+  if b then return b end
+  local ok, wb = pcall(function() return vim.o.winborder end)
+  if ok and wb and wb ~= '' then return wb end
   return 'rounded'
 end
 
-local function has_border(b)
-  return b ~= 'none' and b ~= ''
-end
+local function has_border(b) return b ~= 'none' and b ~= '' end
 
 local function truncate(s, max)
-  if vim.fn.strdisplaywidth(s) <= max then
-    return s
-  end
+  if vim.fn.strdisplaywidth(s) <= max then return s end
   return vim.fn.strcharpart(s, 0, math.max(1, max - 1)) .. '…'
 end
 
@@ -95,15 +83,11 @@ local function rows_label(range)
   return a == b and ('L' .. a) or string.format('L%d–%d', a, b)
 end
 
-local function hint(msg)
-  api.nvim_echo({ { msg, 'Comment' } }, false, {})
-end
+local function hint(msg) api.nvim_echo({ { msg, 'Comment' } }, false, {}) end
 
 ---@param path string
 ---@return string
-local function real(path)
-  return vim.uv.fs_realpath(path) or vim.fs.normalize(path)
-end
+local function real(path) return vim.uv.fs_realpath(path) or vim.fs.normalize(path) end
 
 ---Icon of a level item
 ---@param it FeyNavLevelItem
@@ -239,9 +223,7 @@ end
 function Session:layout()
   local o = config.options
   local cols, lines = vim.o.columns, vim.o.lines - vim.o.cmdheight - 1
-  local function size(v, total)
-    return v <= 1 and math.floor(total * v) or math.floor(v)
-  end
+  local function size(v, total) return v <= 1 and math.floor(total * v) or math.floor(v) end
   local b = border()
   local pad = has_border(b) and 2 or 0
   local width = math.max(40, math.min(size(o.width, cols), cols - 2))
@@ -259,7 +241,11 @@ function Session:layout()
   local layout = {
     border = b,
     nav = vim.tbl_extend('force', base, { width = nav_out - pad, col = col + par_out, zindex = 51 }),
-    prev = vim.tbl_extend('force', base, { width = prev_out - pad, col = col + par_out + nav_out, focusable = false, zindex = 50 }),
+    prev = vim.tbl_extend(
+      'force',
+      base,
+      { width = prev_out - pad, col = col + par_out + nav_out, focusable = false, zindex = 50 }
+    ),
   }
   if par_out > 0 then
     layout.par = vim.tbl_extend('force', base, { width = par_out - pad, col = col, focusable = false, zindex = 50 })
@@ -268,9 +254,7 @@ function Session:layout()
 end
 
 function Session:apply_footer(layout)
-  if not has_border(layout.border) then
-    return
-  end
+  if not has_border(layout.border) then return end
   local k = config.options.keys
   local function key(v)
     v = type(v) == 'table' and v[1] or v
@@ -278,20 +262,32 @@ function Session:apply_footer(layout)
   end
   local text
   if self.mode == 'tree' then
-    text = string.format(' %s up  %s open  %s jump  %s tab  %s filter  %s hollows ', key(k.back), key(k.enter), key(k.jump),
-      key(k.jump_tab), key(k.filter), key(k.hollows))
+    text = string.format(
+      ' %s up  %s open  %s jump  %s tab  %s filter  %s hollows ',
+      key(k.back),
+      key(k.enter),
+      key(k.jump),
+      key(k.jump_tab),
+      key(k.filter),
+      key(k.hollows)
+    )
   else
-    text = string.format(' %s up  %s open  %s local  %s jump  %s filter  %s hollows ', key(k.back), key(k.enter),
-      key(k.local_root), key(k.jump), key(k.filter), key(k.hollows))
+    text = string.format(
+      ' %s up  %s open  %s local  %s jump  %s filter  %s hollows ',
+      key(k.back),
+      key(k.enter),
+      key(k.local_root),
+      key(k.jump),
+      key(k.filter),
+      key(k.hollows)
+    )
   end
   -- footer needs nvim 0.10+
   pcall(api.nvim_win_set_config, self.nav_win, { footer = { { text, 'FeyNavDetail' } }, footer_pos = 'center' })
 end
 
 function Session:relayout()
-  if self.closed then
-    return
-  end
+  if self.closed then return end
   local layout = self:layout()
   pcall(api.nvim_win_set_config, self.prev_win, layout.prev)
   pcall(api.nvim_win_set_config, self.nav_win, layout.nav)
@@ -462,10 +458,18 @@ function Session:jump_level_item(extra)
   local opts = vim.tbl_extend('force', self.jump_opts, extra or {})
   self:close()
   if it.kind == 'file' then
-    if opts.tab then vim.cmd('tabnew') elseif api.nvim_win_is_valid(win) then api.nvim_set_current_win(win) end
+    if opts.tab then
+      vim.cmd('tabnew')
+    elseif api.nvim_win_is_valid(win) then
+      api.nvim_set_current_win(win)
+    end
     vim.cmd('edit ' .. vim.fn.fnameescape(it.path))
   elseif it.kind == 'dir' and not it.hollow then
-    if opts.tab then vim.cmd('tabnew') elseif api.nvim_win_is_valid(win) then api.nvim_set_current_win(win) end
+    if opts.tab then
+      vim.cmd('tabnew')
+    elseif api.nvim_win_is_valid(win) then
+      api.nvim_set_current_win(win)
+    end
     vim.cmd('edit ' .. vim.fn.fnameescape(it.path))
   else
     jump_hollow(it, opts)
@@ -517,7 +521,8 @@ function Session:render_tree()
     local right = detail .. ' ' .. (has_kids and icons.has_children or ' ')
     local room = math.max(8, math.min(config.options.label_max, width - vim.fn.strdisplaywidth(right) - 5))
     lines[i] = string.format(' %s %s', icon, truncate(it.label, room))
-    marks[i] = { icon = icon, detail = detail, has_kids = has_kids, hollow = it.hollow or it.kind == 'hollow', dim = it.ok == false }
+    marks[i] =
+      { icon = icon, detail = detail, has_kids = has_kids, hollow = it.hollow or it.kind == 'hollow', dim = it.ok == false }
   end
   if #lines == 0 then
     if f.filter and f.filter ~= '' then
@@ -540,7 +545,9 @@ function Session:render_tree()
       end_col = 1 + #m.icon,
       hl_group = m.hollow and 'FeyNavHollow' or 'FeyNavIcon',
     })
-    if m.dim then api.nvim_buf_set_extmark(self.nav_buf, ns, row, 2 + #m.icon, { end_row = row + 1, hl_group = 'FeyNavEmpty' }) end
+    if m.dim then
+      api.nvim_buf_set_extmark(self.nav_buf, ns, row, 2 + #m.icon, { end_row = row + 1, hl_group = 'FeyNavEmpty' })
+    end
     api.nvim_buf_set_extmark(self.nav_buf, ns, row, 0, {
       virt_text = {
         { m.detail, 'FeyNavDetail' },
@@ -671,20 +678,20 @@ function Session:render_parent()
 end
 
 function Session:render()
-  if self.closed then
-    return
-  end
+  if self.closed then return end
   local f = self:frame()
   local width = api.nvim_win_get_width(self.nav_win)
-  if self.mode == 'tree' then self:render_tree() else self:render_doc() end
+  if self.mode == 'tree' then
+    self:render_tree()
+  else
+    self:render_doc()
+  end
 
   local b = border()
   if has_border(b) then
     local title = ' ' .. truncate(self:breadcrumb(), math.max(10, width - 4)) .. ' '
     local chunks = { { title, 'FloatTitle' } }
-    if f.filter and f.filter ~= '' then
-      chunks[#chunks + 1] = { ' /' .. f.filter .. ' ', 'FeyNavFilter' }
-    end
+    if f.filter and f.filter ~= '' then chunks[#chunks + 1] = { ' /' .. f.filter .. ' ', 'FeyNavFilter' } end
     pcall(api.nvim_win_set_config, self.nav_win, { title = chunks, title_pos = 'left' })
   end
 
@@ -695,9 +702,7 @@ end
 
 -- Swap the preview window between the fey buffer and the plain info buffer.
 function Session:show_buf(buf, fey_mode)
-  if api.nvim_win_get_buf(self.prev_win) ~= buf then
-    api.nvim_win_set_buf(self.prev_win, buf)
-  end
+  if api.nvim_win_get_buf(self.prev_win) ~= buf then api.nvim_win_set_buf(self.prev_win, buf) end
   local wo = vim.wo[self.prev_win]
   wo.number = fey_mode
   wo.statuscolumn = fey_mode and '%=%{v:virtnum ? "" : v:lnum + w:fey_nav_offset} ' or ''
@@ -748,9 +753,7 @@ end
 
 function Session:preview_level()
   local it = self:current()
-  if not it then
-    return self:show_info('Preview', { '', '  Nothing here.' })
-  end
+  if not it then return self:show_info('Preview', { '', '  Nothing here.' }) end
   local o = config.options
 
   if it.kind == 'file' then
@@ -761,9 +764,7 @@ function Session:preview_level()
     api.nvim_buf_set_lines(self.prev_buf, 0, -1, false, lines)
     api.nvim_buf_clear_namespace(self.prev_buf, ns, 0, -1)
     self:preview_title('file · ' .. it.label)
-    api.nvim_win_call(self.prev_win, function()
-      vim.fn.winrestview({ topline = 1, lnum = 1, col = 0 })
-    end)
+    api.nvim_win_call(self.prev_win, function() vim.fn.winrestview({ topline = 1, lnum = 1, col = 0 }) end)
     return
   end
 
@@ -785,9 +786,7 @@ end
 function Session:preview()
   if self.mode == 'tree' then return self:preview_level() end
   local it = self:current()
-  if not it then
-    return self:show_info('Preview', { '', '  Nothing selected.' })
-  end
+  if not it then return self:show_info('Preview', { '', '  Nothing selected.' }) end
 
   if it.kind == 'category' then
     local lines, hls = {}, {}
@@ -813,9 +812,7 @@ function Session:preview()
   local stop = truncated > 0 and shown_last or math.min(total - 1, last + ctx)
 
   local lines = api.nvim_buf_get_lines(self.bufnr, first, stop + 1, false)
-  if truncated > 0 then
-    lines[#lines + 1] = string.format('… %d more line%s', truncated, truncated == 1 and '' or 's')
-  end
+  if truncated > 0 then lines[#lines + 1] = string.format('… %d more line%s', truncated, truncated == 1 and '' or 's') end
 
   vim.w[self.prev_win].fey_nav_offset = first -- before 'statuscolumn' reads it
   self:show_buf(self.prev_buf, true)
@@ -854,9 +851,10 @@ function Session:preview()
   end
 
   self:preview_title(string.format('%s · %s', it.kind, rows_label(it.range)))
-  api.nvim_win_call(self.prev_win, function()
-    vim.fn.winrestview({ topline = 1, lnum = math.min(#lines, target_top + 1), col = 0 })
-  end)
+  api.nvim_win_call(
+    self.prev_win,
+    function() vim.fn.winrestview({ topline = 1, lnum = math.min(#lines, target_top + 1), col = 0 }) end
+  )
 end
 
 -- ---------------------------------------------------------------------------
@@ -866,9 +864,7 @@ end
 function Session:select(idx)
   local f = self:frame()
   local n = #(f._view or {})
-  if n == 0 then
-    return
-  end
+  if n == 0 then return end
   f.cursor = math.max(1, math.min(idx, n))
   local it = f._view[f.cursor]
   if self.mode == 'tree' then
@@ -883,9 +879,7 @@ function Session:select(idx)
   self:save()
 end
 
-function Session:move(delta)
-  self:select(self:frame().cursor + delta)
-end
+function Session:move(delta) self:select(self:frame().cursor + delta) end
 
 ---@param mode 'children'|'local'
 ---@param item FeyNavItem
@@ -901,9 +895,7 @@ end
 function Session:enter()
   if self.mode == 'tree' then return self:enter_level_item() end
   local it = self:current()
-  if not it then
-    return
-  end
+  if not it then return end
   if #self.model:children(it) == 0 then
     if it.kind ~= 'category' and #self.model:local_children(it) > 0 then
       hint('No nested ' .. it.kind .. 's here; ' .. config.options.keys.local_root .. ' shows its contents')
@@ -922,32 +914,20 @@ function Session:enter_local()
     return hint('Only objects of a document have a local view')
   end
   local it = self:current()
-  if not it then
-    return
-  end
-  if it.kind == 'category' then
-    return self:enter()
-  end
-  if #self.model:local_children(it) == 0 then
-    return hint('This ' .. it.kind .. ' contains no text objects')
-  end
+  if not it then return end
+  if it.kind == 'category' then return self:enter() end
+  if #self.model:local_children(it) == 0 then return hint('This ' .. it.kind .. ' contains no text objects') end
   self:push('local', it)
 end
 
-function Session:back()
-  self:up()
-end
+function Session:back() self:up() end
 
 ---@param extra? { cwd?: boolean, tab?: boolean }
 function Session:jump(extra)
   if self.mode == 'tree' then return self:jump_level_item(extra) end
   local it = self:current()
-  if not it then
-    return
-  end
-  if it.kind == 'category' then
-    return self:enter()
-  end
+  if not it then return end
+  if it.kind == 'category' then return self:enter() end
   local win, row, col = self.src_win, it.range[1] + 1, it.range[2]
   local bufnr = self.bufnr
   -- the document is the one the user is in, or a file that was only loaded to look at it
@@ -970,12 +950,8 @@ function Session:filter()
   self.prompting = true
   vim.ui.input({ prompt = 'Filter: ', default = f.filter or '' }, function(input)
     self.prompting = false
-    if self.closed then
-      return
-    end
-    if api.nvim_win_is_valid(self.nav_win) then
-      api.nvim_set_current_win(self.nav_win)
-    end
+    if self.closed then return end
+    if api.nvim_win_is_valid(self.nav_win) then api.nvim_set_current_win(self.nav_win) end
     if input == nil then
       return -- cancelled: keep the current filter
     end
@@ -999,9 +975,7 @@ end
 
 function Session:scroll(key)
   local keys = api.nvim_replace_termcodes(key, true, false, true)
-  api.nvim_win_call(self.prev_win, function()
-    vim.cmd('normal! ' .. keys)
-  end)
+  api.nvim_win_call(self.prev_win, function() vim.cmd('normal! ' .. keys) end)
 end
 
 function Session:save()
@@ -1011,16 +985,12 @@ function Session:save()
 end
 
 function Session:close()
-  if self.closed then
-    return
-  end
+  if self.closed then return end
   self:save()
   self.closed = true
   pcall(api.nvim_del_augroup_by_id, self.augroup)
   for _, win in ipairs({ self.nav_win, self.prev_win, self.par_win }) do
-    if win and api.nvim_win_is_valid(win) then
-      pcall(api.nvim_win_close, win, true)
-    end
+    if win and api.nvim_win_is_valid(win) then pcall(api.nvim_win_close, win, true) end
   end
   -- stop the highlighters while their buffers are still whole; the one that tears itself down when its
   -- buffer is deleted calls into a buffer that is going away and raises
@@ -1028,9 +998,7 @@ function Session:close()
     if buf and api.nvim_buf_is_valid(buf) then pcall(vim.treesitter.stop, buf) end
   end
   for _, buf in ipairs({ self.nav_buf, self.prev_buf, self.info_buf, self.par_buf }) do
-    if buf and api.nvim_buf_is_valid(buf) then
-      pcall(api.nvim_buf_delete, buf, { force = true })
-    end
+    if buf and api.nvim_buf_is_valid(buf) then pcall(api.nvim_buf_delete, buf, { force = true }) end
   end
   -- files that were only loaded to look at them
   for buf in pairs(self.loaded) do
@@ -1039,12 +1007,8 @@ function Session:close()
       pcall(api.nvim_buf_delete, buf, {})
     end
   end
-  if self.src_win and api.nvim_win_is_valid(self.src_win) then
-    pcall(api.nvim_set_current_win, self.src_win)
-  end
-  if self.on_close then
-    self.on_close(self)
-  end
+  if self.src_win and api.nvim_win_is_valid(self.src_win) then pcall(api.nvim_set_current_win, self.src_win) end
+  if self.on_close then self.on_close(self) end
 end
 
 -- ---------------------------------------------------------------------------
@@ -1058,42 +1022,18 @@ function Session:keymaps()
       vim.keymap.set('n', l, fn, { buffer = self.nav_buf, nowait = true, silent = true, desc = 'Fey navigator: ' .. desc })
     end
   end
-  map(k.down, function()
-    self:move(vim.v.count1)
-  end, 'next')
-  map(k.up, function()
-    self:move(-vim.v.count1)
-  end, 'previous')
-  map(k.enter, function()
-    self:enter()
-  end, 'open')
-  map(k.back, function()
-    self:up()
-  end, 'up a level')
-  map(k.local_root, function()
-    self:enter_local()
-  end, 'contents as local root')
-  map(k.jump, function()
-    self:jump()
-  end, 'jump')
-  map(k.jump_tab, function()
-    self:jump({ tab = true })
-  end, 'jump in a new tab')
-  map(k.hollows, function()
-    self:hollows()
-  end, 'hollows')
-  map(k.filter, function()
-    self:filter()
-  end, 'filter')
-  map(k.scroll_up, function()
-    self:scroll('<C-u>')
-  end, 'scroll preview up')
-  map(k.scroll_down, function()
-    self:scroll('<C-d>')
-  end, 'scroll preview down')
-  map(k.close, function()
-    self:close()
-  end, 'close')
+  map(k.down, function() self:move(vim.v.count1) end, 'next')
+  map(k.up, function() self:move(-vim.v.count1) end, 'previous')
+  map(k.enter, function() self:enter() end, 'open')
+  map(k.back, function() self:up() end, 'up a level')
+  map(k.local_root, function() self:enter_local() end, 'contents as local root')
+  map(k.jump, function() self:jump() end, 'jump')
+  map(k.jump_tab, function() self:jump({ tab = true }) end, 'jump in a new tab')
+  map(k.hollows, function() self:hollows() end, 'hollows')
+  map(k.filter, function() self:filter() end, 'filter')
+  map(k.scroll_up, function() self:scroll('<C-u>') end, 'scroll preview up')
+  map(k.scroll_down, function() self:scroll('<C-d>') end, 'scroll preview down')
+  map(k.close, function() self:close() end, 'close')
 end
 
 function Session:autocmds()
@@ -1104,9 +1044,7 @@ function Session:autocmds()
     buffer = self.nav_buf,
     callback = function()
       local row = api.nvim_win_get_cursor(self.nav_win)[1]
-      if row ~= self:frame().cursor then
-        self:select(row)
-      end
+      if row ~= self:frame().cursor then self:select(row) end
     end,
   })
   api.nvim_create_autocmd('WinLeave', {
@@ -1114,25 +1052,19 @@ function Session:autocmds()
     buffer = self.nav_buf,
     callback = function()
       vim.schedule(function()
-        if not self.closed and not self.prompting and api.nvim_get_current_win() ~= self.nav_win then
-          self:close()
-        end
+        if not self.closed and not self.prompting and api.nvim_get_current_win() ~= self.nav_win then self:close() end
       end)
     end,
   })
   api.nvim_create_autocmd('VimResized', {
     group = self.augroup,
-    callback = function()
-      self:relayout()
-    end,
+    callback = function() self:relayout() end,
   })
   api.nvim_create_autocmd('BufWipeout', {
     group = self.augroup,
     buffer = self.nav_buf,
     callback = function()
-      vim.schedule(function()
-        self:close()
-      end)
+      vim.schedule(function() self:close() end)
     end,
   })
 end

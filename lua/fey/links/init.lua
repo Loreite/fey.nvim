@@ -175,7 +175,10 @@ function M.goto_section(ref, from_path)
   local signatures = vim.tbl_map(function(h) return h.signature end, headings)
   local found = section.matches(signatures, ref.signature)
   if #found == 0 then
-    vim.notify(('fey: no heading with signature %s in %s'):format(ref.signature, vim.fn.fnamemodify(path, ':t')), vim.log.levels.WARN)
+    vim.notify(
+      ('fey: no heading with signature %s in %s'):format(ref.signature, vim.fn.fnamemodify(path, ':t')),
+      vim.log.levels.WARN
+    )
     return false
   end
   local key = path .. '\0' .. signature.key(ref.signature)
@@ -270,7 +273,13 @@ end
 function M.open_link(tag)
   local raw = tag.values[1] or tag.key_values.url or tag.key_values.file
   local target = raw and unescape(raw) or nil
-  return M.open_target(target, tag.key_values.section or tag.key_values.heading, tonumber(tag.key_values.n), from_path_of(tag), tag)
+  return M.open_target(
+    target,
+    tag.key_values.section or tag.key_values.heading,
+    tonumber(tag.key_values.n),
+    from_path_of(tag),
+    tag
+  )
 end
 
 ---The first link or section tag of a text (the heading of an agenda item), as the target, signature and number it leads to
@@ -295,10 +304,17 @@ function M.first_link_in(text)
       end
       for _, kv in ipairs(head:field('key_value')) do
         local k, v = kv:field('key')[1], kv:field('value')[1]
-        if k and v then keys[vim.trim(vim.treesitter.get_node_text(k, text))] = vim.trim(vim.treesitter.get_node_text(v, text)) end
+        if k and v then
+          keys[vim.trim(vim.treesitter.get_node_text(k, text))] = vim.trim(vim.treesitter.get_node_text(v, text))
+        end
       end
       values, keys = require('fey.vars').interpolate_tag(values, keys, { src = text })
-      if kind == 'section' then return { sig = values[1] and unescape(values[1]), target = (values[2] or keys.file) and unescape(values[2] or keys.file) } end
+      if kind == 'section' then
+        return {
+          sig = values[1] and unescape(values[1]),
+          target = (values[2] or keys.file) and unescape(values[2] or keys.file),
+        }
+      end
       local raw_target = values[1] or keys.url or keys.file
       return {
         target = raw_target and unescape(raw_target),

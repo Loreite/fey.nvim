@@ -106,8 +106,12 @@ end
 local function span(node, src, offs)
   local sr, sc, er, ec = node:range()
   local s, e = offs[sr + 1] + sc, offs[er + 1] + ec
-  while s < e and src:sub(s, s):match('%s') do s = s + 1 end
-  while e > s and src:sub(e - 1, e - 1):match('%s') do e = e - 1 end
+  while s < e and src:sub(s, s):match('%s') do
+    s = s + 1
+  end
+  while e > s and src:sub(e - 1, e - 1):match('%s') do
+    e = e - 1
+  end
   return s, e
 end
 
@@ -183,7 +187,9 @@ local function locate(root, src, key)
   for _, section in ipairs(root:field('subsection')) do
     local heading = section:field('heading')[1]
     local title = heading and heading:field('title')[1]
-    if title and trim(vim.treesitter.get_node_text(title, src)) == key then return { kind = 'section', node = section }, insert_head end
+    if title and trim(vim.treesitter.get_node_text(title, src)) == key then
+      return { kind = 'section', node = section }, insert_head
+    end
   end
   return nil, insert_head
 end
@@ -254,7 +260,14 @@ local function edit_bullet(item, src, offs, value)
       local sigil = vim.treesitter.get_node_text(only_tag, src):sub(2, 2)
       local open = vim.treesitter.get_node_text(only_tag, src):sub(1, 1)
       local close = ({ ['['] = ']', ['{'] = '}', ['('] = ')', ['<'] = '>' })[open]
-      local text = ('%s%s array%s %s%s%s'):format(open, sigil, #parts > 0 and (', ' .. table.concat(parts, ', ')) or '', sigil, close, '')
+      local text = ('%s%s array%s %s%s%s'):format(
+        open,
+        sigil,
+        #parts > 0 and (', ' .. table.concat(parts, ', ')) or '',
+        sigil,
+        close,
+        ''
+      )
       local s, e = span(only_tag, src, offs)
       return { { s = s, e = e, text = text } }
     end
@@ -313,7 +326,10 @@ function M.plan(src, key, value)
       local tags = {}
       if body then
         for _, c in ipairs(body:named_children()) do
-          if (c:type() == 'scope_tag' or c:type() == 'line_tag' or c:type() == 'block_tag' or c:type() == 'pair_tag') and name_of(c, src) == 'value' then
+          if
+            (c:type() == 'scope_tag' or c:type() == 'line_tag' or c:type() == 'block_tag' or c:type() == 'pair_tag')
+            and name_of(c, src) == 'value'
+          then
             tags[#tags + 1] = c
           end
         end
@@ -382,7 +398,11 @@ function M.commit(vault, abs, src, edits, bufnr)
       local lo, hi = 1, #offs
       while lo < hi do
         local mid = math.ceil((lo + hi) / 2)
-        if offs[mid] <= pos then lo = mid else hi = mid - 1 end
+        if offs[mid] <= pos then
+          lo = mid
+        else
+          hi = mid - 1
+        end
       end
       return lo - 1, pos - offs[lo]
     end

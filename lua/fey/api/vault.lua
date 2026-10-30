@@ -10,9 +10,7 @@ FeyVault.__index = FeyVault
 ---@private
 ---@param vault FeyVault
 ---@return FeyApiVault
-function FeyVault._new(vault)
-  return setmetatable({ root = vault.root, dir = vault.dir, _vault = vault }, FeyVault)
-end
+function FeyVault._new(vault) return setmetatable({ root = vault.root, dir = vault.dir, _vault = vault }, FeyVault) end
 
 ---@return 'idle'|'indexing'|'ready'|'error'
 function FeyVault:state() return self._vault.state end

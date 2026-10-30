@@ -89,9 +89,11 @@ function M.edit_cond(model, opts, cb)
   local existing = opts.existing
 
   local function finish_expr()
-    M.prompt_value(filters.OP_BY_ID.expr, existing and existing.expr or nil, function(text)
-      cb({ kind = 'expr', expr = text })
-    end)
+    M.prompt_value(
+      filters.OP_BY_ID.expr,
+      existing and existing.expr or nil,
+      function(text) cb({ kind = 'expr', expr = text }) end
+    )
   end
   if opts.expr or (existing and existing.kind == 'expr') then return finish_expr() end
 
@@ -100,9 +102,7 @@ function M.edit_cond(model, opts, cb)
     M.pick_operator(ptype, function(op)
       if op.id == 'expr' then return finish_expr() end
       local default = existing and existing.prop == prop and existing.op == op.id and existing.value or nil
-      M.prompt_value(op, default, function(value)
-        cb({ kind = 'cond', prop = prop, op = op.id, value = value })
-      end)
+      M.prompt_value(op, default, function(value) cb({ kind = 'cond', prop = prop, op = op.id, value = value }) end)
     end)
   end
 
@@ -131,11 +131,18 @@ function M.panel(view)
   local width = math.min(80, vim.o.columns - 6)
   local height = math.min(18, math.max(vim.o.lines - 8, 6))
   local win = vim.api.nvim_open_win(buf, true, {
-    relative = 'editor', width = width, height = height,
-    row = math.floor((vim.o.lines - height) / 2) - 1, col = math.floor((vim.o.columns - width) / 2),
-    style = 'minimal', border = 'rounded', zindex = 150,
-    title = ' Filters ', title_pos = 'left',
-    footer = ' a add · A expression · g group · m mode · e edit · d delete · s scope · q close ', footer_pos = 'left',
+    relative = 'editor',
+    width = width,
+    height = height,
+    row = math.floor((vim.o.lines - height) / 2) - 1,
+    col = math.floor((vim.o.columns - width) / 2),
+    style = 'minimal',
+    border = 'rounded',
+    zindex = 150,
+    title = ' Filters ',
+    title_pos = 'left',
+    footer = ' a add · A expression · g group · m mode · e edit · d delete · s scope · q close ',
+    footer_pos = 'left',
   })
   vim.wo[win].cursorline = true
   vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:FloatBorder'
@@ -170,7 +177,8 @@ function M.panel(view)
     walk(root(), nil, nil, 0)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     vim.api.nvim_win_set_config(win, {
-      title = scope == 'view' and (' Filters · view ' .. (view.view.name or '') .. ' ') or ' Filters · all views of this database ',
+      title = scope == 'view' and (' Filters · view ' .. (view.view.name or '') .. ' ')
+        or ' Filters · all views of this database ',
       title_pos = 'left',
     })
   end

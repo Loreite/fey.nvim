@@ -99,13 +99,10 @@ return {
       'agenda.goto_date',
       { opts = { desc = 'fey goto date', help_desc = 'Jump to specific date' } }
     ),
-    fey_agenda_redo = m.action(
-      'agenda.redo',
-      {
-        args = { 'mapping' },
-        opts = { desc = 'fey redo', help_desc = 'Rebuild the agenda from the index (asks again in a match or search view)' },
-      }
-    ),
+    fey_agenda_redo = m.action('agenda.redo', {
+      args = { 'mapping' },
+      opts = { desc = 'fey redo', help_desc = 'Rebuild the agenda from the index (asks again in a match or search view)' },
+    }),
     fey_agenda_todo = m.action(
       'agenda.change_todo_state',
       { opts = { desc = 'fey cycle todo state', help_desc = 'Change TODO state of an item' } }
@@ -273,15 +270,12 @@ return {
       'fey_mappings.priority_down',
       { opts = { desc = 'fey decrease priority', help_desc = 'Decrease priority of heading' } }
     ),
-    fey_toggle_checkbox = m.action(
-      'fey_mappings.toggle_checkbox',
-      {
-        opts = {
-          desc = 'fey toggle checkbox',
-          help_desc = 'Toggle the checkbox of the list item (adds one when there is none), and update progress cookies',
-        },
-      }
-    ),
+    fey_toggle_checkbox = m.action('fey_mappings.toggle_checkbox', {
+      opts = {
+        desc = 'fey toggle checkbox',
+        help_desc = 'Toggle the checkbox of the list item (adds one when there is none), and update progress cookies',
+      },
+    }),
     fey_insert_footnote = m.custom([[<Cmd>lua require('fey.footnotes').insert()<CR>]], {
       opts = {
         desc = 'insert footnote',
@@ -324,19 +318,16 @@ return {
         },
       }
     ),
-    fey_set_checkbox_state = m.action(
-      'fey_mappings.set_checkbox_state',
-      {
-        opts = {
-          desc = 'fey set checkbox state',
-          help_desc = 'Pick the state of the checkbox of the list item (in progress, important, note ...)',
-        },
-      }
+    fey_set_checkbox_state = m.action('fey_mappings.set_checkbox_state', {
+      opts = {
+        desc = 'fey set checkbox state',
+        help_desc = 'Pick the state of the checkbox of the list item (in progress, important, note ...)',
+      },
+    }),
+    fey_toggle_heading = m.action(
+      'fey_mappings.toggle_heading',
+      { opts = { desc = 'fey toggle heading', help_desc = 'Toggle current line to heading and vice versa' } }
     ),
-      fey_toggle_heading = m.action(
-        'fey_mappings.toggle_heading',
-        { opts = { desc = 'fey toggle heading', help_desc = 'Toggle current line to heading and vice versa' } }
-      ),
     fey_open_at_point = m.action(
       'fey_mappings.open_at_point',
       { opts = { desc = 'fey open', help_desc = 'Follow the link or section tag under the cursor' } }
@@ -558,15 +549,20 @@ return {
     ),
     fey_table_recalculate = m.action(
       'fey_mappings.table_recalculate',
-      { opts = { desc = 'compute table formulas', help_desc = 'compute the formulas of the table under the cursor and write the results into its cells' } }
-    ),
-    fey_table_recalculate_all = m.action(
-      'fey_mappings.table_recalculate',
       {
-        args = { 'all' },
-        opts = { desc = 'compute all table formulas', help_desc = 'compute the formulas of every table of the note and write the results into their cells' },
+        opts = {
+          desc = 'compute table formulas',
+          help_desc = 'compute the formulas of the table under the cursor and write the results into its cells',
+        },
       }
     ),
+    fey_table_recalculate_all = m.action('fey_mappings.table_recalculate', {
+      args = { 'all' },
+      opts = {
+        desc = 'compute all table formulas',
+        help_desc = 'compute the formulas of every table of the note and write the results into their cells',
+      },
+    }),
     fey_table_insert_row_before = m.action('fey_mappings.table_insert_row', {
       args = { 'before' },
       opts = { desc = 'insert row before', help_desc = 'insert a blank row before the current row under cursor' },
@@ -664,47 +660,43 @@ return {
       opts = { desc = 'unmerge cells', help_desc = 'break apart combined cells into individual cells' },
     }),
     --
-    fey_table_merge_cell_content_from_left = m.action(
-      'fey_mappings.table_merge_cell_content',
-      {
-        args = { 'horizontal', true },
-        opts = { desc = 'merge cell content from left', help_desc = 'Merge the content of the cell to the left into this cell' },
-      }
+    fey_table_merge_cell_content_from_left = m.action('fey_mappings.table_merge_cell_content', {
+      args = { 'horizontal', true },
+      opts = { desc = 'merge cell content from left', help_desc = 'Merge the content of the cell to the left into this cell' },
+    }),
+    fey_table_merge_cell_content_from_right = m.action('fey_mappings.table_merge_cell_content', {
+      args = { 'horizontal', false },
+      opts = {
+        desc = 'merge cell content from right',
+        help_desc = 'Merge the content of the cell to the right into this cell',
+      },
+    }),
+    fey_table_merge_cell_content_from_above = m.action('fey_mappings.table_merge_cell_content', {
+      args = { 'vertical', true },
+      opts = { desc = 'merge cell content from above', help_desc = 'Merge the content of the cell above into this cell' },
+    }),
+    fey_table_merge_cell_content_from_below = m.action('fey_mappings.table_merge_cell_content', {
+      args = { 'vertical', false },
+      opts = { desc = 'merge cell content from below', help_desc = 'Merge the content of the cell below into this cell' },
+    }),
+    -- END:
+
+    fey_insert_todo_heading = m.action(
+      'fey_mappings.insert_todo_heading',
+      { opts = { desc = 'fey insert todo', help_desc = 'Add new TODO heading on line right after current line' } }
     ),
-    fey_table_merge_cell_content_from_right = m.action(
-      'fey_mappings.table_merge_cell_content',
+    fey_insert_todo_heading_respect_content = m.action('fey_mappings.insert_todo_heading_respect_content', {
+      opts = { desc = 'fey insert todo (respect content)', help_desc = 'Add new TODO heading after current subtree' },
+    }),
+    fey_export = m.action(
+      'fey_mappings.export',
       {
-        args = { 'horizontal', false },
         opts = {
-          desc = 'merge cell content from right',
-          help_desc = 'Merge the content of the cell to the right into this cell',
+          desc = 'fey export',
+          help_desc = 'Export this file: Markdown, HTML, iCalendar, or LaTeX, PDF, Word, EPUB through pandoc',
         },
       }
     ),
-    fey_table_merge_cell_content_from_above = m.action(
-      'fey_mappings.table_merge_cell_content',
-      {
-        args = { 'vertical', true },
-        opts = { desc = 'merge cell content from above', help_desc = 'Merge the content of the cell above into this cell' },
-      }
-    ),
-    fey_table_merge_cell_content_from_below = m.action(
-      'fey_mappings.table_merge_cell_content',
-      {
-        args = { 'vertical', false },
-        opts = { desc = 'merge cell content from below', help_desc = 'Merge the content of the cell below into this cell' },
-      }
-    ),
-    -- END:
-
-      fey_insert_todo_heading = m.action(
-        'fey_mappings.insert_todo_heading',
-        { opts = { desc = 'fey insert todo', help_desc = 'Add new TODO heading on line right after current line' } }
-      ),
-      fey_insert_todo_heading_respect_content = m.action('fey_mappings.insert_todo_heading_respect_content', {
-        opts = { desc = 'fey insert todo (respect content)', help_desc = 'Add new TODO heading after current subtree' },
-      }),
-    fey_export = m.action('fey_mappings.export', { opts = { desc = 'fey export', help_desc = 'Export this file: Markdown, HTML, iCalendar, or LaTeX, PDF, Word, EPUB through pandoc' } }),
     fey_return = m.action('fey_mappings.fey_return', {
       modes = { 'i' },
       opts = {
@@ -764,29 +756,50 @@ return {
       { opts = { desc = 'fey store link', help_desc = 'Store link to current heading' } }
     ),
     fey_check_links = m.action('fey_mappings.check_links', {
-      opts = { desc = 'fey check links', help_desc = 'List in quickfix the links and sections of this hollow that lead nowhere' },
+      opts = {
+        desc = 'fey check links',
+        help_desc = 'List in quickfix the links and sections of this hollow that lead nowhere',
+      },
     }),
     fey_embed_toggle = m.action('fey_mappings.embed_toggle', {
-      opts = { desc = 'fey toggle embed', help_desc = 'Show the embed under the cursor (the text of a file under it, or an image), or hide it' },
+      opts = {
+        desc = 'fey toggle embed',
+        help_desc = 'Show the embed under the cursor (the text of a file under it, or an image), or hide it',
+      },
     }),
     fey_embed_toggle_all = m.action('fey_mappings.embed_toggle', {
       args = { 'all' },
-      opts = { desc = 'fey toggle all file embeds', help_desc = 'Show the text of every file embed of the note, or show it only on the cursor line (the start is fey_embed_files_default)' },
+      opts = {
+        desc = 'fey toggle all file embeds',
+        help_desc = 'Show the text of every file embed of the note, or show it only on the cursor line (the start is fey_embed_files_default)',
+      },
     }),
     fey_embed_toggle_images = m.action('fey_mappings.embed_toggle', {
       args = { 'images' },
-      opts = { desc = 'fey toggle all image embeds', help_desc = 'Show every image embed of the note, or show an image only on the cursor line (the start is fey_embed_images_default)' },
+      opts = {
+        desc = 'fey toggle all image embeds',
+        help_desc = 'Show every image embed of the note, or show an image only on the cursor line (the start is fey_embed_images_default)',
+      },
     }),
     fey_embed_peek = m.action('fey_mappings.embed_peek', {
-      opts = { desc = 'fey peek embed', help_desc = 'Open the lines of the embed under the cursor in a window of its own (read only, to move in, search and select; q closes, Enter opens the file there)' },
+      opts = {
+        desc = 'fey peek embed',
+        help_desc = 'Open the lines of the embed under the cursor in a window of its own (read only, to move in, search and select; q closes, Enter opens the file there)',
+      },
     }),
     fey_embed_scroll_down = m.action('fey_mappings.embed_scroll', {
       args = { 1 },
-      opts = { desc = 'fey scroll embed down', help_desc = 'Scroll the text drawn under the embed at the cursor down, half its height' },
+      opts = {
+        desc = 'fey scroll embed down',
+        help_desc = 'Scroll the text drawn under the embed at the cursor down, half its height',
+      },
     }),
     fey_embed_scroll_up = m.action('fey_mappings.embed_scroll', {
       args = { -1 },
-      opts = { desc = 'fey scroll embed up', help_desc = 'Scroll the text drawn under the embed at the cursor up, half its height' },
+      opts = {
+        desc = 'fey scroll embed up',
+        help_desc = 'Scroll the text drawn under the embed at the cursor up, half its height',
+      },
     }),
     fey_clock_in = m.action('clock.fey_clock_in', { opts = { desc = 'fey clock in', help_desc = 'Clock in current heading' } }),
     fey_clock_out = m.action(
@@ -805,18 +818,24 @@ return {
       'clock.fey_set_effort',
       { opts = { desc = 'fey set effort', help_desc = 'Set effort estimate on current heading' } }
     ),
-      fey_show_help = m.action('fey_mappings.show_help', {
-        args = { 'fey' },
-        opts = { desc = 'fey show help', help_desc = 'Show this help' },
-      }),
+    fey_show_help = m.action('fey_mappings.show_help', {
+      args = { 'fey' },
+      opts = { desc = 'fey show help', help_desc = 'Show this help' },
+    }),
     fey_babel_tangle = m.action('fey_mappings.fey_babel_tangle', {
       opts = { desc = 'fey tangle', help_desc = 'Write the source blocks of this file that have a :tangle target' },
     }),
     fey_babel_tangle_vault = m.action('fey_mappings.fey_babel_tangle_vault', {
-      opts = { desc = 'fey tangle hollow', help_desc = 'Write the source blocks that have a :tangle target of every file of this hollow' },
+      opts = {
+        desc = 'fey tangle hollow',
+        help_desc = 'Write the source blocks that have a :tangle target of every file of this hollow',
+      },
     }),
     fey_babel_check = m.action('fey_mappings.fey_babel_check', {
-      opts = { desc = 'fey tangle check', help_desc = 'List in quickfix the references that name no block and the targets two files write' },
+      opts = {
+        desc = 'fey tangle check',
+        help_desc = 'List in quickfix the references that name no block and the targets two files write',
+      },
     }),
     fey_toggle_date_type = m.action(
       'fey_mappings.fey_toggle_date_type',

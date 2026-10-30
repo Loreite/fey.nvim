@@ -160,19 +160,13 @@ function Template:_validate_regexp()
   end
   if places > 1 then
     local desc = self.description ~= '' and self.description or self.template
-    utils.echo_error(
-      ('A capture template can have one of heading, regexp, query and datetree: "%s"'):format(desc)
-    )
+    utils.echo_error(('A capture template can have one of heading, regexp, query and datetree: "%s"'):format(desc))
   end
 end
 
 function Template:_validate_datetree()
-  if not self.datetree or self.datetree == true then
-    return
-  end
-  if type(self.datetree) ~= 'table' then
-    return utils.echo_error('Datetree option must be a table or a boolean')
-  end
+  if not self.datetree or self.datetree == true then return end
+  if type(self.datetree) ~= 'table' then return utils.echo_error('Datetree option must be a table or a boolean') end
   if self.datetree.tree_type then
     local valid_tree_types = { 'day', 'week', 'month', 'custom' }
     if not vim.tbl_contains(valid_tree_types, self.datetree.tree_type) then
@@ -195,22 +189,16 @@ end
 function Template:compile()
   self:validate_options()
   local content = self.template
-  if type(content) == 'table' then
-    content = table.concat(content, '\n')
-  end
+  if type(content) == 'table' then content = table.concat(content, '\n') end
   return self
     :_compile(self.target, 'target')
     :next(function(target)
-      if not target then
-        return nil
-      end
+      if not target then return nil end
       self.target = target
       return self:_compile(content or '', 'content')
     end)
     :next(function(compiled_content)
-      if not compiled_content then
-        return nil
-      end
+      if not compiled_content then return nil end
       return vim.split(compiled_content, '\n', { plain = true })
     end)
 end
@@ -277,19 +265,13 @@ function Template:_compile(content, content_type)
   if self._compile_hooks then
     for _, hook in ipairs(self._compile_hooks) do
       content = hook(content, content_type) --[[@as string]]
-      if not content then
-        return Promise.resolve(nil)
-      end
+      if not content then return Promise.resolve(nil) end
     end
   end
   return self:_compile_datetree(content, content_type):next(function(compiled_content)
-    if not compiled_content then
-      return nil
-    end
+    if not compiled_content then return nil end
     return self:_compile_expansions(compiled_content):next(function(cnt)
-      if not cnt then
-        return nil
-      end
+      if not cnt then return nil end
       cnt = self:_compile_expressions(cnt)
       return self:_compile_prompts(cnt)
     end)
@@ -300,12 +282,7 @@ end
 ---@param content_type 'target' | 'content'
 ---@return FeyPromise<string | nil>
 function Template:_compile_datetree(content, content_type)
-  if
-    not self.datetree
-    or type(self.datetree) ~= 'table'
-    or not self.datetree.time_prompt
-    or content_type ~= 'target'
-  then
+  if not self.datetree or type(self.datetree) ~= 'table' or not self.datetree.time_prompt or content_type ~= 'target' then
     return Promise.resolve(content)
   end
 
@@ -329,9 +306,7 @@ function Template:_compile_expansions(content)
       if match then
         table.insert(compiled_expansions, function()
           return Promise.resolve(compiler(match)):next(function(replacement)
-            if not proceed or not replacement then
-              return Promise.reject('canceled')
-            end
+            if not proceed or not replacement then return Promise.reject('canceled') end
             content = content:gsub(expansion, vim.pesc(replacement))
             return content
           end)
@@ -340,28 +315,20 @@ function Template:_compile_expansions(content)
     end
   end
 
-  if #compiled_expansions == 0 then
-    return Promise.resolve(content)
-  end
+  if #compiled_expansions == 0 then return Promise.resolve(content) end
 
   local result = Promise.resolve()
   for _, value in ipairs(compiled_expansions) do
-    result = result:next(function()
-      return value()
-    end)
+    result = result:next(function() return value() end)
   end
 
   return result
     :next(function()
-      if not proceed then
-        return nil
-      end
+      if not proceed then return nil end
       return content
     end)
     :catch(function(err)
-      if err == 'canceled' then
-        return
-      end
+      if err == 'canceled' then return end
       error(err)
     end)
 end
@@ -392,9 +359,7 @@ function Template:_compile_prompts(content)
       input.completion = function()
         local completion_items = vim.list_slice(parts, 3, #parts)
         return function(arg_lead)
-          return vim.tbl_filter(function(v)
-            return v:match('^' .. vim.pesc(arg_lead))
-          end, completion_items)
+          return vim.tbl_filter(function(v) return v:match('^' .. vim.pesc(arg_lead)) end, completion_items)
         end
       end
     else
@@ -403,21 +368,15 @@ function Template:_compile_prompts(content)
     table.insert(prepared_inputs, input)
   end
 
-  if #prepared_inputs == 0 then
-    return Promise.resolve(content)
-  end
+  if #prepared_inputs == 0 then return Promise.resolve(content) end
 
   return Promise.mapSeries(function(prepared_input)
     return Input.open(prepared_input.prompt, '', prepared_input.completion and prepared_input.completion() or nil)
       :next(function(response)
-        if not response or #response == 0 then
-          response = prepared_input.fallback_value
-        end
+        if not response or #response == 0 then response = prepared_input.fallback_value end
         content = content:gsub(vim.pesc(prepared_input.exp), response)
       end)
-  end, prepared_inputs):next(function()
-    return content
-  end)
+  end, prepared_inputs):next(function() return content end)
 end
 
 function Template:_compile_expressions(content)
@@ -426,9 +385,7 @@ function Template:_compile_expressions(content)
     local func = load(snippet)
     ---@diagnostic disable-next-line: param-type-mismatch
     local ok, response = pcall(func)
-    if ok then
-      content = content:gsub(vim.pesc(exp), response)
-    end
+    if ok then content = content:gsub(vim.pesc(exp), response) end
   end
   return content
 end

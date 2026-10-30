@@ -74,7 +74,14 @@ local function is_group(value)
 end
 
 -- groups whose keys are not a fixed set of options
-local FREE = { fey_capture_templates = true, fey_agenda_custom_commands = true, fey_custom_exports = true, tag_handlers = true, tag_exports = true, fey_link_schemes = true }
+local FREE = {
+  fey_capture_templates = true,
+  fey_agenda_custom_commands = true,
+  fey_custom_exports = true,
+  tag_handlers = true,
+  tag_exports = true,
+  fey_link_schemes = true,
+}
 -- groups that are told elsewhere
 local SKIP = { mappings = true }
 
@@ -113,9 +120,7 @@ end
 
 ---@param top string
 ---@return boolean
-local function settable(top)
-  return require('fey.settings.fey_options').allowed(top)
-end
+local function settable(top) return require('fey.settings.fey_options').allowed(top) end
 
 ---The generated lines: one item for each option
 ---@return string[]
@@ -140,7 +145,9 @@ function M.render()
     )
   end
   local out = {
-    ('%d options. "A note may set it" is the white list of the `plugin` tag (`fey.settings.fey_options`): a `plugin` tag, in the court, a hollow or a note, can set'):format(#items),
+    ('%d options. "A note may set it" is the white list of the `plugin` tag (`fey.settings.fey_options`): a `plugin` tag, in the court, a hollow or a note, can set'):format(
+      #items
+    ),
     'those, and the change takes effect as soon as it is applied; the others are read when the plugin is set up, so they are written in the setup.',
     '',
   }

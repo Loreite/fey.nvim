@@ -18,9 +18,7 @@ function Templates:new(templates)
   for key, template in pairs(templates or config.fey_capture_templates) do
     if type(template) == 'table' then
       local tpl = vim.deepcopy(template)
-      if not tpl.target then
-        tpl.target = config.fey_default_notes_file
-      end
+      if not tpl.target then tpl.target = config.fey_default_notes_file end
       opts.templates[key] = Template:new(tpl)
     else
       opts.templates[key] = template
@@ -32,8 +30,6 @@ function Templates:new(templates)
   return opts
 end
 
-function Templates:get_list()
-  return self.templates
-end
+function Templates:get_list() return self.templates end
 
 return Templates

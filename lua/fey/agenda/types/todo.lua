@@ -55,8 +55,9 @@ function FeyAgendaTodosType:new(opts)
     agenda_filter = opts.agenda_filter,
     filter = opts.filter and AgendaFilter:new():parse(opts.filter, true) or nil,
     tag_filter = opts.tag_filter and AgendaFilter:new({ types = { 'tags' } }):parse(opts.tag_filter, true) or nil,
-    category_filter = opts.category_filter and AgendaFilter:new({ types = { 'categories' } })
-      :parse(opts.category_filter, true) or nil,
+    category_filter = opts.category_filter
+        and AgendaFilter:new({ types = { 'categories' } }):parse(opts.category_filter, true)
+      or nil,
     header = opts.header,
     subheader = opts.subheader,
     paths = opts.paths or opts.agenda_files, -- `agenda_files` is the old name of the key of a custom command
@@ -65,9 +66,7 @@ function FeyAgendaTodosType:new(opts)
     id = opts.id,
     remove_labels = type(opts.remove_labels) == 'boolean' and opts.remove_labels or config.fey_agenda_remove_labels,
   }, FeyAgendaTodosType)
-  this.valid_filters = vim.tbl_filter(function(filter)
-    return filter and true or false
-  end, {
+  this.valid_filters = vim.tbl_filter(function(filter) return filter and true or false end, {
     this.filter,
     this.tag_filter,
     this.category_filter,
@@ -78,15 +77,11 @@ function FeyAgendaTodosType:new(opts)
   return this
 end
 
-function FeyAgendaTodosType:prepare()
-  return Promise.resolve(self)
-end
+function FeyAgendaTodosType:prepare() return Promise.resolve(self) end
 
 ---`paths` of a custom command (`agenda_files` before) limits the source to those files and directories
 function FeyAgendaTodosType:_setup_agenda_files()
-  if not self.paths then
-    return
-  end
+  if not self.paths then return end
   self.source = setmetatable({ paths = nil }, { __index = self.source })
   self.source:set_paths(self.paths)
 end
@@ -95,9 +90,7 @@ end
 function FeyAgendaTodosType:redo() end
 
 function FeyAgendaTodosType:_get_header()
-  if self.header then
-    return self.header
-  end
+  if self.header then return self.header end
   return 'Global list of TODO items of type: ALL'
 end
 
@@ -182,16 +175,12 @@ function FeyAgendaTodosType:_build_line(heading, metadata)
 end
 
 ---@return FeyAgendaLine[]
-function FeyAgendaTodosType:get_lines()
-  return self.view.lines
-end
+function FeyAgendaTodosType:get_lines() return self.view.lines end
 
 ---@param row number
 ---@return FeyAgendaLine | nil
 function FeyAgendaTodosType:get_line(row)
-  return utils.find(self.view.lines, function(line)
-    return line.line_nr == row
-  end)
+  return utils.find(self.view.lines, function(line) return line.line_nr == row end)
 end
 
 ---@param agenda_line FeyAgendaLine
@@ -203,9 +192,7 @@ end
 
 ---The headings the view is about, before the filters: the open todo items, or every heading
 ---@return FeyAgendaEntry[]
-function FeyAgendaTodosType:get_entries()
-  return self.source:headings({ todo_only = self.todo_only })
-end
+function FeyAgendaTodosType:get_entries() return self.source:headings({ todo_only = self.todo_only }) end
 
 ---@return FeyAgendaEntry[], number
 function FeyAgendaTodosType:_get_headings()
@@ -225,9 +212,7 @@ end
 
 function FeyAgendaTodosType:_matches_filters(heading)
   for _, filter in ipairs(self.valid_filters) do
-    if filter and not filter:matches(heading) then
-      return false
-    end
+    if filter and not filter:matches(heading) then return false end
   end
   return true
 end

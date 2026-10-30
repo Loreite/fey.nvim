@@ -175,7 +175,9 @@ local function scalar(s)
   if quoted and #s >= 2 then return quoted end
   if s == 'true' then return true end
   if s == 'false' then return false end
-  if is_number(s) then return tonumber(s) --[[@as number]] end
+  if is_number(s) then
+    return tonumber(s) --[[@as number]]
+  end
   return s
 end
 
@@ -311,7 +313,11 @@ local function merge(ctx, node, dst, src, is_array)
     return true
   end
   for k, v in pairs(src) do
-    if dst[k] ~= nil then err(ctx, node, ('key defined twice: %s'):format(k)) else dst[k] = v end
+    if dst[k] ~= nil then
+      err(ctx, node, ('key defined twice: %s'):format(k))
+    else
+      dst[k] = v
+    end
   end
   return true
 end
@@ -337,7 +343,10 @@ local function item_value(ctx, item)
   local value, found = nil, false
   local paragraphs = {}
   local function take(v, node)
-    if found then err(ctx, node, 'list item holds more than one value') return end
+    if found then
+      err(ctx, node, 'list item holds more than one value')
+      return
+    end
     value, found = v, true
   end
 
@@ -384,7 +393,11 @@ function list_value(ctx, list)
     if item:type() == 'listitem' then
       local bullet = item:field('bullet')[1]
       local key = bullet and bullet_key(ctx, bullet)
-      if key then keyed = keyed + 1 else unkeyed = unkeyed + 1 end
+      if key then
+        keyed = keyed + 1
+      else
+        unkeyed = unkeyed + 1
+      end
       table.insert(entries, { key = key, value = item_value(ctx, item), node = item })
     end
   end
@@ -507,8 +520,13 @@ local function section_value(ctx, owner)
   local array_n, key_n = 0, 0
   for _, s in ipairs(subs) do
     local title = title_of(s)
-    if title == nil or title == '' then err(ctx, s, 'heading without a title in a data section')
-    elseif title == '_' then array_n = array_n + 1 else key_n = key_n + 1 end
+    if title == nil or title == '' then
+      err(ctx, s, 'heading without a title in a data section')
+    elseif title == '_' then
+      array_n = array_n + 1
+    else
+      key_n = key_n + 1
+    end
   end
   if array_n > 0 and key_n > 0 then err(ctx, owner, 'headings mix keys and `_`') end
 
@@ -617,13 +635,19 @@ function M.extract(src, opts)
   local label_tags = vim.list_extend({}, opts.label_tags or { 'label', 'labels' })
   local link_tags = vim.list_extend({}, opts.link_tags or { 'link', 'section' })
   local label_set, link_set = {}, {}
-  for _, n in ipairs(label_tags) do label_set[n] = true end
-  for _, n in ipairs(link_tags) do link_set[n] = true end
+  for _, n in ipairs(label_tags) do
+    label_set[n] = true
+  end
+  for _, n in ipairs(link_tags) do
+    link_set[n] = true
+  end
   local embed_name, link_name = opts.embed_tag or 'embed', opts.link_tag or 'link'
   link_set[embed_name] = true
 
   local meta_set = {}
-  for _, n in ipairs(opts.meta_tags or DEFAULT_META_TAGS) do meta_set[n] = true end
+  for _, n in ipairs(opts.meta_tags or DEFAULT_META_TAGS) do
+    meta_set[n] = true
+  end
   local date_kinds = opts.date_tags or { date = 'date', scheduled = 'scheduled', deadline = 'deadline', closed = 'closed' }
   local status_name = opts.status_tag or 'status'
   local prop_name = opts.prop_tag or 'prop'
@@ -769,16 +793,22 @@ function M.extract(src, opts)
 
       if label_set[tag.name] then
         for _, v in ipairs(tag.values) do
-          for _, l in ipairs(label_strings(v)) do add_label(l, heading_ord, region, line) end
+          for _, l in ipairs(label_strings(v)) do
+            add_label(l, heading_ord, region, line)
+          end
         end
       end
       for k, v in pairs(tag.attrs) do
         if label_set[k] then
-          for _, l in ipairs(label_strings(v)) do add_label(l, heading_ord, 'data', line) end
+          for _, l in ipairs(label_strings(v)) do
+            add_label(l, heading_ord, 'data', line)
+          end
           -- `{# array; labels: a, b #}` parses as the pair `labels: a` plus the plain value `b`
           if tag.name == 'array' then
             for _, pv in ipairs(tag.values) do
-              for _, l in ipairs(label_strings(pv)) do add_label(l, heading_ord, 'data', line) end
+              for _, l in ipairs(label_strings(pv)) do
+                add_label(l, heading_ord, 'data', line)
+              end
             end
           end
         end
@@ -890,7 +920,9 @@ function M.extract(src, opts)
     for k, v in pairs(data) do
       meta.properties[k] = v
       if label_set[k] then
-        for _, l in ipairs(label_strings(v)) do add_label(l, nil, 'data') end
+        for _, l in ipairs(label_strings(v)) do
+          add_label(l, nil, 'data')
+        end
       end
     end
   end
@@ -927,7 +959,8 @@ function M.extract(src, opts)
         p = p:parent()
       end
       local contents = item_node:field('contents')[1]
-      local title = contents and contents:type() ~= 'list' and vim.split(trim(text(ctx, contents)), '\n', { plain = true })[1] or ''
+      local title = contents and contents:type() ~= 'list' and vim.split(trim(text(ctx, contents)), '\n', { plain = true })[1]
+        or ''
       table.insert(meta.tasks, {
         heading_ord = heading_ord,
         line = (item_node:start()) + 1,
@@ -957,7 +990,9 @@ function M.extract(src, opts)
     end
     return out
   end
-  local file_args = header_args(type(data) == 'table' and not vim.islist(data) and type(data.header_args) == 'string' and data.header_args or '')
+  local file_args = header_args(
+    type(data) == 'table' and not vim.islist(data) and type(data.header_args) == 'string' and data.header_args or ''
+  )
   local src_lines = vim.split(src, '\n', { plain = true })
   for _, node in get_block_query():iter_captures(root, src) do
     if not node:has_error() and not commented(node) then

@@ -57,11 +57,15 @@ function M.derive(parent, fields, order)
   end, function()
     local keys, seen = {}, {}
     for _, k in ipairs(names) do
-      if not seen[k] then keys[#keys + 1], seen[k] = k, true end
+      if not seen[k] then
+        keys[#keys + 1], seen[k] = k, true
+      end
     end
     if parent ~= nil and V.is_object(parent) then
       for _, k in ipairs(V.keys(parent)) do
-        if not seen[k] then keys[#keys + 1], seen[k] = k, true end
+        if not seen[k] then
+          keys[#keys + 1], seen[k] = k, true
+        end
       end
     end
     return keys
@@ -91,9 +95,7 @@ end
 ---The id of the hollow of this store (`court:notes`), nil when it has none
 ---@return string|nil
 function Store:hollow_id()
-  if self._hollow_id == nil then
-    self._hollow_id = require('fey.hollow.tree').id_of(self.vault.root) or false
-  end
+  if self._hollow_id == nil then self._hollow_id = require('fey.hollow.tree').id_of(self.vault.root) or false end
   return self._hollow_id or nil
 end
 
@@ -151,10 +153,8 @@ function Store:_links()
   if self.outlinks then return self.outlinks, self.inlinks end
   local tree = require('fey.hollow.tree')
   local out, inn = {}, {}
-  local rows = self.vault:query(
-    [[SELECT f.path, l.kind, l.target, l.target_ref, l.target_file, l.target_sig, l.description
-      FROM links l JOIN files f ON f.id = l.file_id ORDER BY f.path, l.line]]
-  )
+  local rows = self.vault:query([[SELECT f.path, l.kind, l.target, l.target_ref, l.target_file, l.target_sig, l.description
+      FROM links l JOIN files f ON f.id = l.file_id ORDER BY f.path, l.line]])
   local seen_in = {}
   for _, r in ipairs(rows) do
     if r.target_ref then
@@ -190,11 +190,10 @@ end
 function Store:_headings()
   if self.headings then return self.headings end
   local by_path = {}
-  local rows = self.vault:query(
-    [[SELECT f.path AS file_path, h.ord, h.parent_ord, h.level, h.signature, h.title, h.path AS outline,
+  local rows =
+    self.vault:query([[SELECT f.path AS file_path, h.ord, h.parent_ord, h.level, h.signature, h.title, h.path AS outline,
         h.line, h.end_line, h.data
-      FROM headings h JOIN files f ON f.id = h.file_id ORDER BY f.path, h.ord]]
-  )
+      FROM headings h JOIN files f ON f.id = h.file_id ORDER BY f.path, h.ord]])
   for _, r in ipairs(rows) do
     by_path[r.file_path] = by_path[r.file_path] or {}
     table.insert(by_path[r.file_path], r)
@@ -218,14 +217,22 @@ local function new_file(store, page, row)
 
   local function resolve(t, k)
     local v
-    if k == 'name' then v = stem
-    elseif k == 'path' then v = path
-    elseif k == 'folder' then v = path:match('^(.*)/[^/]+$') or ''
-    elseif k == 'ext' then v = ext
-    elseif k == 'link' then v = V.link(path, nil, nil, store:hollow_id())
-    elseif k == 'hollow' then v = store:hollow_id() or NULL
-    elseif k == 'size' then v = row.size
-    elseif k == 'mtime' then v = V.date(row.mtime / 1000, true)
+    if k == 'name' then
+      v = stem
+    elseif k == 'path' then
+      v = path
+    elseif k == 'folder' then
+      v = path:match('^(.*)/[^/]+$') or ''
+    elseif k == 'ext' then
+      v = ext
+    elseif k == 'link' then
+      v = V.link(path, nil, nil, store:hollow_id())
+    elseif k == 'hollow' then
+      v = store:hollow_id() or NULL
+    elseif k == 'size' then
+      v = row.size
+    elseif k == 'mtime' then
+      v = V.date(row.mtime / 1000, true)
     elseif k == 'mday' then
       local f = os.date('*t', math.floor(row.mtime / 1000)) --[[@as osdateparam]]
       v = V.date(V.make_ts(f.year, f.month, f.day))
@@ -249,15 +256,21 @@ local function new_file(store, page, row)
       for _, l in ipairs(labels) do
         local base = l
         if k == 'labels' or k == 'heading_labels' then
-          if not seen[base] then out[#out + 1], seen[base] = base, true end
+          if not seen[base] then
+            out[#out + 1], seen[base] = base, true
+          end
         elseif k == 'etags' then
-          if not seen['#' .. base] then out[#out + 1], seen['#' .. base] = '#' .. base, true end
+          if not seen['#' .. base] then
+            out[#out + 1], seen['#' .. base] = '#' .. base, true
+          end
         else
           -- like Dataview, `a/b` also counts as `a`
           local acc = ''
           for part in base:gmatch('[^/]+') do
             acc = acc == '' and part or (acc .. '/' .. part)
-            if not seen['#' .. acc] then out[#out + 1], seen['#' .. acc] = '#' .. acc, true end
+            if not seen['#' .. acc] then
+              out[#out + 1], seen['#' .. acc] = '#' .. acc, true
+            end
           end
         end
       end
@@ -273,7 +286,10 @@ local function new_file(store, page, row)
       local out = {}
       for _, h in ipairs(store:_headings()[path] or {}) do
         out[#out + 1] = V.object({
-          title = h.title, level = h.level, signature = h.signature, line = h.line,
+          title = h.title,
+          level = h.level,
+          signature = h.signature,
+          line = h.line,
           link = V.link(path, h.title, h.signature, store:hollow_id()),
         })
       end
@@ -294,12 +310,35 @@ local function new_file(store, page, row)
     return v
   end
 
-  return lazy(resolve, function()
-    return {
-      'aliases', 'cday', 'ctime', 'day', 'etags', 'ext', 'folder', 'frontmatter', 'heading_labels', 'headings', 'inlinks', 'labels',
-      'link', 'mday', 'mtime', 'name', 'outlinks', 'path', 'size', 'tags', 'hollow',
-    }
-  end, { __path = path, __store = store })
+  return lazy(
+    resolve,
+    function()
+      return {
+        'aliases',
+        'cday',
+        'ctime',
+        'day',
+        'etags',
+        'ext',
+        'folder',
+        'frontmatter',
+        'heading_labels',
+        'headings',
+        'inlinks',
+        'labels',
+        'link',
+        'mday',
+        'mtime',
+        'name',
+        'outlinks',
+        'path',
+        'size',
+        'tags',
+        'hollow',
+      }
+    end,
+    { __path = path, __store = store }
+  )
 end
 
 ---@param store FeyQueryStore
@@ -443,8 +482,12 @@ end
 local function union(a, b)
   if a == nil or b == nil then return nil end
   local out = {}
-  for k in pairs(a) do out[k] = true end
-  for k in pairs(b) do out[k] = true end
+  for k in pairs(a) do
+    out[k] = true
+  end
+  for k in pairs(b) do
+    out[k] = true
+  end
   return out
 end
 
@@ -530,17 +573,17 @@ end
 function Store:_tasks()
   if self.task_rows then return self.task_rows, self.task_dates end
   local by_path, dates = {}, {}
-  for _, r in ipairs(self.vault:query(
-    [[SELECT f.path, t.line, t.heading_ord, t.title, t.state, t.done, t.priority, t.kind
-      FROM tasks t JOIN files f ON f.id = t.file_id ORDER BY f.path, t.line]]
-  )) do
+  for _, r in
+    ipairs(self.vault:query([[SELECT f.path, t.line, t.heading_ord, t.title, t.state, t.done, t.priority, t.kind
+      FROM tasks t JOIN files f ON f.id = t.file_id ORDER BY f.path, t.line]]))
+  do
     by_path[r.path] = by_path[r.path] or {}
     table.insert(by_path[r.path], r)
   end
-  for _, r in ipairs(self.vault:query(
-    [[SELECT f.path, d.heading_ord, d.kind, d.start_ts, d.start_time
-      FROM dates d JOIN files f ON f.id = d.file_id WHERE d.heading_ord IS NOT NULL ORDER BY d.start_ts]]
-  )) do
+  for _, r in
+    ipairs(self.vault:query([[SELECT f.path, d.heading_ord, d.kind, d.start_ts, d.start_time
+      FROM dates d JOIN files f ON f.id = d.file_id WHERE d.heading_ord IS NOT NULL ORDER BY d.start_ts]]))
+  do
     local key = r.path .. '\0' .. r.heading_ord
     dates[key] = dates[key] or {}
     -- the first date of a kind is the date of the task
@@ -560,27 +603,47 @@ function Store:task_object(page, row)
   local is_item = row.kind == 'item'
   local own_dates = (not is_item and row.heading_ord and dates[path .. '\0' .. row.heading_ord]) or {}
   local heading = (self:_headings()[path] or {})[row.heading_ord]
-  return lazy(function(t, k)
-    if k == 'text' or k == 'title' then return row.title end
-    if k == 'kind' then return row.kind or 'heading' end
-    if k == 'state' then return row.state or NULL end
-    if k == 'checked' then return is_item and row.done == 1 or false end
-    if k == 'completed' or k == 'done' then return row.done == 1 end
-    if k == 'priority' then return row.priority or NULL end
-    if k == 'line' then return row.line end
-    if k == 'file' then return page.file end
-    if k == 'signature' then return heading and heading.signature or NULL end
-    if k == 'link' then return V.link(path, row.title, heading and heading.signature or nil, self:hollow_id()) end
-    if k == 'labels' then
-      self:_labels()
-      return V.list(vim.deepcopy((row.heading_ord and self.section_labels[path .. '\0' .. row.heading_ord]) or {}))
-    end
-    if k == 'scheduled' or k == 'deadline' or k == 'closed' then return own_dates[k] or NULL end
-    if k == 'date' then return own_dates.date or NULL end
-    return nil
-  end, function()
-    return { 'checked', 'closed', 'completed', 'date', 'deadline', 'file', 'kind', 'labels', 'line', 'link', 'priority', 'scheduled', 'signature', 'state', 'text' }
-  end, { __path = path, __store = self })
+  return lazy(
+    function(t, k)
+      if k == 'text' or k == 'title' then return row.title end
+      if k == 'kind' then return row.kind or 'heading' end
+      if k == 'state' then return row.state or NULL end
+      if k == 'checked' then return is_item and row.done == 1 or false end
+      if k == 'completed' or k == 'done' then return row.done == 1 end
+      if k == 'priority' then return row.priority or NULL end
+      if k == 'line' then return row.line end
+      if k == 'file' then return page.file end
+      if k == 'signature' then return heading and heading.signature or NULL end
+      if k == 'link' then return V.link(path, row.title, heading and heading.signature or nil, self:hollow_id()) end
+      if k == 'labels' then
+        self:_labels()
+        return V.list(vim.deepcopy((row.heading_ord and self.section_labels[path .. '\0' .. row.heading_ord]) or {}))
+      end
+      if k == 'scheduled' or k == 'deadline' or k == 'closed' then return own_dates[k] or NULL end
+      if k == 'date' then return own_dates.date or NULL end
+      return nil
+    end,
+    function()
+      return {
+        'checked',
+        'closed',
+        'completed',
+        'date',
+        'deadline',
+        'file',
+        'kind',
+        'labels',
+        'line',
+        'link',
+        'priority',
+        'scheduled',
+        'signature',
+        'state',
+        'text',
+      }
+    end,
+    { __path = path, __store = self }
+  )
 end
 
 ---The tasks of some pages, in file order

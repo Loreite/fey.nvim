@@ -15,7 +15,9 @@ end
 function M.check_options()
   -- (the setup moved the old names; the original table is what it was given)
   local moved = require('fey.config.migrate').find(require('fey').given_options())
-  if #moved > 0 then h.warn(('%d old name%s in the options of `setup`, still working for now'):format(#moved, #moved == 1 and '' or 's'), moved) end
+  if #moved > 0 then
+    h.warn(('%d old name%s in the options of `setup`, still working for now'):format(#moved, #moved == 1 and '' or 's'), moved)
+  end
   local problems = require('fey.config.validate').check(require('fey').setup_options(), require('fey.config.defaults'))
   if #problems == 0 then return h.ok('the options of `setup` are fine') end
   h.warn(
@@ -82,15 +84,30 @@ function M.check_vaults()
       h.ok(('%s: %d files indexed, state %s, schema %s'):format(label, s.files, s.state or 'unknown', tostring(s.db_schema)))
     end
     if s.db_schema ~= nil and s.db_schema ~= s.schema then
-      h.warn(('%s: the index has schema %d, this version of the plugin writes %d (it is rebuilt at the next scan)'):format(label, s.db_schema, s.schema))
+      h.warn(
+        ('%s: the index has schema %d, this version of the plugin writes %d (it is rebuilt at the next scan)'):format(
+          label,
+          s.db_schema,
+          s.schema
+        )
+      )
     end
     local stale = vim.list_extend(vim.list_extend(vim.list_extend({}, s.changed), s.new), s.removed)
     if #stale > 0 then
       local lines = {}
-      for _, p in ipairs(s.changed) do lines[#lines + 1] = 'changed: ' .. p end
-      for _, p in ipairs(s.new) do lines[#lines + 1] = 'not indexed: ' .. p end
-      for _, p in ipairs(s.removed) do lines[#lines + 1] = 'gone: ' .. p end
-      h.warn(('%s: the index is stale for %d file%s, the next scan fixes it'):format(label, #stale, #stale == 1 and '' or 's'), lines)
+      for _, p in ipairs(s.changed) do
+        lines[#lines + 1] = 'changed: ' .. p
+      end
+      for _, p in ipairs(s.new) do
+        lines[#lines + 1] = 'not indexed: ' .. p
+      end
+      for _, p in ipairs(s.removed) do
+        lines[#lines + 1] = 'gone: ' .. p
+      end
+      h.warn(
+        ('%s: the index is stale for %d file%s, the next scan fixes it'):format(label, #stale, #stale == 1 and '' or 's'),
+        lines
+      )
     else
       h.ok(label .. ': the index is up to date')
     end
@@ -121,9 +138,7 @@ function M.check_has_treesitter()
   end
 
   if #version_info.parser_locations > 1 then
-    local list = vim.tbl_map(function(parser)
-      return ('- `%s`'):format(parser)
-    end, version_info.parser_locations)
+    local list = vim.tbl_map(function(parser) return ('- `%s`'):format(parser) end, version_info.parser_locations)
     return h.warn(
       ('Multiple fey parsers found in these locations:\n%s\nDelete unused ones to avoid conflicts.'):format(
         table.concat(list, '\n')
@@ -192,9 +207,7 @@ function M.check_setup()
 end
 
 function M.check_shellslash()
-  if vim.fn.has('win32') ~= 1 then
-    return
-  end
+  if vim.fn.has('win32') ~= 1 then return end
   if not vim.opt.shellslash:get() then
     h.warn(
       '`shellslash` is not set. This might cause issues with file paths in links. Set `vim.opt.shellslash = true` in your configuration.'

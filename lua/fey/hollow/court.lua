@@ -302,7 +302,13 @@ function M.setup()
     if not current then return vim.notify('fey: no hollow in the working directory', vim.log.levels.WARN) end
     local settings = tree().settings(current.root)
     local merge
-    if cmd.args == 'on' then merge = true elseif cmd.args == 'off' then merge = false else merge = not settings.merge end
+    if cmd.args == 'on' then
+      merge = true
+    elseif cmd.args == 'off' then
+      merge = false
+    else
+      merge = not settings.merge
+    end
     local ok, err = tree().write_settings(current.root, { name = settings.name, merge = merge })
     if not ok then return vim.notify('fey: ' .. tostring(err), vim.log.levels.ERROR) end
     vim.notify(('fey: this hollow is %s the merged views of the hollows above it'):format(merge and 'in' or 'out of'))

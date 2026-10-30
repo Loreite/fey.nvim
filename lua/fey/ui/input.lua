@@ -24,22 +24,16 @@ function FeyInput.open(prompt, default, completion)
   return Promise.new(function(resolve, reject)
     if config.ui.input.use_vim_ui then
       return vim.ui.input(opts, function(value)
-        if value == nil then
-          return reject('Canceled')
-        end
+        if value == nil then return reject('Canceled') end
         return resolve(value)
       end)
     end
 
     opts.cancelreturn = vim.NIL
     local value = vim.fn.input(opts)
-    if value == vim.NIL then
-      return reject('Canceled')
-    end
+    if value == vim.NIL then return reject('Canceled') end
     return resolve(value)
-  end):catch(function()
-    utils.echo_error('Input canceled')
-  end)
+  end):catch(function() utils.echo_error('Input canceled') end)
 end
 
 return FeyInput

@@ -28,10 +28,17 @@ render_inlines = function(items)
       out[#out + 1] = item.href and ('<a href="%s">%s</a>'):format(esc(item.href), inner) or inner
     elseif item.t == 'image' then
       out[#out + 1] = ('<img src="%s" alt="%s"%s%s>'):format(
-        esc(item.src or ''), esc(item.alt or ''), item.width and (' width="%d"'):format(item.width) or '', item.height and (' height="%d"'):format(item.height) or ''
+        esc(item.src or ''),
+        esc(item.alt or ''),
+        item.width and (' width="%d"'):format(item.width) or '',
+        item.height and (' height="%d"'):format(item.height) or ''
       )
     elseif item.t == 'fnref' then
-      out[#out + 1] = ('<sup><a href="#fn-%s" id="fnref-%s">%s</a></sup>'):format(esc(item.label), esc(item.label), esc(item.label))
+      out[#out + 1] = ('<sup><a href="#fn-%s" id="fnref-%s">%s</a></sup>'):format(
+        esc(item.label),
+        esc(item.label),
+        esc(item.label)
+      )
     elseif item.t == 'math' then
       out[#out + 1] = '<span class="math inline">\\(' .. esc(item.s) .. '\\)</span>'
     elseif item.t == 'html' then
@@ -54,7 +61,8 @@ function M.merged_table(block)
   local function row(cells, tag)
     local tds = {}
     for _, c in ipairs(cells) do
-      local span = (c.colspan > 1 and (' colspan="%d"'):format(c.colspan) or '') .. (c.rowspan > 1 and (' rowspan="%d"'):format(c.rowspan) or '')
+      local span = (c.colspan > 1 and (' colspan="%d"'):format(c.colspan) or '')
+        .. (c.rowspan > 1 and (' rowspan="%d"'):format(c.rowspan) or '')
       tds[#tds + 1] = ('<%s%s>%s</%s>'):format(tag, span, render_inlines(c.inlines), tag)
     end
     return '<tr>' .. table.concat(tds) .. '</tr>'
@@ -87,7 +95,8 @@ render_blocks = function(blocks, out)
       local tag = block.ordered and 'ol' or 'ul'
       out[#out + 1] = '<' .. tag .. '>'
       for _, item in ipairs(block.items) do
-        local box = item.checked == nil and '' or ('<input type="checkbox" disabled%s> '):format(item.checked and ' checked' or '')
+        local box = item.checked == nil and ''
+          or ('<input type="checkbox" disabled%s> '):format(item.checked and ' checked' or '')
         local inner = {}
         render_blocks(item.blocks, inner)
         -- the text of the first paragraph sits in the item itself
@@ -126,7 +135,10 @@ render_blocks = function(blocks, out)
       end
       out[#out + 1] = '</tbody></table>'
     elseif t == 'code' then
-      out[#out + 1] = ('<pre><code%s>%s</code></pre>'):format(block.lang and (' class="language-' .. esc(block.lang) .. '"') or '', esc(block.text))
+      out[#out + 1] = ('<pre><code%s>%s</code></pre>'):format(
+        block.lang and (' class="language-' .. esc(block.lang) .. '"') or '',
+        esc(block.text)
+      )
     elseif t == 'math' then
       out[#out + 1] = '<div class="math display">\\[' .. esc(block.s) .. '\\]</div>'
     elseif t == 'linkblock' then
@@ -204,7 +216,11 @@ function M.render(doc)
       if blocks then
         local inner = {}
         render_blocks(blocks, inner)
-        out[#out + 1] = ('<li id="fn-%s">%s <a href="#fnref-%s">↩</a></li>'):format(esc(label), table.concat(inner, ' '), esc(label))
+        out[#out + 1] = ('<li id="fn-%s">%s <a href="#fnref-%s">↩</a></li>'):format(
+          esc(label),
+          table.concat(inner, ' '),
+          esc(label)
+        )
       end
     end
     out[#out + 1] = '</ol>'

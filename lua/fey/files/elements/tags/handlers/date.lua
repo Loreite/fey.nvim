@@ -25,9 +25,7 @@ function M.handler(tag)
 
   local dates = Date.from_tag(tag)
   local date = dates[1]
-  if not date then
-    return vim.notify('fey: not a date: ' .. tostring(tag.values[1]), vim.log.levels.WARN)
-  end
+  if not date then return vim.notify('fey: not a date: ' .. tostring(tag.values[1]), vim.log.levels.WARN) end
 
   local bufnr, name = tag.bufnr, tag.name
   local row, col = tag.node:start()

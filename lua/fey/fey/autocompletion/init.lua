@@ -22,15 +22,11 @@ function FeyCompletion:new(opts)
   return this
 end
 
-function FeyCompletion:setup_builtin_sources()
-  self:add_source(require('fey.fey.autocompletion.sources.tag_head'):new())
-end
+function FeyCompletion:setup_builtin_sources() self:add_source(require('fey.fey.autocompletion.sources.tag_head'):new()) end
 
 ---@param source FeyCompletionSource
 function FeyCompletion:add_source(source)
-  if self.sources_by_name[source:get_name()] then
-    error('Completion source ' .. source:get_name() .. ' already exists', 0)
-  end
+  if self.sources_by_name[source:get_name()] then error('Completion source ' .. source:get_name() .. ' already exists', 0) end
   self.sources_by_name[source:get_name()] = source
   table.insert(self.sources, source)
 end
@@ -40,9 +36,7 @@ end
 function FeyCompletion:complete(context)
   local results = {}
   context.base = context.base or ''
-  if not context.matcher then
-    context.matcher = self:_build_matcher(context)
-  end
+  if not context.matcher then context.matcher = self:_build_matcher(context) end
   for _, source in ipairs(self.sources) do
     if source:get_start(context) then
       vim.list_extend(results, self:_get_valid_results(source:get_results(context), context))
@@ -73,9 +67,7 @@ end
 function FeyCompletion:get_start(context)
   for _, source in ipairs(self.sources) do
     local start = source:get_start(context)
-    if start then
-      return start
-    end
+    if start then return start end
   end
 
   return -1
@@ -99,12 +91,8 @@ end
 function FeyCompletion:_build_matcher(context)
   return function(value, pattern)
     pattern = pattern or ''
-    if pattern == '' then
-      return true
-    end
-    if context.fuzzy then
-      return #vim.fn.matchfuzzy({ value }, pattern) > 0
-    end
+    if pattern == '' then return true end
+    if context.fuzzy then return #vim.fn.matchfuzzy({ value }, pattern) > 0 end
     return value:find('^' .. vim.pesc(pattern)) ~= nil
   end
 end
@@ -114,8 +102,6 @@ function FeyCompletion:get_line()
   return vim.api.nvim_get_current_line():sub(1, cursor[2])
 end
 
-function FeyCompletion:register_frameworks()
-  require('fey.fey.autocompletion.cmp')
-end
+function FeyCompletion:register_frameworks() require('fey.fey.autocompletion.cmp') end
 
 return FeyCompletion

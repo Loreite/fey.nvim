@@ -51,9 +51,7 @@ function Source:get_scope()
 end
 
 ---@return string|nil
-function Source:get_root()
-  return self.root or tree.hollow_root_of(vim.fn.getcwd())
-end
+function Source:get_root() return self.root or tree.hollow_root_of(vim.fn.getcwd()) end
 
 ---@param scope_spec? FeyScopeSpec
 function Source:set_scope(scope_spec) self.scope = scope_spec end
@@ -98,12 +96,14 @@ end
 ---The headings with a running clock, as a set of `hollow \0 path \0 ord`
 ---@return table<string, boolean>
 function Source:clocked()
-  local rows = scope.collect(self:get_scope(), self:get_root(), function(vault)
-    return vault:query(
-      [[SELECT f.path, d.heading_ord FROM dates d JOIN files f ON f.id = d.file_id
-        WHERE d.kind = 'clock' AND d.end_ts IS NULL AND d.heading_ord IS NOT NULL]]
-    )
-  end)
+  local rows = scope.collect(
+    self:get_scope(),
+    self:get_root(),
+    function(vault)
+      return vault:query([[SELECT f.path, d.heading_ord FROM dates d JOIN files f ON f.id = d.file_id
+        WHERE d.kind = 'clock' AND d.end_ts IS NULL AND d.heading_ord IS NOT NULL]])
+    end
+  )
   local set = {}
   for _, r in ipairs(rows) do
     set[r.hollow .. '\0' .. r.path .. '\0' .. r.heading_ord] = true

@@ -107,9 +107,7 @@ end)
 def('string', function(v) return ops.tostring(v) end)
 
 def('link', function(path, display)
-  if V.is_link(path) then
-    return V.link(path.path, display or path.display, path.subpath, path.hollow)
-  end
+  if V.is_link(path) then return V.link(path.path, display or path.display, path.subpath, path.hollow) end
   if type(path) ~= 'string' then return NULL end
   local p, sub = path:match('^(.-)#(.*)$')
   return V.link(p or path, display, sub)
@@ -224,7 +222,9 @@ def('minby', function(list, fn)
   local best, best_key
   for _, v in ipairs(arr(list)) do
     local k = fn(v)
-    if best_key == nil or V.compare(k, best_key) < 0 then best, best_key = v, k end
+    if best_key == nil or V.compare(k, best_key) < 0 then
+      best, best_key = v, k
+    end
   end
   return best == nil and NULL or best
 end)
@@ -232,7 +232,9 @@ def('maxby', function(list, fn)
   local best, best_key
   for _, v in ipairs(arr(list)) do
     local k = fn(v)
-    if best_key == nil or V.compare(k, best_key) > 0 then best, best_key = v, k end
+    if best_key == nil or V.compare(k, best_key) > 0 then
+      best, best_key = v, k
+    end
   end
   return best == nil and NULL or best
 end)
@@ -316,7 +318,11 @@ end)
 
 local function flat(list, depth, out)
   for _, v in ipairs(list) do
-    if V.is_list(v) and depth > 0 then flat(v, depth - 1, out) else out[#out + 1] = v end
+    if V.is_list(v) and depth > 0 then
+      flat(v, depth - 1, out)
+    else
+      out[#out + 1] = v
+    end
   end
   return out
 end
@@ -546,8 +552,30 @@ end)
 -- Dates ------------------------------------------------------------------------
 
 local TOKEN_ORDER = {
-  'yyyy', 'yy', 'MMMM', 'MMM', 'MM', 'M', 'dd', 'd', 'cccc', 'ccc', 'EEEE', 'EEE', 'HH', 'H', 'hh', 'h', 'mm', 'm',
-  'ss', 's', 'SSS', 'a', 'x', 'X',
+  'yyyy',
+  'yy',
+  'MMMM',
+  'MMM',
+  'MM',
+  'M',
+  'dd',
+  'd',
+  'cccc',
+  'ccc',
+  'EEEE',
+  'EEE',
+  'HH',
+  'H',
+  'hh',
+  'h',
+  'mm',
+  'm',
+  'ss',
+  's',
+  'SSS',
+  'a',
+  'x',
+  'X',
 }
 
 ---Luxon style format tokens (subset): yyyy MM dd HH mm ss MMMM MMM cccc ccc a ...
@@ -619,13 +647,22 @@ def('durationformat', function(dur, fmt)
   if not V.is_duration(dur) or type(fmt) ~= 'string' then return NULL end
   local n = V.duration_from_ms(V.duration_ms(dur))
   local map = {
-    y = 'years', M = 'months', w = 'weeks', d = 'days', h = 'hours', m = 'minutes', s = 'seconds', S = 'milliseconds',
+    y = 'years',
+    M = 'months',
+    w = 'weeks',
+    d = 'days',
+    h = 'hours',
+    m = 'minutes',
+    s = 'seconds',
+    S = 'milliseconds',
   }
-  return (fmt:gsub("(%a)(%a*)", function(c, rest)
-    local unit = map[c]
-    if unit and rest == c:rep(#rest) then return ('%0' .. (#rest + 1) .. 'd'):format(math.floor(math.abs(n[unit]))) end
-    return nil
-  end))
+  return (
+    fmt:gsub('(%a)(%a*)', function(c, rest)
+      local unit = map[c]
+      if unit and rest == c:rep(#rest) then return ('%0' .. (#rest + 1) .. 'd'):format(math.floor(math.abs(n[unit]))) end
+      return nil
+    end)
+  )
 end)
 
 -- Bases style helpers (also reachable as methods: `file.hasTag("x")`) ----------------

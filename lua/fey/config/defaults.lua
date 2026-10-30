@@ -10,6 +10,7 @@ local DefaultConfig = {
   --
   fey_subheadings_unique_segments_for_subtree = false,
   fey_sublists_unique_bullets_for_subtree = false,
+  fey_sublists_allow_mixed_index_types = true, -- sublists of one item keep their own index type (`1.` then `a.`) when a list is reindexed
   --
   fey_use_uppercase_for_binary_marker = false,
   fey_use_uppercase_for_hex_marker = false,

@@ -132,7 +132,9 @@ end
 
 ---@param d table date
 ---@return osdateparam
-function M.date_fields(d) return os.date('*t', math.floor(d.ts)) --[[@as osdateparam]] end
+function M.date_fields(d)
+  return os.date('*t', math.floor(d.ts)) --[[@as osdateparam]]
+end
 
 ---@param y integer
 ---@param mo integer
@@ -170,14 +172,43 @@ function M.date_add(d, dur, sign)
 end
 
 local unit_aliases = {
-  ms = 'milliseconds', msec = 'milliseconds', msecs = 'milliseconds', millisecond = 'milliseconds', milliseconds = 'milliseconds',
-  s = 'seconds', sec = 'seconds', secs = 'seconds', second = 'seconds', seconds = 'seconds',
-  m = 'minutes', min = 'minutes', mins = 'minutes', minute = 'minutes', minutes = 'minutes',
-  h = 'hours', hr = 'hours', hrs = 'hours', hour = 'hours', hours = 'hours',
-  d = 'days', day = 'days', days = 'days',
-  w = 'weeks', wk = 'weeks', wks = 'weeks', week = 'weeks', weeks = 'weeks',
-  mo = 'months', mos = 'months', month = 'months', months = 'months',
-  y = 'years', yr = 'years', yrs = 'years', year = 'years', years = 'years',
+  ms = 'milliseconds',
+  msec = 'milliseconds',
+  msecs = 'milliseconds',
+  millisecond = 'milliseconds',
+  milliseconds = 'milliseconds',
+  s = 'seconds',
+  sec = 'seconds',
+  secs = 'seconds',
+  second = 'seconds',
+  seconds = 'seconds',
+  m = 'minutes',
+  min = 'minutes',
+  mins = 'minutes',
+  minute = 'minutes',
+  minutes = 'minutes',
+  h = 'hours',
+  hr = 'hours',
+  hrs = 'hours',
+  hour = 'hours',
+  hours = 'hours',
+  d = 'days',
+  day = 'days',
+  days = 'days',
+  w = 'weeks',
+  wk = 'weeks',
+  wks = 'weeks',
+  week = 'weeks',
+  weeks = 'weeks',
+  mo = 'months',
+  mos = 'months',
+  month = 'months',
+  months = 'months',
+  y = 'years',
+  yr = 'years',
+  yrs = 'years',
+  year = 'years',
+  years = 'years',
 }
 
 ---Parse "1 day 2 hours", "1d2h", "3 months, 2 weeks"
@@ -242,7 +273,16 @@ end
 -- Equality, ordering, truthiness ------------------------------------------------
 
 local TYPE_RANK = {
-  null = 0, boolean = 1, number = 2, string = 3, date = 4, duration = 5, link = 6, array = 7, object = 8, ['function'] = 9,
+  null = 0,
+  boolean = 1,
+  number = 2,
+  string = 3,
+  date = 4,
+  duration = 5,
+  link = 6,
+  array = 7,
+  object = 8,
+  ['function'] = 9,
 }
 
 ---@param v any

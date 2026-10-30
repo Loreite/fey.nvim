@@ -1152,9 +1152,7 @@ end
 function Heading:add_to_drawer(drawer_name, content)
   local append_line, indent = self:get_drawer_append_line(drawer_name)
   local lines = type(content) == 'table' and content or { content }
-  if indent ~= '' then
-    lines = vim.tbl_map(function(line) return line ~= '' and (indent .. line) or '' end, lines)
-  end
+  if indent ~= '' then lines = vim.tbl_map(function(line) return line ~= '' and (indent .. line) or '' end, lines) end
   vim.api.nvim_buf_set_lines(self.file:get_valid_bufnr(), append_line, append_line, false, lines)
   return self:refresh()
 end

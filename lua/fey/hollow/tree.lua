@@ -235,9 +235,7 @@ function M.children(root, opts)
   opts = opts or {}
   local out = {}
   for _, entry in ipairs(M.entries(root)) do
-    if entry.ok and not entry.misplaced and (not opts.merged or M.settings(entry.root).merge) then
-      out[#out + 1] = entry
-    end
+    if entry.ok and not entry.misplaced and (not opts.merged or M.settings(entry.root).merge) then out[#out + 1] = entry end
   end
   return out
 end
@@ -259,9 +257,7 @@ end
 ---@return boolean ok
 ---@return string|nil err
 function M.valid_name(registry_root, name)
-  if name == '' or not name:match('^[%w_.%-]+$') then
-    return false, 'a name has letters, digits, `_`, `-` and `.`'
-  end
+  if name == '' or not name:match('^[%w_.%-]+$') then return false, 'a name has letters, digits, `_`, `-` and `.`' end
   if name == 'court' or name == 'current' then return false, name .. ' is a keyword' end
   for _, entry in ipairs(M.entries(registry_root)) do
     if entry.name == name then return false, 'there is already a hollow named ' .. name end

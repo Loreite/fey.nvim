@@ -215,9 +215,7 @@ function FeyMappings:date_down_day()
   return self:_adjust_date(-vim.v.count1, 'd', vim.v.count1 .. config.mappings.fey.fey_date_down_day)
 end
 
-function FeyMappings:date_up()
-  return self:_adjust_date_part('+', vim.v.count1, vim.v.count1 .. config.mappings.fey.fey_date_up)
-end
+function FeyMappings:date_up() return self:_adjust_date_part('+', vim.v.count1, vim.v.count1 .. config.mappings.fey.fey_date_up) end
 
 function FeyMappings:date_down()
   return self:_adjust_date_part('-', vim.v.count1, vim.v.count1 .. config.mappings.fey.fey_date_down)
@@ -1061,7 +1059,10 @@ end
 ---@param subheading boolean?
 function FeyMappings:insert_todo_heading_respect_content(subheading)
   local todo_keywords = self.files:get_current_file():get_todo_keywords()
-  return self:insert_heading_respect_content(('{# status, %s #} '):format(todo_keywords:first_by_type('TODO').value), subheading)
+  return self:insert_heading_respect_content(
+    ('{# status, %s #} '):format(todo_keywords:first_by_type('TODO').value),
+    subheading
+  )
 end
 
 ---@param subheading boolean?

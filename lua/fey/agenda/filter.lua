@@ -25,16 +25,12 @@ function AgendaFilter:new(opts)
 end
 
 ---@return boolean
-function AgendaFilter:should_filter()
-  return vim.trim(self.value) ~= ''
-end
+function AgendaFilter:should_filter() return vim.trim(self.value) ~= '' end
 
 ---@param heading FeyHeading
 ---@return boolean
 function AgendaFilter:matches(heading)
-  if not self:should_filter() then
-    return true
-  end
+  if not self:should_filter() then return true end
   local term_match = vim.trim(self.term) == ''
   local values_match_empty = #self.values == 0
 
@@ -43,9 +39,7 @@ function AgendaFilter:matches(heading)
     term_match = rgx:match_str(heading:get_title()) and true or false
   end
 
-  if values_match_empty then
-    return term_match
-  end
+  if values_match_empty then return term_match end
 
   local tag_cat_match = self:_match(heading)
 
@@ -57,30 +51,18 @@ end
 ---@return boolean
 function AgendaFilter:_match(heading)
   local filters = {}
-  if vim.tbl_contains(self.types, 'tags') then
-    table.insert(filters, function(tag)
-      return heading:has_label(tag)
-    end)
-  end
+  if vim.tbl_contains(self.types, 'tags') then table.insert(filters, function(tag) return heading:has_label(tag) end) end
   if vim.tbl_contains(self.types, 'categories') then
-    table.insert(filters, function(category)
-      return heading:matches_category(category)
-    end)
+    table.insert(filters, function(category) return heading:matches_category(category) end)
   end
   for _, value in ipairs(self.values) do
     if value.operator == '-' then
       for _, filter in ipairs(filters) do
-        if filter(value.value) then
-          return false
-        end
+        if filter(value.value) then return false end
       end
     else
-      local result = vim.tbl_filter(function(filter)
-        return filter(value.value)
-      end, filters)
-      if #result == 0 then
-        return false
-      end
+      local result = vim.tbl_filter(function(filter) return filter(value.value) end, filters)
+      if #result == 0 then return false end
     end
   end
 
@@ -95,16 +77,12 @@ function AgendaFilter:parse(filter, skip_check)
   self.values = {}
   local search_rgx = '/[^/]*/?'
   local search_term = filter:match(search_rgx)
-  if search_term then
-    search_term = search_term:gsub('^/*', ''):gsub('/*$', '')
-  end
+  if search_term then search_term = search_term:gsub('^/*', ''):gsub('/*$', '') end
   filter = filter:gsub(search_rgx, '')
   for operator, tag_cat in string.gmatch(filter, '([%+%-]*)([^%-%+]+)') do
     local val = vim.trim(tag_cat)
     if val ~= '' then
-      if self.available_values[val] or skip_check then
-        table.insert(self.values, { operator = operator, value = val })
-      end
+      if self.available_values[val] or skip_check then table.insert(self.values, { operator = operator, value = val }) end
     end
   end
   self.term = search_term or ''
@@ -119,16 +97,12 @@ end
 
 ---@param agenda_views FeyAgendaViewType[]
 function AgendaFilter:parse_available_filters(agenda_views)
-  if self.parsed then
-    return
-  end
+  if self.parsed then return end
   local values = {}
   for _, agenda_view in ipairs(agenda_views) do
     for _, line in ipairs(agenda_view:get_lines()) do
       if line.heading then
-        if vim.tbl_contains(self.types, 'categories') then
-          values[line.heading:get_category()] = true
-        end
+        if vim.tbl_contains(self.types, 'categories') then values[line.heading:get_category()] = true end
         if vim.tbl_contains(self.types, 'tags') then
           for _, tag in ipairs(line.heading:get_labels()) do
             values[tag] = true
@@ -142,8 +116,6 @@ function AgendaFilter:parse_available_filters(agenda_views)
 end
 
 ---@return string[]
-function AgendaFilter:get_completion_list()
-  return vim.tbl_keys(self.available_values)
-end
+function AgendaFilter:get_completion_list() return vim.tbl_keys(self.available_values) end
 
 return AgendaFilter

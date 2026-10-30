@@ -7,7 +7,8 @@ local M = {}
 ---@return string end_
 function M.markers(name)
   -- comment tags: an export leaves them out, and they are not indexed
-  return ('#[ comment ] begin generated: %s (scripts/gen_docs.lua) #'):format(name), ('#[ comment ] end generated: %s #'):format(name)
+  return ('#[ comment ] begin generated: %s (scripts/gen_docs.lua) #'):format(name),
+    ('#[ comment ] end generated: %s #'):format(name)
 end
 
 ---Replace the generated part of a file

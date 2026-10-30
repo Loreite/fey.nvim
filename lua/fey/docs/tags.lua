@@ -164,11 +164,19 @@ M.TAGS = {
     indexed = 'a link of the kind `embed`: backlinks and broken links see it, a file that is not a note only has to exist, and the query value of the link has `embed` true',
     open = 'opens the file; `fey_embed_toggle` shows the text of the file under the tag (`fey_embed_toggle_all` for the files of the whole note, `fey_embed_toggle_images` for its images), the cursor on the line does too (`fey_embed_expand_on_cursor`), and `fey_embed_files_default` and `fey_embed_images_default` say what shows without either (the text is coloured by the parser of its language, `fey_embed_highlight`; `fey_embed_view_height` lines show at once, `fey_embed_scroll_down` and `fey_embed_scroll_up` scroll them, and `fey_embed_peek` opens all the lines in a window to move and select in); an image is drawn by the image plugin that reads the `images` query (snacks.image does)',
     related = '`fey_link_tag_name`, `fey_embed_max_lines`, `fey_import_embeds_as`',
-    example = { 'A photo {@ embed, img/cat.png; desc: a cat; width: 40 @} and the code:', '{@ embed, build.lua; lines: 10-30 @}' },
+    example = {
+      'A photo {@ embed, img/cat.png; desc: a cat; width: 40 @} and the code:',
+      '{@ embed, build.lua; lines: 10-30 @}',
+    },
   },
   {
     option = 'fey_section_tag_name',
-    forms = { scope_tag = 'a link to a heading by its signature', block_tag = 'the body is the link', pair_tag = 'the body is the link', line_tag = 'the words are the link' },
+    forms = {
+      scope_tag = 'a link to a heading by its signature',
+      block_tag = 'the body is the link',
+      pair_tag = 'the body is the link',
+      line_tag = 'the words are the link',
+    },
     head = 'the signature, then the file and the number of the heading when several have the signature',
     body = 'what the link is made of, in the forms that have a body',
     where = 'anywhere in the text; the tags are kept up to date when headings are renumbered',
@@ -179,14 +187,24 @@ M.TAGS = {
   },
   {
     option = 'fey_query_tag_name',
-    forms = { scope_tag = 'the query is in the head', line_tag = 'the query is the text', block_tag = 'the query is the indented body', pair_tag = 'the query is between the opener and the closer' },
+    forms = {
+      scope_tag = 'the query is in the head',
+      line_tag = 'the query is the text',
+      block_tag = 'the query is the indented body',
+      pair_tag = 'the query is between the opener and the closer',
+    },
     head = 'for the scope form the query; the keys `scope` (`current`, `tree`, `court` or hollows) and `conceal`',
     body = 'the query, in the Dataview style language (`TABLE`, `LIST`, `TASK`)',
     where = 'anywhere in the text; the result is written after it',
     indexed = 'as a tag only',
     open = 'runs it (`<prefix>qq`; `<prefix>qa` runs every query of the file)',
     related = '`fey_query_conceal_default`, the result tag',
-    example = { '[ query ]#', '   TABLE file.name, length(file.outlinks) AS "Links"', '   FROM #design', '   SORT file.mtime DESC' },
+    example = {
+      '[ query ]#',
+      '   TABLE file.name, length(file.outlinks) AS "Links"',
+      '   FROM #design',
+      '   SORT file.mtime DESC',
+    },
   },
   {
     option = 'fey_query_result_tag_name',
@@ -261,7 +279,12 @@ M.TAGS = {
   },
   {
     option = 'fey_hl_tag_name',
-    forms = { scope_tag = 'colours what the tag applies to', line_tag = 'colours the words', block_tag = 'colours the body', pair_tag = 'colours the body' },
+    forms = {
+      scope_tag = 'colours what the tag applies to',
+      line_tag = 'colours the words',
+      block_tag = 'colours the body',
+      pair_tag = 'colours the body',
+    },
     head = 'the keys `fg`, `bg`, `bold`, `italic`, `strike`, `underline`, `link` (a highlight group), and `conceal` (`false` keeps the tag in view; otherwise `fey_hl_conceal_default` hides the tag and its closer, so only the coloured words show, until the cursor is on it)',
     body = 'what is coloured, in the forms that have a body',
     where = 'anywhere in the text',
@@ -272,7 +295,12 @@ M.TAGS = {
   },
   {
     option = 'fey_nvim_config_tag_name',
-    forms = { scope_tag = 'options of the editor', line_tag = 'the same', block_tag = 'the options are the body, a table', pair_tag = 'the same' },
+    forms = {
+      scope_tag = 'options of the editor',
+      line_tag = 'the same',
+      block_tag = 'the options are the body, a table',
+      pair_tag = 'the same',
+    },
     head = 'the options as keys: `wrap: false`, `number: true`',
     body = 'a table of options, one after the other',
     where = 'a note, a hollow (`.fey/config.fey`) or the court',
@@ -283,7 +311,12 @@ M.TAGS = {
   },
   {
     option = 'fey_plugin_tag_name',
-    forms = { scope_tag = 'options of a plugin', line_tag = 'the same', block_tag = 'the options are the body, a table', pair_tag = 'the same' },
+    forms = {
+      scope_tag = 'options of a plugin',
+      line_tag = 'the same',
+      block_tag = 'the options are the body, a table',
+      pair_tag = 'the same',
+    },
     head = 'the name of the plugin (`fey` for this one), then its options as keys',
     body = 'a table of options',
     where = 'a note, a hollow (`.fey/config.fey`) or the court',
@@ -344,7 +377,11 @@ M.TAGS = {
   },
   {
     name = 'table',
-    forms = { scope_tag = 'a key of the data of the document', block_tag = 'data as an indented list of keys', pair_tag = 'the same' },
+    forms = {
+      scope_tag = 'a key of the data of the document',
+      block_tag = 'data as an indented list of keys',
+      pair_tag = 'the same',
+    },
     head = 'keys: `title`, `category`, `todo`, `archive`, `header_args`, `labels`, `id`, `author`, and any of your own',
     body = 'keys as list items for the block and pair forms',
     where = 'above the first heading (the data of the file), or in a section under a heading with a `_` signature',
@@ -390,9 +427,44 @@ local FORM_NAME = { scope_tag = 'scope', line_tag = 'line', block_tag = 'block',
 
 -- the groups of the reference, in the order of the page: a name and the tags (by option, or by name for the data tags)
 M.GROUPS = {
-  { 'Dates and tasks', { 'fey_date_tag_name', 'fey_scheduled_tag_name', 'fey_deadline_tag_name', 'fey_closed_tag_name', 'fey_status_tag_name', 'fey_labels_tag_name', 'fey_property_tag_name', 'fey_clock_tag_name', 'fey_logbook_tag_name' } },
-  { 'Text', { 'fey_footnote_tag_name', 'fey_link_tag_name', 'fey_embed_tag_name', 'fey_section_tag_name', 'fey_comment_tag_name', 'fey_math_tag_name', 'fey_tblfm_tag_name', 'fey_var_tag_name' } },
-  { 'Queries and databases', { 'fey_query_tag_name', 'fey_query_result_tag_name', 'fey_db_tag_name', 'fey_db_result_tag_name', 'fey_clocktable_tag_name', 'fey_clocktable_result_tag_name' } },
+  {
+    'Dates and tasks',
+    {
+      'fey_date_tag_name',
+      'fey_scheduled_tag_name',
+      'fey_deadline_tag_name',
+      'fey_closed_tag_name',
+      'fey_status_tag_name',
+      'fey_labels_tag_name',
+      'fey_property_tag_name',
+      'fey_clock_tag_name',
+      'fey_logbook_tag_name',
+    },
+  },
+  {
+    'Text',
+    {
+      'fey_footnote_tag_name',
+      'fey_link_tag_name',
+      'fey_embed_tag_name',
+      'fey_section_tag_name',
+      'fey_comment_tag_name',
+      'fey_math_tag_name',
+      'fey_tblfm_tag_name',
+      'fey_var_tag_name',
+    },
+  },
+  {
+    'Queries and databases',
+    {
+      'fey_query_tag_name',
+      'fey_query_result_tag_name',
+      'fey_db_tag_name',
+      'fey_db_result_tag_name',
+      'fey_clocktable_tag_name',
+      'fey_clocktable_result_tag_name',
+    },
+  },
   { 'Appearance and settings', { 'fey_hl_tag_name', 'fey_nvim_config_tag_name', 'fey_plugin_tag_name' } },
   { 'Data', { 'table', 'array', 'value' } },
 }

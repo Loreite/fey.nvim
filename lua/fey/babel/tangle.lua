@@ -50,9 +50,28 @@ function Tangle:new(opts) return setmetatable({ file = opts.file }, self) end
 
 ---The file extension of a language, the name of the language when it has no entry here (`fey_babel_extensions` adds some)
 Tangle.EXTENSIONS = {
-  python = 'py', javascript = 'js', typescript = 'ts', rust = 'rs', ruby = 'rb', bash = 'sh', sh = 'sh', zsh = 'sh',
-  markdown = 'md', latex = 'tex', tex = 'tex', csharp = 'cs', haskell = 'hs', perl = 'pl', kotlin = 'kt', vim = 'vim',
-  cpp = 'cpp', c = 'c', yaml = 'yaml', javascriptreact = 'jsx', typescriptreact = 'tsx', fey = 'fey',
+  python = 'py',
+  javascript = 'js',
+  typescript = 'ts',
+  rust = 'rs',
+  ruby = 'rb',
+  bash = 'sh',
+  sh = 'sh',
+  zsh = 'sh',
+  markdown = 'md',
+  latex = 'tex',
+  tex = 'tex',
+  csharp = 'cs',
+  haskell = 'hs',
+  perl = 'pl',
+  kotlin = 'kt',
+  vim = 'vim',
+  cpp = 'cpp',
+  c = 'c',
+  yaml = 'yaml',
+  javascriptreact = 'jsx',
+  typescriptreact = 'tsx',
+  fey = 'fey',
 }
 
 ---@param language string
@@ -69,7 +88,9 @@ end
 ---@return string|nil filename nil when the block is not tangled
 function Tangle.target(tangle, language, file)
   if not tangle or tangle == '' or tangle == 'no' then return nil end
-  if tangle == 'yes' then return vim.fn.fnamemodify(file, ':p:r') .. (language and ('.' .. Tangle.extension(language)) or '') end
+  if tangle == 'yes' then
+    return vim.fn.fnamemodify(file, ':p:r') .. (language and ('.' .. Tangle.extension(language)) or '')
+  end
   if tangle:match('^~') then return vim.fn.expand(tangle) end
   if tangle:match('^/') then return tangle end
   return vim.fs.normalize(vim.fn.fnamemodify(file, ':p:h') .. '/' .. tangle)

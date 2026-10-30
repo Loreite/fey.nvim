@@ -19,15 +19,11 @@ function TodoState:new(data)
 end
 
 ---@return boolean
-function TodoState:has_fast_access()
-  return #self.todos.sequences > 1 or self.todos:has_fast_access()
-end
+function TodoState:has_fast_access() return #self.todos.sequences > 1 or self.todos:has_fast_access() end
 
 ---@return FeyTodoKeyword | nil
 function TodoState:open_fast_access()
-  if config.ui.menu.handler then
-    return self:_open_fast_access_menu()
-  end
+  if config.ui.menu.handler then return self:_open_fast_access_menu() end
   return self:_open_fast_access_echo()
 end
 
@@ -51,23 +47,17 @@ function TodoState:_open_fast_access_menu()
         label = todo.value,
         key = todo.shortcut,
         hl = todo.hl,
-        action = function()
-          return todo
-        end,
+        action = function() return todo end,
       })
     end
-    if #group > 0 then
-      menu:add_group(group)
-    end
+    if #group > 0 then menu:add_group(group) end
   end
 
   menu:add_group({
     {
       label = 'Clear keyword',
       key = ' ',
-      action = function()
-        return TodoKeyword:empty()
-      end,
+      action = function() return TodoKeyword:empty() end,
     },
   })
 
@@ -88,9 +78,7 @@ function TodoState:_open_fast_access_echo()
   -- Add each keyword to its respective sequence group
   for _, todo in ipairs(self.todos:all()) do
     local seq_idx = todo.sequence_index
-    if not sequences[seq_idx] then
-      sequences[seq_idx] = {}
-    end
+    if not sequences[seq_idx] then sequences[seq_idx] = {} end
 
     local entry = {}
     table.insert(entry, { '[' })
@@ -122,34 +110,24 @@ function TodoState:_open_fast_access_echo()
   local char = string.lower(raw)
   vim.cmd('redraw!')
 
-  if char == ' ' then
-    return TodoKeyword:empty()
-  end
+  if char == ' ' then return TodoKeyword:empty() end
 
   for _, todo in ipairs(self.todos:all()) do
-    if todo.shortcut == char then
-      return todo
-    end
+    if todo.shortcut == char then return todo end
   end
 end
 
 ---@return FeyTodoKeyword | nil
-function TodoState:get_next()
-  return self:_get_direction(1)
-end
+function TodoState:get_next() return self:_get_direction(1) end
 
 ---@return FeyTodoKeyword | nil
-function TodoState:get_prev()
-  return self:_get_direction(-1)
-end
+function TodoState:get_prev() return self:_get_direction(-1) end
 
 ---@private
 ---@param direction number 1 for next, -1 for previous
 ---@return FeyTodoKeyword | nil
 function TodoState:_get_direction(direction)
-  if self.current_state:is_empty() then
-    return self:_handle_empty_state_navigation(direction)
-  end
+  if self.current_state:is_empty() then return self:_handle_empty_state_navigation(direction) end
 
   return self:_navigate_within_sequence(direction)
 end
@@ -208,27 +186,20 @@ end
 ---@param initial_todo_keyword string | nil The initial TODO keyword of the heading
 ---@return FeyTodoKeyword | ''
 function TodoState:get_reset_todo(heading, initial_todo_keyword)
-  local repeat_to_state = (heading and heading:get_property('REPEAT_TO_STATE'))
-    or config.opts.fey_todo_repeat_to_state
+  local repeat_to_state = (heading and heading:get_property('REPEAT_TO_STATE')) or config.opts.fey_todo_repeat_to_state
   local todo_keyword = self.todos:find(repeat_to_state)
 
-  if todo_keyword then
-    return todo_keyword
-  end
+  if todo_keyword then return todo_keyword end
 
   -- If there was no TODO at the beginning, make sure we don't set one
-  if not initial_todo_keyword then
-    return TodoKeyword:empty()
-  end
+  if not initial_todo_keyword then return TodoKeyword:empty() end
 
   -- For repeating tasks, reset to first TODO of the same sequence
   if heading and self.current_state and not self.current_state:is_empty() then
     local seq_idx = self.current_state.sequence_index
     local seq = self.todos:sequence(seq_idx)
     for _, keyword in ipairs(seq) do
-      if keyword.type == 'TODO' then
-        return keyword
-      end
+      if keyword.type == 'TODO' then return keyword end
     end
   end
 

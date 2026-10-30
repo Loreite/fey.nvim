@@ -65,9 +65,7 @@ function M.get(bufnr)
   return saved
 end
 
-function M.clear(bufnr)
-  M.store[bufnr] = nil
-end
+function M.clear(bufnr) M.store[bufnr] = nil end
 
 --- Apply the frame's filter (case-insensitive substring of the label).
 ---@param frame FeyNavFrame
@@ -80,9 +78,7 @@ function M.refresh_view(frame)
   local needle = f:lower()
   local view = {}
   for _, it in ipairs(frame._items) do
-    if it.label:lower():find(needle, 1, true) then
-      view[#view + 1] = it
-    end
+    if it.label:lower():find(needle, 1, true) then view[#view + 1] = it end
   end
   frame._view = view
 end
@@ -106,9 +102,7 @@ end
 function M.place_cursor(frame)
   local view = frame._view or {}
   local idx = frame.selected and model_mod.find(frame.selected, view)
-  if not idx then
-    idx = math.max(1, math.min(frame.cursor or 1, #view))
-  end
+  if not idx then idx = math.max(1, math.min(frame.cursor or 1, #view)) end
   frame.cursor = idx
   frame.selected = view[idx] and model_mod.to_ref(view[idx]) or nil
 end
@@ -132,9 +126,7 @@ end
 ---@return FeyNavFrame[] stack, FeyNavRestoreInfo info
 function M.restore(model, saved)
   local info = { dropped = 0, fuzzy = false }
-  if not saved or not saved.stack or #saved.stack == 0 then
-    return M.fresh(model), info
-  end
+  if not saved or not saved.stack or #saved.stack == 0 then return M.fresh(model), info end
 
   local s_root = saved.stack[1]
   local root = { mode = 'root', cursor = s_root.cursor, selected = s_root.selected, filter = s_root.filter }
@@ -149,9 +141,7 @@ function M.restore(model, saved)
       info.dropped = #saved.stack - i + 1
       break
     end
-    if tier and tier > 3 then
-      info.fuzzy = true
-    end
+    if tier and tier > 3 then info.fuzzy = true end
     local anchor = prev._items[idx]
     prev.selected = model_mod.to_ref(anchor)
     local frame = {

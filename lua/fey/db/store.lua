@@ -53,9 +53,7 @@ end
 
 ---@param name string
 ---@return table base
-function M.default_base(name)
-  return { name = name, version = 1, views = { M.default_view('Table') } }
-end
+function M.default_base(name) return { name = name, version = 1, views = { M.default_view('Table') } } end
 
 ---Make a decoded base safe to use: missing lists become empty, views always exist
 ---@param base table

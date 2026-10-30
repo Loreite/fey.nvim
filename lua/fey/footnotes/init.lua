@@ -119,7 +119,9 @@ function M.next_label(bufnr)
     if n then used[n] = true end
   end
   local n = 1
-  while used[n] do n = n + 1 end
+  while used[n] do
+    n = n + 1
+  end
   return tostring(n)
 end
 
@@ -199,9 +201,7 @@ end
 ---@param tag FeyFootnoteTag
 function M.goto_reference(tag)
   local reference = M.find(tag.label, true)
-  if not reference then
-    return vim.notify(('fey: nothing refers to footnote "%s"'):format(tag.label), vim.log.levels.INFO)
-  end
+  if not reference then return vim.notify(('fey: nothing refers to footnote "%s"'):format(tag.label), vim.log.levels.INFO) end
   vim.cmd([[normal! m']])
   vim.api.nvim_win_set_cursor(0, { reference.row + 1, reference.col })
 end

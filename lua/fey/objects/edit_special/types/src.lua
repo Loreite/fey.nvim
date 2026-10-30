@@ -28,8 +28,7 @@ function EditSpecialSrc:_update_content(action, block_start_line, content)
   -- will have its column reported as 0)
   --
   -- Grab the line itself in order to circumvent this
-  local block_start_line_text =
-    vim.api.nvim_buf_get_lines(self.fey_bufnr, block_start_line, block_start_line + 1, false)[1]
+  local block_start_line_text = vim.api.nvim_buf_get_lines(self.fey_bufnr, block_start_line, block_start_line + 1, false)[1]
 
   -- Not quite what Emacs does, but assume that the leading space of the entire block is consistent
   -- and strip that off
@@ -39,21 +38,18 @@ function EditSpecialSrc:_update_content(action, block_start_line, content)
   if action == 'remove' then
     return vim.tbl_map(function(line)
       local new_line = string.gsub(line, '^' .. block_leading_whitespace, '')
-      if #new_line < #line then
-        new_line = string.gsub(new_line, '^' .. block_indent, '')
-      end
+      if #new_line < #line then new_line = string.gsub(new_line, '^' .. block_indent, '') end
       return new_line
     end, content)
   elseif action == 'add' then
-    return vim.tbl_map(function(line)
-      return line == '' and line or (block_leading_whitespace .. block_indent .. line)
-    end, content)
+    return vim.tbl_map(
+      function(line) return line == '' and line or (block_leading_whitespace .. block_indent .. line) end,
+      content
+    )
   end
 end
 
-function EditSpecialSrc:clear_highlights()
-  vim.api.nvim_buf_clear_namespace(self.fey_bufnr, self.hl_ns, 0, -1)
-end
+function EditSpecialSrc:clear_highlights() vim.api.nvim_buf_clear_namespace(self.fey_bufnr, self.hl_ns, 0, -1) end
 
 function EditSpecialSrc:_highlight_contents(range)
   self:clear_highlights()
@@ -61,9 +57,7 @@ function EditSpecialSrc:_highlight_contents(range)
   vim.highlight.range(self.fey_bufnr, self.hl_ns, 'FeyEditSrcHighlight', { start_row, start_col }, { end_row, end_col })
 end
 
-function EditSpecialSrc:abort()
-  self:clear_highlights()
-end
+function EditSpecialSrc:abort() self:clear_highlights() end
 
 function EditSpecialSrc:init()
   local block_start_line, block_start_col, block_end_line, block_end_col = self.fenced.node:range()

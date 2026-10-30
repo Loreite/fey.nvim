@@ -169,7 +169,6 @@ function M.run(vault, src, opts)
         end
       end
       rows = out
-
     elseif cmd.op == 'sort' then
       local keys, desc = {}, {}
       for k, key in ipairs(cmd.keys) do
@@ -183,7 +182,6 @@ function M.run(vault, src, opts)
         keys[r] = kv
       end
       rows = stable_sort(rows, keys, desc)
-
     elseif cmd.op == 'group' then
       local groups, order = {}, {}
       for _, row in ipairs(rows) do
@@ -209,7 +207,6 @@ function M.run(vault, src, opts)
         rows[#rows + 1] = pages.derive(nil, fields, { 'key', 'rows', cmd.alias })
       end
       grouped = true
-
     elseif cmd.op == 'flatten' then
       local name = cmd.alias or cmd.text
       local out = {}
@@ -225,7 +222,6 @@ function M.run(vault, src, opts)
       end
       rows = out
       grouped = false
-
     elseif cmd.op == 'limit' then
       local n = run_expr(cmd.fn, nil, this)
       if type(n) ~= 'number' then error('query: LIMIT needs a number', 0) end
@@ -237,7 +233,6 @@ function M.run(vault, src, opts)
         end
         rows = out
       end
-
     elseif cmd.op == 'from' then
       error('query: FROM must come directly after the query type', 0)
     end

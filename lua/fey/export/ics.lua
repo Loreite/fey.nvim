@@ -45,9 +45,16 @@ function M.render(rows, opts)
       local with_time = row.start_time == 1 or row.start_time == true
       local lines = {
         'BEGIN:VEVENT',
-        ('UID:%s@fey'):format(vim.fn.sha256(('%s:%d:%s:%d'):format(row.path or '', row.line or 0, row.kind, row.start_ts)):sub(1, 24)),
+        ('UID:%s@fey'):format(
+          vim.fn.sha256(('%s:%d:%s:%d'):format(row.path or '', row.line or 0, row.kind, row.start_ts)):sub(1, 24)
+        ),
         'DTSTAMP:' .. dtstamp,
-        'SUMMARY:' .. escape(('%s%s'):format(row.kind == 'date' and '' or (label:lower():gsub('^%l', string.upper) .. ': '), row.heading_title or row.path or '')),
+        'SUMMARY:' .. escape(
+          ('%s%s'):format(
+            row.kind == 'date' and '' or (label:lower():gsub('^%l', string.upper) .. ': '),
+            row.heading_title or row.path or ''
+          )
+        ),
         'DESCRIPTION:' .. escape(('%s of %s'):format(label, row.path or '')),
         'CATEGORIES:' .. label,
       }

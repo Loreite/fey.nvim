@@ -14,9 +14,7 @@ TodoKeywords.__index = TodoKeywords
 function TodoKeywords:new(opts)
   -- Support both single sequence (string[]) and multiple sequences (string[][])
   local normalized_keywords = opts.fey_todo_keywords
-  if type(normalized_keywords[1]) ~= 'table' then
-    normalized_keywords = { normalized_keywords }
-  end
+  if type(normalized_keywords[1]) ~= 'table' then normalized_keywords = { normalized_keywords } end
 
   local this = setmetatable({
     fey_todo_keywords = normalized_keywords,
@@ -39,56 +37,40 @@ end
 
 ---@return boolean
 function TodoKeywords:has_fast_access()
-  return utils.find(self.todo_keywords, function(todo_keyword)
-    return todo_keyword.has_fast_access
-  end) and true or false
+  return utils.find(self.todo_keywords, function(todo_keyword) return todo_keyword.has_fast_access end) and true or false
 end
 
 ---@param keyword string
 ---@return FeyTodoKeyword | nil
 function TodoKeywords:find(keyword)
-  return utils.find(self.todo_keywords, function(todo_keyword)
-    return todo_keyword.value == keyword
-  end)
+  return utils.find(self.todo_keywords, function(todo_keyword) return todo_keyword.value == keyword end)
 end
 
 ---@param type FeyTodoKeywordType
 ---@return FeyTodoKeyword
 function TodoKeywords:first_by_type(type)
   for _, keyword in ipairs(self.todo_keywords) do
-    if type == keyword.type then
-      return keyword
-    end
+    if type == keyword.type then return keyword end
   end
   return self.todo_keywords[#self.todo_keywords]
 end
 
 ---@return FeyTodoKeyword[]
-function TodoKeywords:all()
-  return self.todo_keywords
-end
+function TodoKeywords:all() return self.todo_keywords end
 
 ---@param sequence_idx? number
 ---@return FeyTodoKeyword[]
-function TodoKeywords:sequence(sequence_idx)
-  return self.sequences[sequence_idx or 1] or {}
-end
+function TodoKeywords:sequence(sequence_idx) return self.sequences[sequence_idx or 1] or {} end
 
 ---@return FeyTodoKeyword
-function TodoKeywords:first()
-  return self.todo_keywords[1]
-end
+function TodoKeywords:first() return self.todo_keywords[1] end
 
 ---@return FeyTodoKeyword
-function TodoKeywords:last()
-  return self.todo_keywords[#self.todo_keywords]
-end
+function TodoKeywords:last() return self.todo_keywords[#self.todo_keywords] end
 
 ---@return string[]
 function TodoKeywords:all_values()
-  return vim.tbl_map(function(todo_keyword)
-    return todo_keyword.value
-  end, self.todo_keywords)
+  return vim.tbl_map(function(todo_keyword) return todo_keyword.value end, self.todo_keywords)
 end
 
 ---@private
@@ -168,9 +150,7 @@ end
 ---@param type FeyTodoKeywordType
 ---@return string
 function TodoKeywords:_get_hl(keyword, type)
-  if not self.fey_todo_keyword_faces[keyword] then
-    return type == 'TODO' and '@fey.keyword.todo' or '@fey.keyword.done'
-  end
+  if not self.fey_todo_keyword_faces[keyword] then return type == 'TODO' and '@fey.keyword.todo' or '@fey.keyword.done' end
   return ('@fey.keyword.face.%s'):format(keyword:gsub('%-', ''))
 end
 
@@ -179,9 +159,7 @@ end
 ---@return string[], string[]
 function TodoKeywords:_split_todo_and_done(keywords)
   local has_separator = vim.tbl_contains(keywords, '|')
-  if not has_separator then
-    return { unpack(keywords, 1, #keywords - 1) }, { keywords[#keywords] }
-  end
+  if not has_separator then return { unpack(keywords, 1, #keywords - 1) }, { keywords[#keywords] } end
 
   local type = 'TODO'
   local by_type = {

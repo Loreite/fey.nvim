@@ -51,7 +51,14 @@ function M.folder(old, opts)
     if not is_dir(full) then return nil end
     local best
     for name, kind in vim.fs.dir(full) do
-      if kind == 'directory' and (name == want or name:match(' ' .. vim.pesc(last) .. '$') or name:match(' ' .. vim.pesc((want:gsub('_', ' '))) .. '$')) then
+      if
+        kind == 'directory'
+        and (
+          name == want
+          or name:match(' ' .. vim.pesc(last) .. '$')
+          or name:match(' ' .. vim.pesc((want:gsub('_', ' '))) .. '$')
+        )
+      then
         best = best or name
       end
     end
@@ -68,11 +75,15 @@ function M.folder(old, opts)
 end
 
 ---Names of properties the import writes with an underscore (`arch-ive-path` is `arch_ive_path`)
-local function properties_of(expr) return (expr:gsub('(%a[%w_]*)%-(%a[%w_%-]*)', function(a, b)
-  local word = a .. '-' .. b
-  if a:lower() == 'arch' and b:match('^ive') then return (word:gsub('%-', '_')) end
-  return nil
-end)) end
+local function properties_of(expr)
+  return (
+    expr:gsub('(%a[%w_]*)%-(%a[%w_%-]*)', function(a, b)
+      local word = a .. '-' .. b
+      if a:lower() == 'arch' and b:match('^ive') then return (word:gsub('%-', '_')) end
+      return nil
+    end)
+  )
+end
 
 ---@param query string
 ---@param opts FeyObsidianOpts
@@ -183,7 +194,9 @@ function M.dbfolder(yaml, opts, warn)
     end
   end
   local where = rest and rest:match('^WHERE%s+(.+)$')
-  if where then items[#items + 1] = { kind = 'expr', expr = properties_of(where):gsub('%s+AND%s+', ' and '):gsub('%s+OR%s+', ' or ') } end
+  if where then
+    items[#items + 1] = { kind = 'expr', expr = properties_of(where):gsub('%s+AND%s+', ' and '):gsub('%s+OR%s+', ' or ') }
+  end
   if source ~= '' and not from then warn('the source of a view was not understood: ' .. source) end
 
   local filters = field(root, 'filters')
@@ -195,13 +208,15 @@ function M.dbfolder(yaml, opts, warn)
       local op = OPS[field(f, 'operator') or '']
       local prop = field(f, 'field')
       if op and prop and field(f, 'disabled') ~= 'true' then
-        gitems[#gitems + 1] = { kind = 'cond', prop = SPECIAL[prop] or markdown.key_of(prop), op = op, value = field(f, 'value') or '' }
+        gitems[#gitems + 1] =
+          { kind = 'cond', prop = SPECIAL[prop] or markdown.key_of(prop), op = op, value = field(f, 'value') or '' }
       elseif op == nil then
         warn('a filter operator has no equivalent: ' .. tostring(field(f, 'operator')))
       end
     end
     if #gitems > 0 then
-      items[#items + 1] = { kind = 'group', mode = (field(group, 'condition') or 'AND'):lower() == 'or' and 'or' or 'and', items = gitems }
+      items[#items + 1] =
+        { kind = 'group', mode = (field(group, 'condition') or 'AND'):lower() == 'or' and 'or' or 'and', items = gitems }
     end
   end
   if #items > 0 and field(filters, 'enabled') ~= 'false' then base.filters = { kind = 'group', mode = 'and', items = items } end

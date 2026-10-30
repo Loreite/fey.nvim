@@ -39,9 +39,14 @@ render_inlines = function(items, cell)
       end
     elseif item.t == 'link' then
       local inner = render_inlines(item.children, cell)
-      out[#out + 1] = item.href and ('[%s](%s)'):format(inner, item.href:gsub('[%s()]', function(c) return ('%%%02X'):format(c:byte()) end)) or inner
+      out[#out + 1] = item.href
+          and ('[%s](%s)'):format(inner, item.href:gsub('[%s()]', function(c) return ('%%%02X'):format(c:byte()) end))
+        or inner
     elseif item.t == 'image' then
-      out[#out + 1] = ('![%s](%s)'):format(item.alt or '', (item.src or ''):gsub('[%s()]', function(c) return ('%%%02X'):format(c:byte()) end))
+      out[#out + 1] = ('![%s](%s)'):format(
+        item.alt or '',
+        (item.src or ''):gsub('[%s()]', function(c) return ('%%%02X'):format(c:byte()) end)
+      )
     elseif item.t == 'fnref' then
       out[#out + 1] = ('[^%s]'):format(item.label)
     elseif item.t == 'math' then
@@ -137,13 +142,15 @@ render_blocks = function(blocks, indent, out, tight)
       out[#out + 1] = ''
       out[#out + 1] = ('%s</%s>'):format(indent, block.tag)
     elseif t == 'table' then
-      local header = block.header or (block.rows[1] and (function()
-        local empty = {}
-        for _ = 1, #block.rows[1] do
-          empty[#empty + 1] = {}
-        end
-        return empty
-      end)()) or {}
+      local header = block.header
+        or (block.rows[1] and (function()
+          local empty = {}
+          for _ = 1, #block.rows[1] do
+            empty[#empty + 1] = {}
+          end
+          return empty
+        end)())
+        or {}
       local function row(cells)
         local texts = {}
         for _, c in ipairs(cells) do
@@ -240,7 +247,8 @@ function M.render(doc)
     local tags = require('fey.export.tags')
     local value = tags.resolve(w.spec, w.tag.form, 'markdown')
     local body = table.concat(content, '\n')
-    local text = type(value) == 'string' and tags.fill(value, '\n\n' .. body .. '\n\n'):gsub('\n\n\n+', '\n\n') or tags.render(w.spec, w.tag, body, 'markdown')
+    local text = type(value) == 'string' and tags.fill(value, '\n\n' .. body .. '\n\n'):gsub('\n\n\n+', '\n\n')
+      or tags.render(w.spec, w.tag, body, 'markdown')
     if text then content = vim.split(text, '\n', { plain = true }) end
   end
   vim.list_extend(out, content)

@@ -7,13 +7,9 @@ local Help = {
 }
 
 function Help.show(type)
-  if not Help.tree then
-    Help._generate_tree()
-  end
+  if not Help.tree then Help._generate_tree() end
   local content = Help.prepare_content(type)
-  local longest = utils.reduce(content, function(acc, item)
-    return math.max(acc, item:len())
-  end, 0)
+  local longest = utils.reduce(content, function(acc, item) return math.max(acc, item:len()) end, 0)
 
   local window_opts = {
     relative = 'editor',
@@ -51,9 +47,7 @@ function Help.show(type)
   vim.api.nvim_create_autocmd('BufWipeout', {
     buffer = Help.buf,
     group = fey_help_augroup,
-    callback = function()
-      require('fey.objects.help').dispose()
-    end,
+    callback = function() require('fey.objects.help').dispose() end,
   })
 end
 
@@ -68,17 +62,13 @@ function Help._generate_tree()
   for category, category_mappings in utils.sorted_pairs(mappings) do
     tree[category] = {}
     for key, mapping in utils.sorted_pairs(category_mappings) do
-      if mapping.help_desc then
-        table.insert(tree[category], { key = key, description = mapping.help_desc })
-      end
+      if mapping.help_desc then table.insert(tree[category], { key = key, description = mapping.help_desc }) end
     end
 
     if vim.tbl_isempty(tree[category]) then
       tree[category] = nil
     else
-      table.sort(tree[category], function(a, b)
-        return a.key < b.key
-      end)
+      table.sort(tree[category], function(a, b) return a.key < b.key end)
     end
   end
 
@@ -94,18 +84,11 @@ function Help._generate_mappings(buffer_type, title)
   for _, item in ipairs(Help.tree[buffer_type]) do
     local maps = (mappings[buffer_type] or {})[item.key]
     if maps == nil then goto continue end
-    if type(maps) == 'table' then
-      maps = table.concat(maps, ', ')
-    end
+    if type(maps) == 'table' then maps = table.concat(maps, ', ') end
 
-    if type(maps) == 'boolean' and not maps then
-      goto continue
-    end
+    if type(maps) == 'boolean' and not maps then goto continue end
 
-    table.insert(
-      content,
-      string.format('  `%-12s` - %s', string.gsub(maps, '<prefix>', mappings.prefix), item.description)
-    )
+    table.insert(content, string.format('  `%-12s` - %s', string.gsub(maps, '<prefix>', mappings.prefix), item.description))
 
     ::continue::
   end
@@ -135,9 +118,7 @@ function Help.prepare_content(buffer_type)
   table.insert(content, string.format('  `%-12s` - %s', '<Esc>, q', 'Close this help'))
 
   local scroll_more_text = ''
-  if #content > max_height then
-    scroll_more_text = ' (Scroll down for more)'
-  end
+  if #content > max_height then scroll_more_text = ' (Scroll down for more)' end
 
   return vim.list_extend({
     string.format(' **Fey mappings - %s:%s**', title, scroll_more_text),

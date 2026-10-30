@@ -7,15 +7,9 @@ local FeyAgenda = {}
 ---@alias FeyApiAgendaFilter string see Filters to apply to the current view. See `:help fey-fey_agenda_filter` for more information
 
 local function get_date(date, name)
-  if not date then
-    return nil
-  end
-  if Date.is_date_instance(date) then
-    return date
-  end
-  if type(date) == 'string' then
-    return Date.from_string(date)
-  end
+  if not date then return nil end
+  if Date.is_date_instance(date) then return date end
+  if type(date) == 'string' then return Date.from_string(date) end
 
   error(('Invalid format for "%s" date in Fey Agenda'):format(name), 0)
 end
@@ -23,9 +17,7 @@ end
 local function get_shared_opts(options)
   options = options or {}
   local opts = {}
-  if options.filters and options.filters ~= '' then
-    opts.filter = options.filters
-  end
+  if options.filters and options.filters ~= '' then opts.filter = options.filters end
   opts.header = options.header
   opts.paths = options.fey_agenda_files
   opts.scope = options.scope
@@ -100,9 +92,7 @@ function FeyAgenda.tags(options)
 end
 
 ---@param key string Key in the agenda prompt (for example: "a", "t", "m", "M")
-function FeyAgenda.open_by_key(key)
-  return fey.agenda:open_by_key(key)
-end
+function FeyAgenda.open_by_key(key) return fey.agenda:open_by_key(key) end
 
 ---Get the heading at the cursor position in the agenda view
 ---@return FeyApiHeading | nil

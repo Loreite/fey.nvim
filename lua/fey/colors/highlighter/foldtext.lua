@@ -36,9 +36,7 @@ end
 ---@param line number
 ---@param value FeyFoldtextLineValue
 function FeyFoldtext:_highlight(bufnr, line, value)
-  if not value then
-    return
-  end
+  if not value then return end
 
   vim.api.nvim_buf_set_extmark(bufnr, self.highlighter.namespace, line, value.col, {
     hl_mode = 'combine',
@@ -49,9 +47,7 @@ function FeyFoldtext:_highlight(bufnr, line, value)
 end
 
 function FeyFoldtext:on_line(bufnr, line, winid)
-  if not config.ui.folds.colored then
-    return
-  end
+  if not config.ui.folds.colored then return end
 
   -- Use provided winid for correct window context (foldclosed and col are window-local)
   local lnum = line + 1
@@ -75,9 +71,7 @@ function FeyFoldtext:on_line(bufnr, line, winid)
     local was_open = cache_entry == false
     if was_open == is_fold_open then
       if cache_entry and cache_entry.col then
-        if cache_entry.col == line_end - 1 then
-          return self:_highlight(bufnr, line, cache_entry)
-        end
+        if cache_entry.col == line_end - 1 then return self:_highlight(bufnr, line, cache_entry) end
         -- Line length changed, need full update
       else
         return self:_highlight(bufnr, line, cache_entry)

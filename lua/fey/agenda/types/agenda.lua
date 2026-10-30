@@ -68,8 +68,9 @@ function FeyAgendaType:new(opts)
     agenda_filter = opts.agenda_filter,
     filter = opts.filter and AgendaFilter:new():parse(opts.filter, true) or nil,
     tag_filter = opts.tag_filter and AgendaFilter:new({ types = { 'tags' } }):parse(opts.tag_filter, true) or nil,
-    category_filter = opts.category_filter and AgendaFilter:new({ types = { 'categories' } })
-      :parse(opts.category_filter, true) or nil,
+    category_filter = opts.category_filter
+        and AgendaFilter:new({ types = { 'categories' } }):parse(opts.category_filter, true)
+      or nil,
     span = opts.span or config:get_agenda_span(),
     from = opts.from or Date.today(),
     to = nil,
@@ -83,9 +84,7 @@ function FeyAgendaType:new(opts)
     id = opts.id,
     remove_labels = utils.if_nil(opts.remove_labels, config.fey_agenda_remove_labels),
   }
-  data.valid_filters = vim.tbl_filter(function(filter)
-    return filter and true or false
-  end, {
+  data.valid_filters = vim.tbl_filter(function(filter) return filter and true or false end, {
     data.filter,
     data.tag_filter,
     data.category_filter,
@@ -97,18 +96,14 @@ function FeyAgendaType:new(opts)
   return this
 end
 
-function FeyAgendaType:prepare()
-  return Promise.resolve(self)
-end
+function FeyAgendaType:prepare() return Promise.resolve(self) end
 
 -- the dates are read from the index each time the view is built, there is nothing to reload
 function FeyAgendaType:redo() end
 
 ---`paths` of a custom command (`agenda_files` before) limits the source to those files and directories
 function FeyAgendaType:_setup_agenda_files()
-  if not self.paths then
-    return
-  end
+  if not self.paths then return end
   local source = self.source or require('fey.agenda.source').new()
   self.source = setmetatable({ paths = nil }, { __index = source })
   self.source:set_paths(self.paths)
@@ -118,23 +113,17 @@ function FeyAgendaType:advance_span(count, direction)
   count = count or 1
   direction = direction * count
   local action = { [self.span] = direction }
-  if type(self.span) == 'number' then
-    action = { day = self.span * direction }
-  end
+  if type(self.span) == 'number' then action = { day = self.span * direction } end
   self.from = self.from:add(action)
   self.to = self.to:add(action)
   return self
 end
 
 function FeyAgendaType:change_span(span)
-  if span == self.span then
-    return
-  end
+  if span == self.span then return end
   if span == 'year' then
     local c = vim.fn.confirm('Are you sure you want to print agenda for the whole year?', '&Yes\n&No')
-    if c ~= 1 then
-      return
-    end
+    if c ~= 1 then return end
   end
   local from = nil
   if self.view and self.view:is_in_range() then
@@ -142,9 +131,7 @@ function FeyAgendaType:change_span(span)
     local metadata = agenda_line and agenda_line.metadata or {}
     ---@type FeyDate
     local cursor_date = metadata.agenda_day or (metadata.agenda_item and metadata.agenda_item.date)
-    if cursor_date and type(span) == 'string' then
-      from = cursor_date:start_of(span)
-    end
+    if cursor_date and type(span) == 'string' then from = cursor_date:start_of(span) end
   end
   self.span = span
   self:_set_date_range(from)
@@ -164,27 +151,19 @@ function FeyAgendaType:goto_date(date)
   self:_set_date_range(date)
   local was_line_in_view = self.view:is_in_range(vim.fn.line('.'))
   self.after_render = function()
-    if was_line_in_view then
-      self:_jump_to_date(date)
-    end
+    if was_line_in_view then self:_jump_to_date(date) end
   end
 end
 
-function FeyAgendaType:reset()
-  return self:goto_date(Date.today())
-end
+function FeyAgendaType:reset() return self:goto_date(Date.today()) end
 
 ---@return FeyAgendaLine[]
-function FeyAgendaType:get_lines()
-  return self.view.lines
-end
+function FeyAgendaType:get_lines() return self.view.lines end
 
 ---@param row number
 ---@return FeyAgendaLine | nil
 function FeyAgendaType:get_line(row)
-  return utils.find(self.view.lines, function(line)
-    return line.line_nr == row
-  end)
+  return utils.find(self.view.lines, function(line) return line.line_nr == row end)
 end
 
 ---@private
@@ -192,42 +171,28 @@ end
 ---@return FeyDate
 function FeyAgendaType:_get_jump_to_date(line)
   line = line or vim.fn.line('.')
-  if not self.view then
-    return Date.now():start_of('day')
-  end
-  if self.span == 'day' then
-    return self.from
-  end
+  if not self.view then return Date.now():start_of('day') end
+  if self.span == 'day' then return self.from end
 
   local agenda_line = self:get_line(line)
-  if not agenda_line then
-    return self.from
-  end
+  if not agenda_line then return self.from end
 
   ---@type FeyDate
   local agenda_line_date = agenda_line.metadata.agenda_day
     or (agenda_line.metadata.agenda_item and agenda_line.metadata.agenda_item.date)
 
-  if not agenda_line_date then
-    return self.from
-  end
+  if not agenda_line_date then return self.from end
 
   if self.span == 'week' then
     local range = self.from:get_range_until(self.to)
     for _, date in ipairs(range) do
-      if date:get_isoweekday() == agenda_line_date:get_isoweekday() then
-        return date
-      end
+      if date:get_isoweekday() == agenda_line_date:get_isoweekday() then return date end
     end
   end
 
-  if self.span == 'month' then
-    return self.from:set({ day = agenda_line_date.day })
-  end
+  if self.span == 'month' then return self.from:set({ day = agenda_line_date.day }) end
 
-  if self.span == 'year' then
-    return self.from:set({ day = agenda_line_date.day, month = agenda_line_date.month })
-  end
+  if self.span == 'year' then return self.from:set({ day = agenda_line_date.day, month = agenda_line_date.month }) end
 
   return self.from
 end
@@ -238,12 +203,8 @@ function FeyAgendaType:render(bufnr, current_line)
   self.bufnr = bufnr or 0
   local jump_to_date = self.from
   local was_line_in_view = true
-  if self.view then
-    was_line_in_view = self.view:is_in_range(current_line)
-  end
-  if was_line_in_view then
-    jump_to_date = self:_get_jump_to_date(current_line)
-  end
+  if self.view then was_line_in_view = self.view:is_in_range(current_line) end
+  if was_line_in_view then jump_to_date = self:_get_jump_to_date(current_line) end
   local agenda_days = self:_get_agenda_days()
 
   local agendaView = AgendaView:new({ bufnr = self.bufnr, highlighter = self.highlighter })
@@ -368,14 +329,10 @@ end
 ---@param agenda_day FeyAgendaDay
 ---@return { real_date: FeyDate, is_same_day: boolean, is_now: boolean }[]
 function FeyAgendaType:_prepare_grid_lines(date_range, agenda_day)
-  if not config.fey_agenda_use_time_grid then
-    return {}
-  end
+  if not config.fey_agenda_use_time_grid then return {} end
 
   local time_grid_opts = config.fey_agenda_time_grid
-  if not time_grid_opts or not time_grid_opts.type or #time_grid_opts.type == 0 then
-    return {}
-  end
+  if not time_grid_opts or not time_grid_opts.type or #time_grid_opts.type == 0 then return {} end
 
   local today = false
   local weekly = false
@@ -385,30 +342,16 @@ function FeyAgendaType:_prepare_grid_lines(date_range, agenda_day)
   local remove_range_match = false
 
   for _, t in ipairs(time_grid_opts.type) do
-    if t == 'daily' then
-      daily = true
-    end
-    if t == 'weekly' then
-      weekly = true
-    end
-    if t == 'today' then
-      today = true
-    end
-    if t == 'require-timed' then
-      require_timed = true
-    end
-    if t == 'remove-match' then
-      remove_match = true
-    end
-    if t == 'remove-range-match' then
-      remove_range_match = true
-    end
+    if t == 'daily' then daily = true end
+    if t == 'weekly' then weekly = true end
+    if t == 'today' then today = true end
+    if t == 'require-timed' then require_timed = true end
+    if t == 'remove-match' then remove_match = true end
+    if t == 'remove-range-match' then remove_range_match = true end
   end
 
   local show_grid = (daily and #date_range == 1) or weekly
-  if not show_grid and today then
-    show_grid = agenda_day.day:is_today()
-  end
+  if not show_grid and today then show_grid = agenda_day.day:is_today() end
 
   local same_day_agenda_items_with_time = {}
   local agenda_items_with_range_time = {}
@@ -428,13 +371,9 @@ function FeyAgendaType:_prepare_grid_lines(date_range, agenda_day)
     end
   end
 
-  if show_grid and require_timed then
-    show_grid = #same_day_agenda_items_with_time > 0
-  end
+  if show_grid and require_timed then show_grid = #same_day_agenda_items_with_time > 0 end
 
-  if not show_grid then
-    return {}
-  end
+  if not show_grid then return {} end
 
   local grid_lines = {}
   local now = Date.now()
@@ -446,9 +385,7 @@ function FeyAgendaType:_prepare_grid_lines(date_range, agenda_day)
     })
     if remove_match then
       for _, item in ipairs(same_day_agenda_items_with_time) do
-        if item.real_date:is_same(date) then
-          goto continue
-        end
+        if item.real_date:is_same(date) then goto continue end
       end
     end
     if remove_range_match then
@@ -485,9 +422,7 @@ function FeyAgendaType:_prepare_grid_lines(date_range, agenda_day)
 end
 
 function FeyAgendaType:_parse_grid_times()
-  if self._grid_times then
-    return self._grid_times
-  end
+  if self._grid_times then return self._grid_times end
   local grid_times = {}
   for _, time in ipairs(config.fey_agenda_time_grid.times) do
     local str = tostring(time)
@@ -609,9 +544,7 @@ end
 
 function FeyAgendaType:_matches_filters(heading)
   for _, filter in ipairs(self.valid_filters) do
-    if filter and not filter:matches(heading) then
-      return false
-    end
+    if filter and not filter:matches(heading) then return false end
   end
   return true
 end
@@ -622,15 +555,11 @@ function FeyAgendaType:_set_date_range(from)
 
   if self.start_on_weekday then
     local is_week = span == 'week' or span == '7'
-    if is_week and from:is_same(Date.today(), 'week') then
-      from = from:set_isoweekday(self.start_on_weekday)
-    end
+    if is_week and from:is_same(Date.today(), 'week') then from = from:set_isoweekday(self.start_on_weekday) end
   end
   local to = nil
   local modifier = { [span] = 1 }
-  if type(span) == 'number' then
-    modifier = { day = span }
-  end
+  if type(span) == 'number' then modifier = { day = span } end
 
   to = from:add(modifier)
 
@@ -646,21 +575,15 @@ end
 
 ---@return string
 function FeyAgendaType:_get_title()
-  if self.header ~= nil then
-    return self.header
-  end
+  if self.header ~= nil then return self.header end
   local span = self.span
-  if type(span) == 'number' then
-    span = string.format('%d days', span)
-  end
+  if type(span) == 'number' then span = string.format('%d days', span) end
   local span_number = ''
   span_number = string.format(' (W%s)', self.from:format('%V'))
   return utils.capitalize(span) .. '-agenda' .. span_number .. ':'
 end
 
-function FeyAgendaType:_format_day(day)
-  return string.format('%-10s %s', day:format('%A'), day:format('%d %B %Y'))
-end
+function FeyAgendaType:_format_day(day) return string.format('%-10s %s', day:format('%A'), day:format('%d %B %Y')) end
 
 ---@private
 ---@param agenda_items FeyAgendaItem[]

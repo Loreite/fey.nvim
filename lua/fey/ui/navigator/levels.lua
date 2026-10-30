@@ -147,9 +147,7 @@ end
 
 ---@param loc FeyNavLoc
 ---@return string
-function M.key(loc)
-  return loc.kind .. '\0' .. tostring(loc.path or loc.parent or '')
-end
+function M.key(loc) return loc.kind .. '\0' .. tostring(loc.path or loc.parent or '') end
 
 ---The directory a document lives in
 ---@param bufnr integer

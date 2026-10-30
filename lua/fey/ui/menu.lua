@@ -55,9 +55,7 @@ end
 ---@param items FeyMenuItem[]?
 function Menu:_validate_items(items)
   vim.validate('items', items, 'table', true)
-  if not items then
-    return
-  end
+  if not items then return end
 
   for _, item in ipairs(items) do
     if item.icon then
@@ -145,9 +143,7 @@ function Menu._default_menu(data)
   vim.cmd('redraw!')
 
   local entry = valid_keys[char]
-  if not entry or not entry.action then
-    return
-  end
+  if not entry or not entry.action then return end
   return entry.action()
 end
 
@@ -155,16 +151,12 @@ end
 function Menu:get_valid_keys()
   local valid_keys = {}
   for _, item in ipairs(self.items) do
-    if item.key then
-      valid_keys[item.key] = item
-    end
+    if item.key then valid_keys[item.key] = item end
   end
   return valid_keys
 end
 
-function Menu:get_entry_by_key(key)
-  return self:get_valid_keys()[key]
-end
+function Menu:get_entry_by_key(key) return self:get_valid_keys()[key] end
 
 function Menu:open()
   local menu_data = {
@@ -173,9 +165,7 @@ function Menu:open()
     prompt = self.prompt,
     kind = self.kind,
   }
-  if #self.groups > 0 then
-    menu_data.groups = self.groups
-  end
+  if #self.groups > 0 then menu_data.groups = self.groups end
   local custom_handler = config.ui.menu.handler
   if custom_handler then
     return custom_handler(menu_data)

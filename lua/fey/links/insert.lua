@@ -36,10 +36,7 @@ function M.store(heading)
     title = heading:get_title() or '',
     id = config.fey_id_link_to_fey_use_id and heading:id_get_or_create() or nil,
   }
-  M.stored = vim.tbl_filter(
-    function(e) return not (e.path == entry.path and e.signature == entry.signature) end,
-    M.stored
-  )
+  M.stored = vim.tbl_filter(function(e) return not (e.path == entry.path and e.signature == entry.signature) end, M.stored)
   table.insert(M.stored, 1, entry)
   return entry
 end

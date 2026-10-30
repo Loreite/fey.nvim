@@ -6,15 +6,11 @@ local FeyId = {
 }
 
 ---@return string
-function FeyId.new()
-  return FeyId._generate()
-end
+function FeyId.new() return FeyId._generate() end
 
 ---@return boolean
 function FeyId.is_valid_uuid(value)
-  if not value or vim.trim(value) == '' then
-    return false
-  end
+  if not value or vim.trim(value) == '' then return false end
 
   return value:match(FeyId.uuid_pattern) ~= nil
 end
@@ -30,9 +26,7 @@ function FeyId._generate()
     return tostring(vim.fn.system(config.fey_id_uuid_program):gsub('%s+', ''))
   end
 
-  if config.fey_id_method == 'ts' then
-    return tostring(os.date(config.fey_id_ts_format))
-  end
+  if config.fey_id_method == 'ts' then return tostring(os.date(config.fey_id_ts_format)) end
 
   if config.fey_id_method == 'fey' then
     math.randomseed(os.clock() * 100000000000)

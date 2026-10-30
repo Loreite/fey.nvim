@@ -114,9 +114,7 @@ function Db:prepare(sql)
   local cached = self.stmts[sql]
   if cached then return cached end
   local out = ffi.new('sqlite3_stmt*[1]')
-  if lib.sqlite3_prepare_v2(self.conn, sql, #sql, out, nil) ~= 0 then
-    error(('%s\n%s'):format(self:error(), sql), 3)
-  end
+  if lib.sqlite3_prepare_v2(self.conn, sql, #sql, out, nil) ~= 0 then error(('%s\n%s'):format(self:error(), sql), 3) end
   local stmt = setmetatable({ handle = out[0], db = self }, Stmt)
   self.stmts[sql] = stmt
   return stmt
@@ -130,7 +128,9 @@ end
 function Db:run(sql, params) return self:prepare(sql):run(params) end
 
 ---@return integer
-function Db:last_insert_rowid() return tonumber(lib.sqlite3_last_insert_rowid(self.conn)) --[[@as integer]] end
+function Db:last_insert_rowid()
+  return tonumber(lib.sqlite3_last_insert_rowid(self.conn)) --[[@as integer]]
+end
 
 ---Run `fn` inside a transaction; rolls back and rethrows on error
 ---@generic T

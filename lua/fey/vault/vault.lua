@@ -704,14 +704,26 @@ function Vault:scan(opts, on_done)
       repeat
         i = i + 1
         local entry = queue[i]
-        if self:_index_entry(entry.path, entry) then stats.indexed = stats.indexed + 1 else stats.failed = stats.failed + 1 end
+        if self:_index_entry(entry.path, entry) then
+          stats.indexed = stats.indexed + 1
+        else
+          stats.failed = stats.failed + 1
+        end
       until i >= #queue or uv.hrtime() - t0 > budget
     end)
     if not ok_step then return fail(tostring(step_err)) end
-    if i < #queue then vim.defer_fn(step, 1) else finish() end
+    if i < #queue then
+      vim.defer_fn(step, 1)
+    else
+      finish()
+    end
   end
 
-  if #queue == 0 then finish() else vim.schedule(step) end
+  if #queue == 0 then
+    finish()
+  else
+    vim.schedule(step)
+  end
 end
 
 ---The path of a file relative to the vault root, nil when the vault does not index it (outside the vault,
@@ -765,12 +777,14 @@ function Vault:index_path(path)
     self.revision = (self.revision or 0) + 1
     return true
   end
-  db:transaction(function()
-    self:_index_entry(rel, {
-      mtime = stat.mtime.sec * 1000 + math.floor(stat.mtime.nsec / 1e6),
-      size = stat.size,
-    })
-  end)
+  db:transaction(
+    function()
+      self:_index_entry(rel, {
+        mtime = stat.mtime.sec * 1000 + math.floor(stat.mtime.nsec / 1e6),
+        size = stat.size,
+      })
+    end
+  )
   fire_indexed(self, rel)
   return true
 end
@@ -791,12 +805,14 @@ function Vault:index_text(path, lines)
 
   local db = assert(self.db)
   local src = table.concat(lines, '\n') .. '\n'
-  db:transaction(function()
-    self:_index_source(rel, {
-      mtime = stat.mtime.sec * 1000 + math.floor(stat.mtime.nsec / 1e6),
-      size = stat.size,
-    }, src)
-  end)
+  db:transaction(
+    function()
+      self:_index_source(rel, {
+        mtime = stat.mtime.sec * 1000 + math.floor(stat.mtime.nsec / 1e6),
+        size = stat.size,
+      }, src)
+    end
+  )
   fire_indexed(self, rel, true)
   return true
 end
@@ -990,23 +1006,22 @@ function Vault:agenda_headings(opts)
     where[#where + 1] = 'f.path = :path'
     params.path = opts.path
   end
-  local rows = self:query(
-    [[SELECT f.path, h.file_id, h.ord, h.line, h.end_line, h.level, h.signature, h.title, h.props,
+  local rows = self:query([[SELECT f.path, h.file_id, h.ord, h.line, h.end_line, h.level, h.signature, h.title, h.props,
         t.state, t.done, t.priority,
         (SELECT p.value FROM properties p WHERE p.file_id = h.file_id AND p.name = 'category') AS category
       FROM headings h JOIN files f ON f.id = h.file_id
       LEFT JOIN tasks t ON t.file_id = h.file_id AND t.heading_ord = h.ord AND t.kind = 'heading'
       ]] .. (#where > 0 and ('WHERE ' .. table.concat(where, ' AND ')) or '') .. [[
 
-      ORDER BY f.path, h.ord]],
-    params
-  )
+      ORDER BY f.path, h.ord]], params)
   local labels_of = self:_label_index()
   local plan = {}
-  for _, d in ipairs(self:query(
-    [[SELECT file_id, heading_ord, kind, active, start_ts, start_time, end_ts, end_time, repeater, warn, line, col
-      FROM dates WHERE kind IN ('deadline', 'scheduled', 'closed') AND heading_ord IS NOT NULL ORDER BY start_ts]]
-  )) do
+  for _, d in
+    ipairs(
+      self:query([[SELECT file_id, heading_ord, kind, active, start_ts, start_time, end_ts, end_time, repeater, warn, line, col
+      FROM dates WHERE kind IN ('deadline', 'scheduled', 'closed') AND heading_ord IS NOT NULL ORDER BY start_ts]])
+    )
+  do
     local key = d.file_id .. ':' .. d.heading_ord
     plan[key] = plan[key] or {}
     plan[key][d.kind] = plan[key][d.kind] or d
@@ -1066,8 +1081,8 @@ function Vault:dates(opts)
     params.path = opts.path
   end
 
-  local rows = self:query(
-    [[SELECT f.path, d.line, d.col, d.heading_ord, h.title AS heading_title, h.signature, d.kind, d.active,
+  local rows =
+    self:query([[SELECT f.path, d.line, d.col, d.heading_ord, h.title AS heading_title, h.signature, d.kind, d.active,
         d.start_ts, d.start_time, d.end_ts, d.end_time, d.repeater, d.warn, t.state, t.done, t.priority,
         h.line AS heading_line, h.end_line, h.props, h.parent_ord, d.file_id,
         (SELECT p.value FROM properties p WHERE p.file_id = d.file_id AND p.name = 'category') AS category
@@ -1076,9 +1091,7 @@ function Vault:dates(opts)
       LEFT JOIN tasks t ON t.file_id = d.file_id AND t.heading_ord = d.heading_ord AND t.kind = 'heading'
       ]] .. (#where > 0 and ('WHERE ' .. table.concat(where, ' AND ')) or '') .. [[
 
-      ORDER BY d.start_ts, f.path, d.line]],
-    params
-  )
+      ORDER BY d.start_ts, f.path, d.line]], params)
   if #rows == 0 then return rows end
   local labels_of = self:_label_index()
   for _, row in ipairs(rows) do
@@ -1128,15 +1141,13 @@ function Vault:tasks(opts)
     params.path = opts.path
   end
 
-  local rows = self:query(
-    [[SELECT f.path, t.line, t.heading_ord, t.title, h.signature, t.state, t.done, t.priority, t.kind, t.file_id
+  local rows =
+    self:query([[SELECT f.path, t.line, t.heading_ord, t.title, h.signature, t.state, t.done, t.priority, t.kind, t.file_id
       FROM tasks t JOIN files f ON f.id = t.file_id
       LEFT JOIN headings h ON h.file_id = t.file_id AND h.ord = t.heading_ord
       ]] .. (#where > 0 and ('WHERE ' .. table.concat(where, ' AND ')) or '') .. [[
 
-      ORDER BY f.path, t.line]],
-    params
-  )
+      ORDER BY f.path, t.line]], params)
   -- labels of the headings, one query for all
   local labels = {}
   for _, l in ipairs(self:query('SELECT file_id, heading_ord, label FROM labels WHERE heading_ord IS NOT NULL')) do
@@ -1173,7 +1184,9 @@ function Vault:blocks(opts)
   local rows = self:query(
     [[SELECT f.path, b.line, b.end_line, b.heading_ord, b.kind, b.language, b.name, b.tangle, b.noweb, b.args, b.content
       FROM blocks b JOIN files f ON f.id = b.file_id
-      ]] .. (#where > 0 and ('WHERE ' .. table.concat(where, ' AND ')) or '') .. [[
+      ]]
+      .. (#where > 0 and ('WHERE ' .. table.concat(where, ' AND ')) or '')
+      .. [[
 
       ORDER BY f.path, b.line]],
     params
@@ -1203,10 +1216,8 @@ end
 ---@return { path: string, line: integer, kind: string, target: string, reason: 'file'|'section'|'id' }[]
 function Vault:broken_links()
   local signature = require('fey.links.signature')
-  local rows = self:query(
-    [[SELECT f.path, l.line, l.kind, l.target, l.target_ref, l.target_file, l.target_sig
-      FROM links l JOIN files f ON f.id = l.file_id ORDER BY f.path, l.line]]
-  )
+  local rows = self:query([[SELECT f.path, l.line, l.kind, l.target, l.target_ref, l.target_file, l.target_sig
+      FROM links l JOIN files f ON f.id = l.file_id ORDER BY f.path, l.line]])
   local keys = {}
   local function section_keys(path)
     if not keys[path] then
@@ -1235,7 +1246,12 @@ function Vault:broken_links()
       -- the file of an embed is not always a note: it only has to be there
       if not row.target_file or not vim.uv.fs_stat(self:abs(row.target_file)) then
         reason = 'file'
-      elseif row.target_sig and row.target_sig ~= '' and self:get_file(row.target_file) and not section_keys(row.target_file)[signature.key(row.target_sig)] then
+      elseif
+        row.target_sig
+        and row.target_sig ~= ''
+        and self:get_file(row.target_file)
+        and not section_keys(row.target_file)[signature.key(row.target_sig)]
+      then
         reason = 'section'
       end
     elseif not row.target_file then
@@ -1245,9 +1261,7 @@ function Vault:broken_links()
     elseif row.target_sig and row.target_sig ~= '' and not section_keys(row.target_file)[signature.key(row.target_sig)] then
       reason = 'section'
     end
-    if reason then
-      out[#out + 1] = { path = row.path, line = row.line, kind = row.kind, target = target, reason = reason }
-    end
+    if reason then out[#out + 1] = { path = row.path, line = row.line, kind = row.kind, target = target, reason = reason } end
   end
   return out
 end

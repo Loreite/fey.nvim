@@ -18,12 +18,14 @@ local function is_true(value) return value ~= nil and value:lower() ~= 'false' e
 local function get_group(key_values)
   local def = {}
   local link = key_values.link
-  if link and link ~= '' and vim.fn.hlexists(link) == 1 then
-    def = vim.api.nvim_get_hl(0, { name = link, link = false })
-  end
+  if link and link ~= '' and vim.fn.hlexists(link) == 1 then def = vim.api.nvim_get_hl(0, { name = link, link = false }) end
   local modified = false
-  if key_values.fg and key_values.fg ~= '' then def.fg, modified = key_values.fg, true end
-  if key_values.bg and key_values.bg ~= '' then def.bg, modified = key_values.bg, true end
+  if key_values.fg and key_values.fg ~= '' then
+    def.fg, modified = key_values.fg, true
+  end
+  if key_values.bg and key_values.bg ~= '' then
+    def.bg, modified = key_values.bg, true
+  end
   for _, flag in ipairs(FLAGS) do
     if key_values[flag] ~= nil then
       def[FLAG_OPTS[flag] or flag] = is_true(key_values[flag])

@@ -108,7 +108,9 @@ function M.title_text(title_node, source, meta)
         local _, _, to = child:end_()
         table.insert(parts, text:sub(pos + 1, from - base))
         pos = to - base
-        while text:sub(pos + 1, pos + 1):match('[ \t]') do pos = pos + 1 end
+        while text:sub(pos + 1, pos + 1):match('[ \t]') do
+          pos = pos + 1
+        end
         dropped = true
       end
     end

@@ -26,15 +26,11 @@ end
 ---@param source_path string
 ---@param long_path string
 function M.convert_path(source_path, long_path)
-  if source_path:match('^/') then
-    return long_path
-  end
+  if source_path:match('^/') then return long_path end
 
   if source_path:match('^~/') then
     local home_path = os.getenv('HOME')
-    if home_path then
-      return long_path:gsub('^' .. vim.pesc(home_path), '~')
-    end
+    if home_path then return long_path:gsub('^' .. vim.pesc(home_path), '~') end
     return long_path
   end
 
@@ -53,13 +49,9 @@ end
 
 ---@param filepath string
 function M.get_real_path(filepath)
-  if not filepath then
-    return false
-  end
+  if not filepath then return false end
   local substituted = M.substitute_path(filepath)
-  if not substituted then
-    return false
-  end
+  if not substituted then return false end
   local real = vim.uv.fs_realpath(substituted)
   if real and filepath:sub(-1, -1) == '/' then
     -- make sure if filepath gets a trailing slash, the realpath gets one, too.
@@ -77,13 +69,12 @@ end
 ---@param paths string[]
 ---@return string[]
 function M.trim_common_root(paths)
-  local filepaths = vim.tbl_map(function(value)
-    return vim.split(vim.fn.fnamemodify(value, ':h'), '/', { trimempty = true, plain = true })
-  end, paths)
+  local filepaths = vim.tbl_map(
+    function(value) return vim.split(vim.fn.fnamemodify(value, ':h'), '/', { trimempty = true, plain = true }) end,
+    paths
+  )
 
-  table.sort(filepaths, function(a, b)
-    return #a < #b
-  end)
+  table.sort(filepaths, function(a, b) return #a < #b end)
 
   local get_common_root = function()
     local common_root = {}
@@ -92,9 +83,7 @@ function M.trim_common_root(paths)
     while counter <= #filepaths[1] do
       local current = filepaths[1][counter]
       for _, filepath in ipairs(filepaths) do
-        if filepath[counter] ~= current then
-          return common_root
-        end
+        if filepath[counter] ~= current then return common_root end
       end
       table.insert(common_root, current)
       counter = counter + 1
@@ -106,15 +95,11 @@ function M.trim_common_root(paths)
   local common_root = get_common_root()
 
   if #common_root == 0 then
-    return vim.tbl_map(function(path)
-      return path:gsub('^/', '')
-    end, paths)
+    return vim.tbl_map(function(path) return path:gsub('^/', '') end, paths)
   end
 
   local root = table.concat(common_root, '/') .. '/'
-  if vim.fn.has('win32') == 0 then
-    root = '/' .. root
-  end
+  if vim.fn.has('win32') == 0 then root = '/' .. root end
   local result = {}
   for _, path in ipairs(paths) do
     local relative_path = path:sub(#root + 1)

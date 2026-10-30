@@ -155,9 +155,7 @@ end
 
 ---@param msg string
 ---@param warn? boolean
-function View:msg(msg, warn)
-  self.message = { text = msg, warn = warn }
-end
+function View:msg(msg, warn) self.message = { text = msg, warn = warn } end
 
 -- Rendering ------------------------------------------------------------------------------------
 
@@ -172,8 +170,21 @@ local function summary_text(v)
 end
 
 local SUMMARY_SHORT = {
-  count = 'n', filled = 'filled', empty = 'empty', unique = 'uniq', sum = 'Σ', average = 'avg', median = 'med',
-  min = 'min', max = 'max', range = 'range', stddev = 'σ', earliest = '⇤', latest = '⇥', checked = '✓', unchecked = '✗',
+  count = 'n',
+  filled = 'filled',
+  empty = 'empty',
+  unique = 'uniq',
+  sum = 'Σ',
+  average = 'avg',
+  median = 'med',
+  min = 'min',
+  max = 'max',
+  range = 'range',
+  stddev = 'σ',
+  earliest = '⇤',
+  latest = '⇥',
+  checked = '✓',
+  unchecked = '✗',
 }
 
 function View:render()
@@ -233,9 +244,7 @@ function View:render()
 
   -- lines ------------------------------------------------------------------------------
   local lines, marks = {}, {}
-  local function mark(line, s, e, group, prio)
-    marks[#marks + 1] = { line, s, e, group, prio }
-  end
+  local function mark(line, s, e, group, prio) marks[#marks + 1] = { line, s, e, group, prio } end
 
   ---@param cells table<integer, { text: string, align?: 'left'|'center'|'right' }>
   ---@return string line
@@ -319,7 +328,10 @@ function View:render()
     local ent = entries[e]
     local b
     if ent.kind == 'group' then
-      local label = ('▾ %s  (%d)'):format(text.cell_items(ent.key)[1] ~= '' and table.concat(text.cell_items(ent.key), ', ') or '(empty)', ent.count)
+      local label = ('▾ %s  (%d)'):format(
+        text.cell_items(ent.key)[1] ~= '' and table.concat(text.cell_items(ent.key), ', ') or '(empty)',
+        ent.count
+      )
       b = { n = 1, lines = { ' ' .. label }, group = true }
     else
       local per_col, n = {}, 1
@@ -443,7 +455,10 @@ function View:render()
           v = self.model:summarize(col.summary, col.prop, rows)
           self.summary_cache[key] = v == nil and V.NULL or v
         end
-        cells[c] = { text = text.truncate((SUMMARY_SHORT[col.summary] or col.summary) .. ' ' .. summary_text(v), widths[c]), align = col.align }
+        cells[c] = {
+          text = text.truncate((SUMMARY_SHORT[col.summary] or col.summary) .. ' ' .. summary_text(v), widths[c]),
+          align = col.align,
+        }
       end
     end
     local sline = build_line(cells)
@@ -459,7 +474,10 @@ function View:render()
     local ptype = col and self.model:prop_type(col.prop) or ''
     local scope = self.base.scope
     status = (' %s (%s) · row %d/%d%s · <Space> commands · g? help · q quit'):format(
-      col and col.prop or '-', ptype, math.min(self.cur.row, #rows), #rows,
+      col and col.prop or '-',
+      ptype,
+      math.min(self.cur.row, #rows),
+      #rows,
       scope and scope ~= 'current' and (' · scope ' .. scope_text(scope)) or ''
     )
   end
@@ -607,7 +625,9 @@ function View:add_column()
     items = items,
     allow_custom = true,
     on_confirm = function(_, name)
-      if shown[name] then return self:goto_col(vim.fn.index(vim.tbl_map(function(c) return c.prop end, self.view.columns), name) + 1) end
+      if shown[name] then
+        return self:goto_col(vim.fn.index(vim.tbl_map(function(c) return c.prop end, self.view.columns), name) + 1)
+      end
       local at = self.cur.col
       self:mutate(function() table.insert(self.view.columns, at + 1, { prop = name }) end)
       self:goto_col(at + 1)
@@ -625,7 +645,9 @@ end
 function View:move_column(delta)
   local at, to = self.cur.col, self.cur.col + delta
   if to < 1 or to > #self.view.columns then return end
-  self:mutate(function() self.view.columns[at], self.view.columns[to] = self.view.columns[to], self.view.columns[at] end)
+  self:mutate(function()
+    self.view.columns[at], self.view.columns[to] = self.view.columns[to], self.view.columns[at]
+  end)
   self:goto_col(to)
 end
 
@@ -647,7 +669,9 @@ function View:rename_column()
   Fuzzy.open({
     prompt = 'Column title',
     default = col.display or '',
-    on_confirm = function(_, t) self:mutate(function() col.display = t ~= '' and t or nil end) end,
+    on_confirm = function(_, t)
+      self:mutate(function() col.display = t ~= '' and t or nil end)
+    end,
   })
 end
 
@@ -661,7 +685,9 @@ function View:set_summary()
   Fuzzy.open({
     prompt = 'Summary of ' .. col.prop,
     items = items,
-    on_confirm = function(item) self:mutate(function() col.summary = item.id ~= '' and item.id or nil end) end,
+    on_confirm = function(item)
+      self:mutate(function() col.summary = item.id ~= '' and item.id or nil end)
+    end,
   })
 end
 
@@ -671,8 +697,15 @@ function View:set_align()
   if not col then return end
   Fuzzy.open({
     prompt = 'Align ' .. col.prop,
-    items = { { text = 'By type', id = '' }, { text = 'Left', id = 'left' }, { text = 'Center', id = 'center' }, { text = 'Right', id = 'right' } },
-    on_confirm = function(item) self:mutate(function() col.align = item.id ~= '' and item.id or nil end) end,
+    items = {
+      { text = 'By type', id = '' },
+      { text = 'Left', id = 'left' },
+      { text = 'Center', id = 'center' },
+      { text = 'Right', id = 'right' },
+    },
+    on_confirm = function(item)
+      self:mutate(function() col.align = item.id ~= '' and item.id or nil end)
+    end,
   })
 end
 
@@ -714,7 +747,9 @@ function View:sort(dir, append)
   end)
 end
 
-function View:clear_sort() self:mutate(function() self.view.sort = {} end) end
+function View:clear_sort()
+  self:mutate(function() self.view.sort = {} end)
+end
 
 function View:toggle_group()
   local col = self:col()
@@ -856,7 +891,9 @@ function View:rename_view()
   Fuzzy.open({
     prompt = 'View name',
     default = self.view.name,
-    on_confirm = function(_, name) self:mutate(function() self.view.name = name end) end,
+    on_confirm = function(_, name)
+      self:mutate(function() self.view.name = name end)
+    end,
   })
 end
 
@@ -912,7 +949,11 @@ function View:write_cell(row, prop, value)
   ops.get(page, prop)
   local data = rawget(page, '__data')
   if data then
-    if value == nil then data[prop] = nil else data[prop] = V.from_json(value, true) end
+    if value == nil then
+      data[prop] = nil
+    else
+      data[prop] = V.from_json(value, true)
+    end
   end
   self.model.result_cache, self.model.types = nil, nil
   self.message = nil
@@ -1084,9 +1125,15 @@ function View:help()
   local width = 64
   local height = math.min(#lines, vim.o.lines - 4)
   local win = vim.api.nvim_open_win(buf, true, {
-    relative = 'editor', width = width, height = height,
-    row = math.floor((vim.o.lines - height) / 2), col = math.floor((vim.o.columns - width) / 2),
-    style = 'minimal', border = 'rounded', title = ' Help ', zindex = 160,
+    relative = 'editor',
+    width = width,
+    height = height,
+    row = math.floor((vim.o.lines - height) / 2),
+    col = math.floor((vim.o.columns - width) / 2),
+    style = 'minimal',
+    border = 'rounded',
+    title = ' Help ',
+    zindex = 160,
   })
   vim.keymap.set('n', 'q', function() vim.api.nvim_win_close(win, true) end, { buffer = buf, nowait = true })
   vim.keymap.set('n', '<Esc>', function() vim.api.nvim_win_close(win, true) end, { buffer = buf, nowait = true })
@@ -1156,7 +1203,10 @@ local function install_keymaps(self)
   map('<Space>', function() self:palette() end, 'command palette')
   map('g?', function() self:help() end, 'help')
   map('q', function() self:close() end, 'close')
-  map('<Esc>', function() self.message = nil self:render() end, 'clear message')
+  map('<Esc>', function()
+    self.message = nil
+    self:render()
+  end, 'clear message')
 end
 
 local autocmds_ready = false
@@ -1219,15 +1269,30 @@ function M.open(vault, name, mode)
   end
 
   mode = mode or 'vsplit'
-  if mode == 'split' then vim.cmd('botright split')
-  elseif mode == 'vsplit' then vim.cmd('botright vsplit')
-  elseif mode == 'tab' then vim.cmd('tabnew') end
+  if mode == 'split' then
+    vim.cmd('botright split')
+  elseif mode == 'vsplit' then
+    vim.cmd('botright vsplit')
+  elseif mode == 'tab' then
+    vim.cmd('tabnew')
+  end
 
   local restore
   if mode == 'current' then
     local win0 = vim.api.nvim_get_current_win()
     restore = { win = win0, prev = vim.api.nvim_get_current_buf(), opts = {} }
-    for _, opt in ipairs({ 'wrap', 'number', 'relativenumber', 'signcolumn', 'cursorline', 'foldcolumn', 'list', 'spell', 'colorcolumn', 'winfixbuf' }) do
+    for _, opt in ipairs({
+      'wrap',
+      'number',
+      'relativenumber',
+      'signcolumn',
+      'cursorline',
+      'foldcolumn',
+      'list',
+      'spell',
+      'colorcolumn',
+      'winfixbuf',
+    }) do
       restore.opts[opt] = vim.wo[win0][opt]
     end
   end
@@ -1242,16 +1307,37 @@ function M.open(vault, name, mode)
   vim.bo[buf].modifiable = false
   local win = vim.api.nvim_get_current_win()
   for opt, val in pairs({
-    wrap = false, number = false, relativenumber = false, signcolumn = 'no', cursorline = false, foldcolumn = '0',
-    list = false, spell = false, colorcolumn = '', winfixbuf = true,
+    wrap = false,
+    number = false,
+    relativenumber = false,
+    signcolumn = 'no',
+    cursorline = false,
+    foldcolumn = '0',
+    list = false,
+    spell = false,
+    colorcolumn = '',
+    winfixbuf = true,
   }) do
     pcall(function() vim.wo[win][opt] = val end)
   end
 
   local self = setmetatable({
-    vault = vault, name = name, base = base, vi = 1, bufnr = buf,
-    cur = { row = 1, col = 1 }, top = 1, left = 1, history = {}, future = {}, auto_w = {}, summary_cache = {},
-    rows = {}, entries = {}, entry_of_row = {}, restore = restore,
+    vault = vault,
+    name = name,
+    base = base,
+    vi = 1,
+    bufnr = buf,
+    cur = { row = 1, col = 1 },
+    top = 1,
+    left = 1,
+    history = {},
+    future = {},
+    auto_w = {},
+    summary_cache = {},
+    rows = {},
+    entries = {},
+    entry_of_row = {},
+    restore = restore,
   }, View)
   self.model = Model.new(vault, base)
   self:sync_refs()

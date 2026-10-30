@@ -88,10 +88,7 @@ local function table_lines(rows, headers)
   for i, w in ipairs(widths) do
     sep[i] = string.rep('=', w)
   end
-  out[#out + 1] = '+' .. table.concat(
-    vim.tbl_map(function(s) return '=' .. s .. '=' end, sep),
-    '+'
-  ) .. '+'
+  out[#out + 1] = '+' .. table.concat(vim.tbl_map(function(s) return '=' .. s .. '=' end, sep), '+') .. '+'
   for _, row in ipairs(rows) do
     out[#out + 1] = line(row)
   end

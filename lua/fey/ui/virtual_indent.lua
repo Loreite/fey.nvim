@@ -16,9 +16,7 @@ VirtualIndent.__index = VirtualIndent
 ---@return FeyVirtualIndent
 function VirtualIndent:new(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
-  if self._bufnrs[bufnr] then
-    return self._bufnrs[bufnr]
-  end
+  if self._bufnrs[bufnr] then return self._bufnrs[bufnr] end
   local this = setmetatable({
     _bufnr = bufnr,
     _attached = false,
@@ -50,9 +48,7 @@ function VirtualIndent:_delete_old_extmarks(start_line, end_line)
     { end_line, 0 },
     { type = 'virt_text' }
   )
-  if not ok then
-    old_extmarks = {}
-  end
+  if not ok then old_extmarks = {} end
   for _, ext in ipairs(old_extmarks) do
     vim.api.nvim_buf_del_extmark(self._bufnr, self._ns_id, ext[1])
   end
@@ -102,15 +98,11 @@ function VirtualIndent:set_indent(start_line, end_line, ignore_ts)
       end_line = math.max(parent:end_(), end_line)
     end
   end
-  if start_line > 0 then
-    start_line = start_line - 1
-  end
+  if start_line > 0 then start_line = start_line - 1 end
 
   local node_at_cursor = tree_utils.get_node()
   local tree_has_errors = false
-  if node_at_cursor then
-    tree_has_errors = node_at_cursor:tree():root():has_error()
-  end
+  if node_at_cursor then tree_has_errors = node_at_cursor:tree():root():has_error() end
 
   self:_delete_old_extmarks(start_line, end_line)
   for line = start_line, end_line do
@@ -130,24 +122,16 @@ end
 
 --- Enables virtual indentation in registered buffer
 function VirtualIndent:attach()
-  if self._attached then
-    return
-  end
+  if self._attached then return end
   self:set_indent(0, vim.api.nvim_buf_line_count(self._bufnr) - 1, true)
 
   vim.api.nvim_buf_attach(self._bufnr, false, {
     on_lines = function(_, _, _, start_line, _, end_line)
-      if not self._attached then
-        return true
-      end
+      if not self._attached then return true end
 
-      vim.schedule(function()
-        self:set_indent(start_line, end_line)
-      end)
+      vim.schedule(function() self:set_indent(start_line, end_line) end)
     end,
-    on_reload = function()
-      self:set_indent(0, vim.api.nvim_buf_line_count(self._bufnr) - 1, true)
-    end,
+    on_reload = function() self:set_indent(0, vim.api.nvim_buf_line_count(self._bufnr) - 1, true) end,
     on_detach = function(_, bufnr)
       self:detach()
       self._bufnrs[bufnr] = nil
@@ -158,9 +142,7 @@ function VirtualIndent:attach()
 end
 
 function VirtualIndent:detach()
-  if not self._attached then
-    return
-  end
+  if not self._attached then return end
   self:_delete_old_extmarks(0, vim.api.nvim_buf_line_count(self._bufnr) - 1)
   self._attached = false
   vim.b[self._bufnr].fey_indent_mode = false

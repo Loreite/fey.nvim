@@ -524,7 +524,9 @@ function Table:needs_boundaries()
       inside = false
     elseif not item.type and not inside then
       for _, cell in ipairs(item.cells) do
-        if cell.rowspan > 1 or cell.rowspan == 0 or cell.colspan > 1 or #cell.lines > 1 or #cell.wrapped > 1 then return true end
+        if cell.rowspan > 1 or cell.rowspan == 0 or cell.colspan > 1 or #cell.lines > 1 or #cell.wrapped > 1 then
+          return true
+        end
       end
     end
   end

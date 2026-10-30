@@ -29,9 +29,7 @@ function Marks.mode(bufnr)
 end
 
 ---@param opts { highlighter: FeyHighlighter }
-function Marks:new(opts)
-  return setmetatable({ highlighter = opts.highlighter }, self)
-end
+function Marks:new(opts) return setmetatable({ highlighter = opts.highlighter }, self) end
 
 ---Hide a range of one line; `chars` (when given) replace its first characters
 ---@param self FeyFootnoteMarksHighlighter

@@ -48,9 +48,7 @@ function Icons.icon_of(mark)
 end
 
 ---@param opts { highlighter: FeyHighlighter }
-function Icons:new(opts)
-  return setmetatable({ highlighter = opts.highlighter }, self)
-end
+function Icons:new(opts) return setmetatable({ highlighter = opts.highlighter }, self) end
 
 ---@param bufnr integer
 ---@param line integer 0-based

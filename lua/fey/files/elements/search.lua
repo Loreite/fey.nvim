@@ -74,21 +74,11 @@ local OPERATORS = {
     local result = a == b
     return result
   end,
-  ['<='] = function(a, b)
-    return a <= b
-  end,
-  ['<'] = function(a, b)
-    return a < b
-  end,
-  ['>='] = function(a, b)
-    return a >= b
-  end,
-  ['>'] = function(a, b)
-    return a > b
-  end,
-  ['<>'] = function(a, b)
-    return a ~= b
-  end,
+  ['<='] = function(a, b) return a <= b end,
+  ['<'] = function(a, b) return a < b end,
+  ['>='] = function(a, b) return a >= b end,
+  ['>'] = function(a, b) return a > b end,
+  ['<>'] = function(a, b) return a ~= b end,
 }
 
 ---Parses a pattern from the beginning of an input using Lua's pattern syntax
@@ -111,9 +101,7 @@ end
 local function parse_pattern_choice(input, ...)
   for _, pattern in ipairs({ ... }) do
     local value, remaining = parse_pattern(input, pattern)
-    if value then
-      return value, remaining
-    end
+    if value then return value, remaining end
   end
 
   return nil, input
@@ -130,18 +118,14 @@ local function parse_delimited_sequence(input, item_parser, delimiter_pattern)
 
   -- Parse the first item
   item, input = item_parser(input)
-  if not item then
-    return sequence, input
-  end
+  if not item then return sequence, input end
   table.insert(sequence, item)
 
   -- Continue parsing items while there's a trailing delimiter
   delimiter, input = parse_pattern(input, delimiter_pattern)
   while delimiter do
     item, input = item_parser(input)
-    if not item then
-      return nil, original_input
-    end
+    if not item then return nil, original_input end
 
     table.insert(sequence, item)
 
@@ -193,9 +177,7 @@ end
 function Search:_parse()
   local input = self.term
   -- Parse the sequence of ORs
-  self.or_items, input = parse_delimited_sequence(input, function(i)
-    return OrItem:parse(i)
-  end, '%|')
+  self.or_items, input = parse_delimited_sequence(input, function(i) return OrItem:parse(i) end, '%|')
 
   -- If the sequence failed to parse, reset the array
   self.or_items = self.or_items or {}
@@ -223,13 +205,9 @@ function OrItem:parse(input)
   local and_items
   local original_input = input
 
-  and_items, input = parse_delimited_sequence(input, function(i)
-    return AndItem:parse(i)
-  end, '%&')
+  and_items, input = parse_delimited_sequence(input, function(i) return AndItem:parse(i) end, '%&')
 
-  if not and_items then
-    return nil, original_input
-  end
+  if not and_items then return nil, original_input end
 
   local or_item = OrItem:_new()
   or_item.and_items = and_items
@@ -242,9 +220,7 @@ end
 ---@return boolean
 function OrItem:match(item)
   for _, and_item in ipairs(self.and_items) do
-    if not and_item:match(item) then
-      return false
-    end
+    if not and_item:match(item) then return false end
   end
 
   return true
@@ -275,9 +251,7 @@ function AndItem:parse(input)
   operator, input = parse_pattern(input, '[%+%-]?')
 
   -- A '+' operator is implied if none is present
-  if operator == '' then
-    operator = '+'
-  end
+  if operator == '' then operator = '+' end
 
   while operator do
     ---@type FeyMatchable?
@@ -289,9 +263,7 @@ function AndItem:parse(input)
     -- If it wasn't a property match, then try a tag match
     if not matchable then
       matchable, input = TagMatch:parse(input)
-      if not matchable then
-        return nil, original_input
-      end
+      if not matchable then return nil, original_input end
     end
 
     if operator == '+' then
@@ -313,15 +285,11 @@ end
 ---@return boolean
 function AndItem:match(item)
   for _, c in ipairs(self.contains) do
-    if not c:match(item) then
-      return false
-    end
+    if not c:match(item) then return false end
   end
 
   for _, e in ipairs(self.excludes) do
-    if e:match(item) then
-      return false
-    end
+    if e:match(item) then return false end
   end
 
   return true
@@ -346,9 +314,7 @@ function TagMatch:parse(input)
   if quoted then return TagMatch:_new(quoted), input:sub(#quoted + 3) end
   local tag
   tag, input = parse_pattern(input, '[\128-\255%w_%%@#]+')
-  if not tag then
-    return nil, input
-  end
+  if not tag then return nil, input end
 
   return TagMatch:_new(tag), input
 end
@@ -357,14 +323,10 @@ end
 ---@return boolean
 function TagMatch:match(item)
   local item_tags = item.tags
-  if type(item_tags) == 'string' then
-    return item_tags == self.value
-  end
+  if type(item_tags) == 'string' then return item_tags == self.value end
 
   for _, tag in ipairs(item_tags) do
-    if tag == self.value then
-      return true
-    end
+    if tag == self.value then return true end
   end
 
   return false
@@ -378,15 +340,11 @@ function PropertyMatch:parse(input)
   local original_input = input
 
   name, input = parse_pattern(input, '([^%-%+=<>&]+)[=<>]+')
-  if not name then
-    return nil, original_input
-  end
+  if not name then return nil, original_input end
   name = name:lower()
 
   operator, input = self:_parse_operator(input)
-  if not operator then
-    return nil, original_input
-  end
+  if not operator then return nil, original_input end
 
   -- Number property
   number_str, input = parse_pattern(input, '%d+')
@@ -413,9 +371,7 @@ function PropertyMatch:parse(input)
         date_value = date_value:adjust(date_content)
       else
         date_content = date_str:match('^<([^>]+)>$')
-        if date_content then
-          date_value = Date.from_string(date_content)
-        end
+        if date_content then date_value = Date.from_string(date_content) end
       end
     end
 
@@ -472,9 +428,7 @@ function PropertyNumberMatch:match(item)
 
   -- If the property in question is not a number, it's not a match
   local item_num_value = tonumber(item_str_value)
-  if not item_num_value then
-    return false
-  end
+  if not item_num_value then return false end
 
   return OPERATORS[self.operator](item_num_value, self.value)
 end
@@ -501,21 +455,15 @@ function PropertyDateMatch:match(item)
   local item_value = item.props[self.name]
 
   -- If the property is missing, then it's not a match
-  if not item_value then
-    return false
-  end
+  if not item_value then return false end
 
   -- Extract the content between the braces/brackets
   local date_content = item_value:match('^[<%[]([^>%]]+)[>%]]$')
-  if not date_content then
-    return false
-  end
+  if not date_content then return false end
 
   ---@type FeyDate?
   local item_date = Date.from_string(date_content)
-  if not item_date then
-    return false
-  end
+  if not item_date then return false end
 
   return OPERATORS[self.operator](item_date, self.value)
 end
@@ -565,9 +513,7 @@ function TodoMatch:parse(input)
   ---@type string?
   local prefix
   prefix, input = parse_pattern(input, '%/[%!]?')
-  if not prefix then
-    return nil, original_input
-  end
+  if not prefix then return nil, original_input end
 
   -- Parse a whitelist of keywords
   --- @type string[]?
@@ -577,9 +523,7 @@ function TodoMatch:parse(input)
     local operator
     operator, i = parse_pattern(i, '[%+%-]?')
 
-    if operator == '' then
-      operator = '+'
-    end
+    if operator == '' then operator = '+' end
 
     local andItems = {}
 
@@ -587,9 +531,7 @@ function TodoMatch:parse(input)
       ---@type string?
       local value
       value, i = parse_pattern(i, '%w+')
-      if not value then
-        break
-      end
+      if not value then break end
       table.insert(andItems, {
         operator = operator,
         value = value,
@@ -601,9 +543,7 @@ function TodoMatch:parse(input)
     return andItems, i
   end, '%|')
 
-  if not orItems or #orItems == 0 then
-    return nil, original_input
-  end
+  if not orItems or #orItems == 0 then return nil, original_input end
 
   local todo_match = TodoMatch:_new()
   todo_match.orItems = orItems
@@ -627,9 +567,7 @@ function TodoMatch:match(item)
       end
     end
 
-    if validItems then
-      return true
-    end
+    if validItems then return true end
   end
 
   return false

@@ -83,7 +83,8 @@ function M.text(src, format, opts)
   local text, warnings = require('fey.import.writer').render(doc)
   if format == 'markdown' and (opts.root or opts.db_dir) then
     -- Obsidian's plugins: dataview queries and Database Folder views
-    local fixed, more = require('fey.import.obsidian').fix_text(text, { root = opts.root, db_dir = not opts.dry_run and opts.db_dir or nil })
+    local fixed, more =
+      require('fey.import.obsidian').fix_text(text, { root = opts.root, db_dir = not opts.dry_run and opts.db_dir or nil })
     text = fixed
     vim.list_extend(warnings, more)
   end

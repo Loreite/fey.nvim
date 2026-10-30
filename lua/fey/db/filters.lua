@@ -58,8 +58,21 @@ for _, op in ipairs(M.OPS) do
 end
 
 local RESERVED = {
-  ['and'] = true, ['or'] = true, ['not'] = true, ['true'] = true, ['false'] = true, ['null'] = true,
-  this = true, row = true, from = true, where = true, sort = true, group = true, flatten = true, limit = true, as = true,
+  ['and'] = true,
+  ['or'] = true,
+  ['not'] = true,
+  ['true'] = true,
+  ['false'] = true,
+  ['null'] = true,
+  this = true,
+  row = true,
+  from = true,
+  where = true,
+  sort = true,
+  group = true,
+  flatten = true,
+  limit = true,
+  as = true,
 }
 
 ---DQL expression that reads a property

@@ -19,21 +19,15 @@ local M = {}
 ---@type FeyNavSession|nil
 local session = nil
 
-local function notify(msg, level)
-  vim.notify('Fey navigator: ' .. msg, level or vim.log.levels.INFO, { title = 'Fey' })
-end
+local function notify(msg, level) vim.notify('Fey navigator: ' .. msg, level or vim.log.levels.INFO, { title = 'Fey' }) end
 
 local global_group
 local function ensure_global_autocmds()
-  if global_group then
-    return
-  end
+  if global_group then return end
   global_group = vim.api.nvim_create_augroup('FeyNavigatorState', { clear = true })
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = global_group,
-    callback = function(ev)
-      state.clear(ev.buf)
-    end,
+    callback = function(ev) state.clear(ev.buf) end,
   })
   vim.api.nvim_create_autocmd('ColorScheme', {
     group = global_group,
@@ -52,21 +46,15 @@ end
 function M.open(opts)
   opts = opts or {}
   ensure_global_autocmds()
-  if session and not session.closed then
-    session:close()
-  end
+  if session and not session.closed then session:close() end
 
   local bufnr = opts.bufnr or vim.api.nvim_get_current_buf()
-  if bufnr == 0 then
-    bufnr = vim.api.nvim_get_current_buf()
-  end
+  if bufnr == 0 then bufnr = vim.api.nvim_get_current_buf() end
   local view_opts = {
     src_win = vim.api.nvim_get_current_win(),
     jump_opts = { cwd = opts.cwd, tab = opts.tab },
     on_close = function(s)
-      if session == s then
-        session = nil
-      end
+      if session == s then session = nil end
     end,
   }
 
@@ -86,14 +74,10 @@ function M.open(opts)
   end
 
   local model, err = model_mod.new(bufnr)
-  if not model then
-    return notify(err or 'unavailable', vim.log.levels.WARN)
-  end
+  if not model then return notify(err or 'unavailable', vim.log.levels.WARN) end
 
   local resume = opts.resume
-  if resume == nil then
-    resume = config.options.resume_by_default
-  end
+  if resume == nil then resume = config.options.resume_by_default end
 
   local stack
   if resume then
@@ -117,38 +101,26 @@ end
 
 --- Re-open at the last navigation state for the buffer.
 ---@param opts? FeyNavOpenOpts
-function M.resume(opts)
-  return M.open(vim.tbl_extend('force', opts or {}, { resume = true }))
-end
+function M.resume(opts) return M.open(vim.tbl_extend('force', opts or {}, { resume = true })) end
 
 --- Open the list of hollows, at the hollow of the current buffer (the court when it is in none).
 ---@param opts? { cwd?: boolean, tab?: boolean }
-function M.hollows(opts)
-  return M.open(vim.tbl_extend('force', opts or {}, { level = 'hollows' }))
-end
+function M.hollows(opts) return M.open(vim.tbl_extend('force', opts or {}, { level = 'hollows' })) end
 
 function M.close()
-  if session then
-    session:close()
-  end
+  if session then session:close() end
 end
 
 function M.toggle(opts)
-  if session and not session.closed then
-    return M.close()
-  end
+  if session and not session.closed then return M.close() end
   return M.open(opts)
 end
 
 --- Forget the saved position for a buffer.
-function M.reset(bufnr)
-  state.clear(bufnr or vim.api.nvim_get_current_buf())
-end
+function M.reset(bufnr) state.clear(bufnr or vim.api.nvim_get_current_buf()) end
 
 ---@return FeyNavSession|nil
-function M.session()
-  return session
-end
+function M.session() return session end
 
 ---@param opts? table  see fey.ui.navigator.config
 function M.setup(opts)
@@ -170,9 +142,7 @@ function M.setup(opts)
   end, {
     nargs = '?',
     desc = 'Fey: AST navigator',
-    complete = function()
-      return { 'open', 'resume', 'hollows', 'reset', 'close' }
-    end,
+    complete = function() return { 'open', 'resume', 'hollows', 'reset', 'close' } end,
   })
 end
 

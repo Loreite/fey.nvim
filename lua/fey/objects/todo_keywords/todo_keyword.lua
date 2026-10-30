@@ -38,9 +38,7 @@ function TodoKeyword:empty()
   }, self)
 end
 
-function TodoKeyword:is_empty()
-  return self.keyword == ''
-end
+function TodoKeyword:is_empty() return self.keyword == '' end
 
 function TodoKeyword:parse()
   self.value = self.keyword

@@ -54,7 +54,8 @@ local CALC_FUNCTIONS = { vsum = 'sum', vmean = 'average', vmax = 'max', vmin = '
 ---@param source integer|string
 function M.read_tag(tbl, tag, source)
   if tag.node:has_error() then
-    tbl.errors[#tbl.errors + 1] = 'a tag under the table has a syntax error (a value of the head may not hold , or ;: write the formula in the body)'
+    tbl.errors[#tbl.errors + 1] =
+      'a tag under the table has a syntax error (a value of the head may not hold , or ;: write the formula in the body)'
     return
   end
   for _, key in ipairs(tag.key_order or {}) do
@@ -133,7 +134,11 @@ local function layout(tbl)
     if item.type == 'hr' then
       seen = true
     elseif not item.type then
-      if has_rule and not seen then head[#head + 1] = item else body[#body + 1] = item end
+      if has_rule and not seen then
+        head[#head + 1] = item
+      else
+        body[#body + 1] = item
+      end
     end
   end
   local names, index = {}, {}
@@ -222,7 +227,9 @@ local function resolve(grid, ncols, spec)
 
   -- r3, r3c4, r2to4c3, r2tolast_total: rows, and a column or all of them
   local a, rest = key:match('^r(%d+)(.*)$')
-  if not a then a, rest = key:match('^r(last)(.*)$') end
+  if not a then
+    a, rest = key:match('^r(last)(.*)$')
+  end
   if not a then return nil, ('no such column or row: %s'):format(spec) end
   local b, tail = rest:match('^to(%d+)(.*)$')
   if not b then

@@ -42,9 +42,7 @@ M.new = new
 -- @return string|nil
 -----------------------------------------------------------------------------
 local function validate(color_hex)
-  if type(color_hex) == 'string' and color_hex:len() == 7 and color_hex:sub(1, 1) == '#' then
-    return color_hex
-  end
+  if type(color_hex) == 'string' and color_hex:len() == 7 and color_hex:sub(1, 1) == '#' then return color_hex end
   return nil
 end
 M.validate = validate
@@ -70,12 +68,8 @@ local function hsl_to_rgb(h, s, L)
   m1 = L * 2 - m2
 
   local function _h2rgb(m1, m2, h)
-    if h < 0 then
-      h = h + 1
-    end
-    if h > 1 then
-      h = h - 1
-    end
+    if h < 0 then h = h + 1 end
+    if h > 1 then h = h - 1 end
     if h * 6 < 1 then
       return m1 + (m2 - m1) * h * 6
     elseif h * 2 < 1 then
@@ -109,32 +103,18 @@ local function rgb_to_hsl(r, g, b)
 
   local h, s, l = 0, 0, ((min + max) / 2)
 
-  if l > 0 and l < 0.5 then
-    s = delta / (max + min)
-  end
-  if l >= 0.5 and l < 1 then
-    s = delta / (2 - max - min)
-  end
+  if l > 0 and l < 0.5 then s = delta / (max + min) end
+  if l >= 0.5 and l < 1 then s = delta / (2 - max - min) end
 
   if delta > 0 then
-    if max == r and max ~= g then
-      h = h + (g - b) / delta
-    end
-    if max == g and max ~= b then
-      h = h + 2 + (b - r) / delta
-    end
-    if max == b and max ~= r then
-      h = h + 4 + (r - g) / delta
-    end
+    if max == r and max ~= g then h = h + (g - b) / delta end
+    if max == g and max ~= b then h = h + 2 + (b - r) / delta end
+    if max == b and max ~= r then h = h + 4 + (r - g) / delta end
     h = h / 6
   end
 
-  if h < 0 then
-    h = h + 1
-  end
-  if h > 1 then
-    h = h - 1
-  end
+  if h < 0 then h = h + 1 end
+  if h > 1 then h = h - 1 end
 
   return h * 360, s, l
 end
@@ -169,9 +149,7 @@ end
 -- @param r              the multiplier for the new lightness
 -- @return               a new instance of Color
 -----------------------------------------------------------------------------
-function Color:lighten_by(r)
-  return new(self.H, self.S, self.L * (r + 1))
-end
+function Color:lighten_by(r) return new(self.H, self.S, self.L * (r + 1)) end
 
 -----------------------------------------------------------------------------
 -- Creates a new color with lightness set to a old lightness times -r.
@@ -179,17 +157,13 @@ end
 -- @param r              the multiplier for the new lightness
 -- @return               a new instance of Color
 -----------------------------------------------------------------------------
-function Color:darken_by(r)
-  return new(self.H, self.S, self.L * r)
-end
+function Color:darken_by(r) return new(self.H, self.S, self.L * r) end
 
 Color_mt.__tostring = Color.to_rgb
 
 -- allow to use `colors(...)` instead of `colors.new(...)`
 setmetatable(M, {
-  __call = function(_, ...)
-    return new(...)
-  end,
+  __call = function(_, ...) return new(...) end,
 })
 
 return M

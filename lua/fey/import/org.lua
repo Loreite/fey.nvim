@@ -158,7 +158,9 @@ local function anchor_of(ctx, url)
   if ctx.opts.anchors ~= 'tag' then return nil end
   url = vim.trim(url)
   local path, id = url:match('^([^#]*)#(.*)$')
-  if not path then path, id = url, '' end
+  if not path then
+    path, id = url, ''
+  end
   if url:match('^%a[%w+.-]*:') or path:match('%.org$') or path:match('%.fey$') then return nil end
   if path == '' then return id ~= '' and { id = id } or nil end
   if not (path:match('^%.%.?/') or path:match('^%.%.?$') or path:match('^/')) then return nil end

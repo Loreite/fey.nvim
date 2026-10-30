@@ -15,9 +15,7 @@ function NotificationPopup:new(opts)
 end
 
 function NotificationPopup:show()
-  if not self.content or self.content == '' then
-    return
-  end
+  if not self.content or self.content == '' then return end
   local opts = {
     relative = 'editor',
     width = 50,
@@ -35,9 +33,7 @@ function NotificationPopup:show()
   vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = self.buf })
   self.win = vim.api.nvim_open_win(self.buf, false, opts)
   vim.api.nvim_set_option_value('winhl', 'Normal:Normal', { win = self.win })
-  vim.defer_fn(function()
-    pcall(vim.api.nvim_win_close, self.win, true)
-  end, self.hide_after)
+  vim.defer_fn(function() pcall(vim.api.nvim_win_close, self.win, true) end, self.hide_after)
   local notifications_augroup = vim.api.nvim_create_augroup('fey_notification', { clear = true })
   vim.api.nvim_create_autocmd('BufEnter', {
     buffer = self.buf,

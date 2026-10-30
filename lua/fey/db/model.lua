@@ -83,9 +83,11 @@ function Model:properties()
   end
   -- the properties of every hollow of the scope
   local counts, names = {}, {}
-  local rows = require('fey.hollow.scope').collect(self.base.scope, self.vault.root, function(vault)
-    return vault:query('SELECT name, COUNT(*) AS c FROM properties GROUP BY name')
-  end)
+  local rows = require('fey.hollow.scope').collect(
+    self.base.scope,
+    self.vault.root,
+    function(vault) return vault:query('SELECT name, COUNT(*) AS c FROM properties GROUP BY name') end
+  )
   for _, r in ipairs(rows) do
     if not counts[r.name] then names[#names + 1] = r.name end
     counts[r.name] = (counts[r.name] or 0) + r.c
@@ -226,7 +228,14 @@ local function sig(tbl) return vim.json.encode(tbl) end
 ---@return FeyDbResult
 function Model:compute(view)
   self:sync()
-  local key = sig({ self.base.filters or vim.NIL, self.base.formulas or vim.NIL, view.filters or vim.NIL, view.sort or vim.NIL, view.group or vim.NIL, view.limit or vim.NIL })
+  local key = sig({
+    self.base.filters or vim.NIL,
+    self.base.formulas or vim.NIL,
+    view.filters or vim.NIL,
+    view.sort or vim.NIL,
+    view.group or vim.NIL,
+    view.limit or vim.NIL,
+  })
   if self.result_cache and self.result_cache.key == key then return self.result_cache.value end
 
   local rows = self:all_rows()
@@ -365,7 +374,9 @@ function Model:summarize(summary, prop, rows)
   if summary == 'earliest' or summary == 'latest' then
     local best
     for _, v in ipairs(vals) do
-      if V.is_date(v) and (not best or (summary == 'earliest' and v.ts < best.ts) or (summary == 'latest' and v.ts > best.ts)) then
+      if
+        V.is_date(v) and (not best or (summary == 'earliest' and v.ts < best.ts) or (summary == 'latest' and v.ts > best.ts))
+      then
         best = v
       end
     end
@@ -375,12 +386,16 @@ function Model:summarize(summary, prop, rows)
   if #nums == 0 then return NULL end
   if summary == 'sum' then
     local s = 0
-    for _, n in ipairs(nums) do s = s + n end
+    for _, n in ipairs(nums) do
+      s = s + n
+    end
     return s
   end
   if summary == 'average' then
     local s = 0
-    for _, n in ipairs(nums) do s = s + n end
+    for _, n in ipairs(nums) do
+      s = s + n
+    end
     return s / #nums
   end
   if summary == 'min' or summary == 'max' or summary == 'range' then
@@ -399,10 +414,14 @@ function Model:summarize(summary, prop, rows)
   end
   if summary == 'stddev' then
     local s = 0
-    for _, n in ipairs(nums) do s = s + n end
+    for _, n in ipairs(nums) do
+      s = s + n
+    end
     local mean = s / #nums
     local sq = 0
-    for _, n in ipairs(nums) do sq = sq + (n - mean) ^ 2 end
+    for _, n in ipairs(nums) do
+      sq = sq + (n - mean) ^ 2
+    end
     return math.sqrt(sq / #nums)
   end
   return NULL

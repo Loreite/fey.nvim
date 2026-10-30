@@ -57,7 +57,12 @@ local parse
 ---@param decl FeyConcealDecl
 function M.register(name, decl)
   vim.validate('conceal name', name, 'string')
-  vim.validate('conceal mode', decl.mode, function(mode) return mode == 'hide' or mode == 'icon' or mode == 'values' end, "'hide', 'icon' or 'values'")
+  vim.validate(
+    'conceal mode',
+    decl.mode,
+    function(mode) return mode == 'hide' or mode == 'icon' or mode == 'values' end,
+    "'hide', 'icon' or 'values'"
+  )
   registry[name] = decl
 end
 
@@ -94,9 +99,7 @@ local function icon_of(name, decl)
   local overrides = config.fey_conceal_icons or {}
   if overrides[name] then return overrides[name] end
   local icon = decl.icon or '?'
-  if type(icon) == 'table' then
-    return icon[require('fey.colors.highlighter.checkbox_icons').style()] or icon.unicode or '?'
-  end
+  if type(icon) == 'table' then return icon[require('fey.colors.highlighter.checkbox_icons').style()] or icon.unicode or '?' end
   return icon
 end
 
@@ -214,9 +217,7 @@ local function render(bufnr, ids, tag, decl)
         hide(bufnr, ids, { row, from, row, span.from })
       end
       kept = true
-      if span.face then
-        mark(bufnr, ids, row, span.from, { end_col = span.to, hl_group = span.face, priority = 250 })
-      end
+      if span.face then mark(bufnr, ids, row, span.from, { end_col = span.to, hl_group = span.face, priority = 250 }) end
       from = span.to
     end
     if last > from then hide(bufnr, ids, { row, from, row, last }) end

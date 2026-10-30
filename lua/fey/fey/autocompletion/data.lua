@@ -7,7 +7,8 @@ local M = {}
 ---The keys of the document data that the plugin gives a meaning
 M.DATA_KEYS = { 'title', 'category', 'todo', 'archive', 'header_args', 'labels', 'id', 'aliases', 'author', 'email' }
 
-local SPANS = { 'today', 'yesterday', 'thisweek', 'lastweek', 'thismonth', 'lastmonth', 'thisyear', 'lastyear', 'all', '7d', '30d' }
+local SPANS =
+  { 'today', 'yesterday', 'thisweek', 'lastweek', 'thismonth', 'lastmonth', 'thisyear', 'lastyear', 'all', '7d', '30d' }
 local BOOLEAN = { 'true', 'false' }
 
 ---Keys a tag knows, by tag name; the index adds the keys written in the notes
@@ -157,7 +158,9 @@ function M.values(ctx)
     return vim.tbl_map(function(f) return f.path end, v and v:files() or {})
   elseif tag == config.fey_section_tag_name then
     if ctx.index == 1 then return signatures() end
-    if ctx.index == 2 then return vim.tbl_map(function(f) return f.path end, v and v:files() or {}) end
+    if ctx.index == 2 then
+      return vim.tbl_map(function(f) return f.path end, v and v:files() or {})
+    end
   elseif tag == config.fey_footnote_tag_name then
     local out = {}
     for _, row in ipairs(v and v:footnotes() or {}) do

@@ -161,7 +161,9 @@ function M.init(dir, opts)
 
   if opts.name then
     local ok, err = true, nil
-    if registry_root and registered ~= opts.name then ok, err = tree.valid_name(registry_root, opts.name) end
+    if registry_root and registered ~= opts.name then
+      ok, err = tree.valid_name(registry_root, opts.name)
+    end
     if not ok then return vim.notify('fey hollow: ' .. err, vim.log.levels.ERROR) end
     save(opts.name)
     return finish()
@@ -201,9 +203,7 @@ function M.setup()
   ---The vault that indexes a file: one this session has open, or a registered one
   ---@param path string
   ---@return FeyVault|nil
-  local function vault_of(path)
-    return M.for_path(path) or require('fey.hollow.court').vault_for_path(path)
-  end
+  local function vault_of(path) return M.for_path(path) or require('fey.hollow.court').vault_for_path(path) end
 
   vim.api.nvim_create_autocmd('BufWritePost', {
     group = group,

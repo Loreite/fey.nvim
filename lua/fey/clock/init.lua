@@ -71,15 +71,17 @@ function Clock.active()
   local tree = require('fey.hollow.tree')
   local name = vim.api.nvim_buf_get_name(0)
   local root = tree.hollow_root_of(name ~= '' and name or vim.fn.getcwd()) or tree.hollow_root_of(vim.fn.getcwd())
-  local rows = require('fey.hollow.scope').collect({ 'court', 'current' }, root, function(vault)
-    return vault:query(
-      [[SELECT f.path, d.line AS clock_line, d.heading_ord AS ord, d.start_ts, h.title, h.line, h.signature
+  local rows = require('fey.hollow.scope').collect(
+    { 'court', 'current' },
+    root,
+    function(vault)
+      return vault:query([[SELECT f.path, d.line AS clock_line, d.heading_ord AS ord, d.start_ts, h.title, h.line, h.signature
         FROM dates d JOIN files f ON f.id = d.file_id
         LEFT JOIN headings h ON h.file_id = d.file_id AND h.ord = d.heading_ord
         WHERE d.kind = 'clock' AND d.end_ts IS NULL AND d.heading_ord IS NOT NULL
-        ORDER BY d.start_ts DESC]]
-    )
-  end)
+        ORDER BY d.start_ts DESC]])
+    end
+  )
   table.sort(rows, function(a, b) return a.start_ts > b.start_ts end)
   local row = rows[1]
   if not row then return nil end
@@ -129,9 +131,7 @@ end
 ---@param fn fun(heading: FeyHeading): any
 ---@return FeyPromise
 local function on_heading(source, fn)
-  return Edit.run(source, function()
-    return fn(require('fey').instance().files:get_closest_heading())
-  end)
+  return Edit.run(source, function() return fn(require('fey').instance().files:get_closest_heading()) end)
 end
 
 ---Start a clock on a heading, stopping the one that runs
@@ -144,19 +144,19 @@ function Clock:clock_in(source)
     return Promise.resolve(false)
   end
   local stop = Promise.resolve()
-  if active then
-    stop = on_heading({ abs = active.abs, line = active.line }, function(heading) heading:clock_out() end)
-  end
-  return stop:next(function()
-    return on_heading(source, function(heading)
-      heading:clock_in()
-      local now = os.date('%Y-%m-%d %H:%M')
-      utils.echo_info(('Clock starts at %s'):format(now))
+  if active then stop = on_heading({ abs = active.abs, line = active.line }, function(heading) heading:clock_out() end) end
+  return stop
+    :next(function()
+      return on_heading(source, function(heading)
+        heading:clock_in()
+        local now = os.date('%Y-%m-%d %H:%M')
+        utils.echo_info(('Clock starts at %s'):format(now))
+      end)
     end)
-  end):next(function()
-    self:invalidate()
-    return true
-  end)
+    :next(function()
+      self:invalidate()
+      return true
+    end)
 end
 
 ---Stop the running clock, wherever it is
@@ -246,10 +246,11 @@ function Clock:get_statusline()
   local vault = require('fey.vault').for_path(active.abs)
   if vault then
     local rel = vault:rel_of(active.abs)
-    local row = rel and vault:query(
-      [[SELECT h.props FROM headings h JOIN files f ON f.id = h.file_id WHERE f.path = :p AND h.ord = :o]],
-      { p = rel, o = active.ord }
-    )[1]
+    local row = rel
+      and vault:query(
+        [[SELECT h.props FROM headings h JOIN files f ON f.id = h.file_id WHERE f.path = :p AND h.ord = :o]],
+        { p = rel, o = active.ord }
+      )[1]
     local ok, props = pcall(vim.json.decode, row and row.props or '{}')
     effort = ok and props and props.effort or nil
   end

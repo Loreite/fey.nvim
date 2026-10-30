@@ -4,9 +4,7 @@ local M = {}
 
 ---@param hex_color string hex color (#FFFFFFF)
 ---@return FeyColor
-function M.from_hex(hex_color)
-  return colors.new(hex_color)
-end
+function M.from_hex(hex_color) return colors.new(hex_color) end
 
 ---@param hlgroup string
 ---@return string
@@ -16,16 +14,10 @@ function M.parse_hl_fg_color(hlgroup)
   local normal_bg = colors.validate(vim.fn.synIDattr(vim.fn.synIDtrans(vim.fn.hlID('Normal')), 'bg', 'gui'))
   local reverse = vim.fn.synIDattr(vim.fn.synIDtrans(vim.fn.hlID(hlgroup)), 'reverse', 'gui')
   -- If only one color defined return that one
-  if not bg and fg then
-    return fg
-  end
-  if not fg and bg then
-    return bg
-  end
+  if not bg and fg then return fg end
+  if not fg and bg then return bg end
 
-  if reverse == '' and bg ~= normal_bg then
-    return bg
-  end
+  if reverse == '' and bg ~= normal_bg then return bg end
   return fg
 end
 
@@ -33,24 +25,14 @@ M.get_todo_keywords_colors = function()
   local error = M.parse_hl_fg_color('Error')
   local warning = M.parse_hl_fg_color('WarningMsg')
   local ok = M.parse_hl_fg_color('diffAdded')
-  if not ok then
-    ok = M.parse_hl_fg_color('DiffAdd')
-  end
-  if not error then
-    error = M.parse_hl_fg_color('ErrorMsg')
-  end
+  if not ok then ok = M.parse_hl_fg_color('DiffAdd') end
+  if not error then error = M.parse_hl_fg_color('ErrorMsg') end
 
-  if not ok then
-    ok = '#00FF00'
-  end
+  if not ok then ok = '#00FF00' end
 
-  if not warning then
-    warning = '#FF8C00'
-  end
+  if not warning then warning = '#FF8C00' end
 
-  if not error then
-    error = '#FF0000'
-  end
+  if not error then error = '#FF0000' end
 
   return {
     TODO = { gui = error, cterm = 1 },
@@ -89,9 +71,7 @@ end
 ---@return string
 M.apply_highlights = function(highlights, clear, bufnr)
   bufnr = bufnr or 0
-  if clear then
-    vim.api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
-  end
+  if clear then vim.api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1) end
   for _, hl in ipairs(highlights) do
     M.highlight(hl, bufnr)
   end

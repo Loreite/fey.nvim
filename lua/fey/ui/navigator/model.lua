@@ -71,8 +71,8 @@ for _, c in ipairs(M.categories) do
 end
 
 -- Anything that shows up in a local (<Tab>) view.
-local OBJECT_TYPES = type_set('section', 'paragraph', 'list', 'block', 'table', 'line_tag', 'scope_tag', 'pair_tag',
-  'block_tag')
+local OBJECT_TYPES =
+  type_set('section', 'paragraph', 'list', 'block', 'table', 'line_tag', 'scope_tag', 'pair_tag', 'block_tag')
 
 -- Never descend into these while collecting: a heading line belongs to its
 -- section, the pair delimiters to their pair.
@@ -89,24 +89,17 @@ Model.__index = Model
 ---@param bufnr integer
 ---@return FeyNavModel|nil model, string|nil err
 function M.new(bufnr)
-  if not vim.api.nvim_buf_is_valid(bufnr) then
-    return nil, 'invalid buffer'
-  end
+  if not vim.api.nvim_buf_is_valid(bufnr) then return nil, 'invalid buffer' end
   local ok, parser = pcall(vim.treesitter.get_parser, bufnr, 'fey', { error = false })
-  if not ok or not parser then
-    return nil, 'no fey tree-sitter parser available for this buffer'
-  end
-  local ok_parse, trees = pcall(function()
-    return parser:parse()
-  end)
-  if not ok_parse or not trees or not trees[1] then
-    return nil, 'failed to parse buffer'
-  end
+  if not ok or not parser then return nil, 'no fey tree-sitter parser available for this buffer' end
+  local ok_parse, trees = pcall(function() return parser:parse() end)
+  if not ok_parse or not trees or not trees[1] then return nil, 'failed to parse buffer' end
   return setmetatable({
     bufnr = bufnr,
     root = trees[1]:root(),
     changedtick = vim.api.nvim_buf_get_changedtick(bufnr),
-  }, Model), nil
+  }, Model),
+    nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -140,21 +133,15 @@ end
 -- Labels
 -- ---------------------------------------------------------------------------
 
-local function clean(s)
-  return (s:gsub('%s+', ' '):gsub('^ ', ''):gsub(' $', ''))
-end
+local function clean(s) return (s:gsub('%s+', ' '):gsub('^ ', ''):gsub(' $', '')) end
 
-function Model:line(row)
-  return vim.api.nvim_buf_get_lines(self.bufnr, row, row + 1, false)[1] or ''
-end
+function Model:line(row) return vim.api.nvim_buf_get_lines(self.bufnr, row, row + 1, false)[1] or '' end
 
 ---@param node TSNode
 function Model:first_line(node)
   local sr, sc, er, ec = node:range()
   local line = self:line(sr)
-  if er == sr then
-    return line:sub(sc + 1, ec)
-  end
+  if er == sr then return line:sub(sc + 1, ec) end
   return line:sub(sc + 1)
 end
 
@@ -165,9 +152,7 @@ end
 
 local function child_of_type(node, t)
   for child in node:iter_children() do
-    if child:type() == t then
-      return child
-    end
+    if child:type() == t then return child end
   end
 end
 
@@ -175,9 +160,7 @@ end
 ---@param node TSNode
 function Model:tag_head(node)
   local head = node
-  if node:type() == 'pair_tag' then
-    head = child_of_type(node, 'pair_open') or node
-  end
+  if node:type() == 'pair_tag' then head = child_of_type(node, 'pair_open') or node end
   local sr, sc = head:range()
   local tag_end = child_of_type(head, 'tag_end')
   if tag_end then
@@ -194,9 +177,7 @@ function Model:label(node)
   if t == 'list' then
     local items = 0
     for child in node:iter_children() do
-      if child:type() == 'listitem' then
-        items = items + 1
-      end
+      if child:type() == 'listitem' then items = items + 1 end
     end
     return string.format('%s  (%d item%s)', clean(self:first_line(node)), items, items == 1 and '' or 's')
   elseif t == 'table' then
@@ -204,9 +185,7 @@ function Model:label(node)
     local cols = 0
     if first then
       for child in first:iter_children() do
-        if child:type() == 'cell' then
-          cols = cols + 1
-        end
+        if child:type() == 'cell' then cols = cols + 1 end
       end
     end
     local rows = #outermost(node, { row = true })
@@ -216,9 +195,7 @@ function Model:label(node)
     return string.format('%s  (%d lines)', clean(self:first_line(node)), er - sr)
   elseif TAG_TYPES[t] then
     local head = self:tag_head(node)
-    if t == 'pair_tag' then
-      return head .. ' …'
-    end
+    if t == 'pair_tag' then return head .. ' …' end
     return head
   end
   -- section (heading line), listitem, row, paragraph: their first line
@@ -257,9 +234,7 @@ function Model:root_items()
   local out = {}
   for _, cat in ipairs(M.categories) do
     local n = #outermost(self.root, cat.types)
-    if n > 0 then
-      out[#out + 1] = { kind = 'category', category = cat.name, label = cat.title, count = n }
-    end
+    if n > 0 then out[#out + 1] = { kind = 'category', category = cat.name, label = cat.title, count = n } end
   end
   return out
 end
@@ -269,9 +244,7 @@ end
 ---@param item FeyNavItem
 ---@return FeyNavItem[]
 function Model:children(item)
-  if item._children then
-    return item._children
-  end
+  if item._children then return item._children end
   local nodes = {}
   if item.kind == 'category' then
     nodes = outermost(self.root, CATEGORY_BY_NAME[item.category].types)
@@ -279,22 +252,16 @@ function Model:children(item)
     local node, t = item.node, item.type
     if t == 'section' then
       for child in node:iter_children() do
-        if child:type() == 'section' then
-          nodes[#nodes + 1] = child
-        end
+        if child:type() == 'section' then nodes[#nodes + 1] = child end
       end
     elseif t == 'list' then
       for child in node:iter_children() do
-        if child:type() == 'listitem' then
-          nodes[#nodes + 1] = child
-        end
+        if child:type() == 'listitem' then nodes[#nodes + 1] = child end
       end
     elseif t == 'listitem' then
       for _, list in ipairs(outermost(node, { list = true })) do
         for child in list:iter_children() do
-          if child:type() == 'listitem' then
-            nodes[#nodes + 1] = child
-          end
+          if child:type() == 'listitem' then nodes[#nodes + 1] = child end
         end
       end
     elseif t == 'table' then
@@ -311,9 +278,7 @@ end
 ---@param item FeyNavItem
 ---@return FeyNavItem[]
 function Model:local_children(item)
-  if item._local then
-    return item._local
-  end
+  if item._local then return item._local end
   local nodes
   if item.kind == 'category' then
     return self:children(item)
@@ -332,9 +297,7 @@ end
 ---@param range integer[]
 function M.last_row(range)
   local sr, _, er, ec = unpack(range)
-  if ec == 0 and er > sr then
-    return er - 1
-  end
+  if ec == 0 and er > sr then return er - 1 end
   return er
 end
 
@@ -348,9 +311,7 @@ local function node_path(node)
   local cur = node
   while cur do
     local parent = cur:parent()
-    if not parent then
-      break
-    end
+    if not parent then break end
     local idx = 0
     for i = 0, parent:named_child_count() - 1 do
       local c = parent:named_child(i)
@@ -379,19 +340,13 @@ function M.to_ref(item)
   }
 end
 
-local function same_range(a, b)
-  return a and b and a[1] == b[1] and a[2] == b[2] and a[3] == b[3] and a[4] == b[4]
-end
+local function same_range(a, b) return a and b and a[1] == b[1] and a[2] == b[2] and a[3] == b[3] and a[4] == b[4] end
 
-local function norm(s)
-  return (s or ''):lower():gsub('%s+', ' ')
-end
+local function norm(s) return (s or ''):lower():gsub('%s+', ' ') end
 
 -- Labels of headings carry their content; compare without the trailing
 -- "(N items)" style counters, which change on every edit.
-local function core_label(s)
-  return norm(s):gsub('%s*%(.-%)%s*$', ''):gsub('%s*…$', '')
-end
+local function core_label(s) return norm(s):gsub('%s*%(.-%)%s*$', ''):gsub('%s*…$', '') end
 
 local function nearest(ref, items, pred)
   local best, best_d
@@ -415,21 +370,15 @@ end
 ---@param items FeyNavItem[]
 ---@return integer|nil index, integer|nil tier
 function M.find(ref, items)
-  if not ref then
-    return nil
-  end
+  if not ref then return nil end
   if ref.kind == 'category' then
     for i, it in ipairs(items) do
-      if it.kind == 'category' and it.category == ref.category then
-        return i, 1
-      end
+      if it.kind == 'category' and it.category == ref.category then return i, 1 end
     end
     return nil
   end
   for i, it in ipairs(items) do
-    if it.type == ref.type and it.id == ref.id then
-      return i, 1
-    end
+    if it.type == ref.type and it.id == ref.id then return i, 1 end
   end
   for i, it in ipairs(items) do
     if it.type == ref.type and same_range(it.range, ref.range) and it.node and node_path(it.node) == ref.path then
@@ -437,24 +386,18 @@ function M.find(ref, items)
     end
   end
   for i, it in ipairs(items) do
-    if it.type == ref.type and same_range(it.range, ref.range) then
-      return i, 2
-    end
+    if it.type == ref.type and same_range(it.range, ref.range) then return i, 2 end
   end
   local want = core_label(ref.label)
-  local i = nearest(ref, items, function(it)
-    return it.type == ref.type and core_label(it.label) == want
-  end)
-  if i then
-    return i, 3
-  end
+  local i = nearest(ref, items, function(it) return it.type == ref.type and core_label(it.label) == want end)
+  if i then return i, 3 end
   local prefix = want:sub(1, 8)
-  local j, d = nearest(ref, items, function(it)
-    return it.type == ref.type and #prefix > 0 and core_label(it.label):sub(1, #prefix) == prefix
-  end)
-  if j and d <= 3 then
-    return j, 4
-  end
+  local j, d = nearest(
+    ref,
+    items,
+    function(it) return it.type == ref.type and #prefix > 0 and core_label(it.label):sub(1, #prefix) == prefix end
+  )
+  if j and d <= 3 then return j, 4 end
   return nil
 end
 

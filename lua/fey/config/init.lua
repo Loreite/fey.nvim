@@ -26,19 +26,13 @@ function Config:new(opts)
 end
 
 function Config:__index(key)
-  if self.opts[key] ~= nil then
-    return self.opts[key]
-  end
+  if self.opts[key] ~= nil then return self.opts[key] end
   return rawget(getmetatable(self), key)
 end
 
-function Config:install_grammar()
-  return require('fey.utils.treesitter.install').install()
-end
+function Config:install_grammar() return require('fey.utils.treesitter.install').install() end
 
-function Config:reinstall_grammar()
-  return require('fey.utils.treesitter.install').reinstall()
-end
+function Config:reinstall_grammar() return require('fey.utils.treesitter.install').reinstall() end
 
 ---@param opts table
 ---@return FeyConfig
@@ -52,9 +46,7 @@ function Config:extend(opts)
     opts.fey_priority_default = self.opts.fey_priority_default
   end
   self.opts = vim.tbl_deep_extend('force', self.opts, opts)
-  if self.fey_startup_indented then
-    self.fey_adapt_indentation = not self.fey_indent_mode_turns_off_fey_adapt_indentation
-  end
+  if self.fey_startup_indented then self.fey_adapt_indentation = not self.fey_indent_mode_turns_off_fey_adapt_indentation end
   return self
 end
 
@@ -135,14 +127,10 @@ function Config:_are_priorities_valid(opts)
 end
 
 ---@return number
-function Config:get_week_start_day_number()
-  return utils.convert_from_isoweekday(1)
-end
+function Config:get_week_start_day_number() return utils.convert_from_isoweekday(1) end
 
 ---@return number
-function Config:get_week_end_day_number()
-  return utils.convert_from_isoweekday(7)
-end
+function Config:get_week_end_day_number() return utils.convert_from_isoweekday(7) end
 
 ---@return string|number
 function Config:get_agenda_span()
@@ -169,9 +157,7 @@ end
 
 ---@return FeyTodoKeywords
 function Config:get_todo_keywords()
-  if not self.todo_keywords then
-    self.todo_keywords = self:build_todo_keywords()
-  end
+  if not self.todo_keywords then self.todo_keywords = self:build_todo_keywords() end
   return self.todo_keywords
 end
 
@@ -189,9 +175,7 @@ end
 ---@see fey.config.mappings
 function Config:setup_mappings(category, buffer)
   local maps = self:get_mappings(category, buffer)
-  if not maps then
-    return
-  end
+  if not maps then return end
 
   for _, map in pairs(maps) do
     map.map_entry:attach(map.default_map, map.user_map, map.opts)
@@ -199,21 +183,15 @@ function Config:setup_mappings(category, buffer)
 end
 
 function Config:get_mappings(category, buffer)
-  if self.opts.mappings.disable_all then
-    return
-  end
+  if self.opts.mappings.disable_all then return end
 
   local map_entries = mappings[category]
   local default_mappings = defaults.mappings[category] or {}
   local user_mappings = vim.tbl_get(self.opts.mappings, category) or {}
   local opts = {}
-  if buffer then
-    opts.buffer = buffer
-  end
+  if buffer then opts.buffer = buffer end
 
-  if self.opts.mappings.prefix then
-    opts.prefix = self.opts.mappings.prefix
-  end
+  if self.opts.mappings.prefix then opts.prefix = self.opts.mappings.prefix end
 
   local result = {}
   for name, map_entry in pairs(map_entries) do
@@ -244,17 +222,13 @@ end
 
 ---@return string|nil
 function Config:parse_archive_location(file, archive_loc)
-  if self:is_archive_file(file) then
-    return nil
-  end
+  if self:is_archive_file(file) then return nil end
 
   archive_loc = archive_loc or self.opts.fey_archive_location
   -- TODO: Support archive to heading
   local parts = vim.split(archive_loc, '::')
   local archive_location = vim.trim(parts[1])
-  if not archive_location:find('%%s') then
-    return vim.fn.fnamemodify(archive_location, ':p')
-  end
+  if not archive_location:find('%%s') then return vim.fn.fnamemodify(archive_location, ':p') end
 
   local file_path = vim.fn.fnamemodify(file, ':p:h')
   local file_name = vim.fn.fnamemodify(file, ':t')
@@ -264,38 +238,27 @@ function Config:parse_archive_location(file, archive_loc)
   -- then we need to prepend the file path to it
   local is_full_path = fs.substitute_path(archive_filename)
 
-  if not is_full_path then
-    return string.format('%s/%s', file_path, archive_filename)
-  end
+  if not is_full_path then return string.format('%s/%s', file_path, archive_filename) end
 
   return vim.fn.fnamemodify(archive_filename, ':p')
 end
 
-function Config:is_archive_file(file)
-  return vim.fn.fnamemodify(file, ':e') == 'fey_archive'
-end
+function Config:is_archive_file(file) return vim.fn.fnamemodify(file, ':e') == 'fey_archive' end
 
 function Config:exclude_tags(tags)
-  if vim.tbl_isempty(self.opts.fey_labels_exclude_from_inheritance) then
-    return tags
-  end
+  if vim.tbl_isempty(self.opts.fey_labels_exclude_from_inheritance) then return tags end
 
-  return vim.tbl_filter(function(tag)
-    return not vim.tbl_contains(self.opts.fey_labels_exclude_from_inheritance, tag)
-  end, tags)
+  return vim.tbl_filter(function(tag) return not vim.tbl_contains(self.opts.fey_labels_exclude_from_inheritance, tag) end, tags)
 end
 
 function Config:get_inheritable_tags(heading)
-  if not heading.tags or not self.opts.fey_use_label_inheritance then
-    return {}
-  end
-  if vim.tbl_isempty(self.opts.fey_labels_exclude_from_inheritance) then
-    return { unpack(heading.tags) }
-  end
+  if not heading.tags or not self.opts.fey_use_label_inheritance then return {} end
+  if vim.tbl_isempty(self.opts.fey_labels_exclude_from_inheritance) then return { unpack(heading.tags) } end
 
-  return vim.tbl_filter(function(tag)
-    return not vim.tbl_contains(self.opts.fey_labels_exclude_from_inheritance, tag)
-  end, heading.tags)
+  return vim.tbl_filter(
+    function(tag) return not vim.tbl_contains(self.opts.fey_labels_exclude_from_inheritance, tag) end,
+    heading.tags
+  )
 end
 
 function Config:get_priority_range()
@@ -307,9 +270,7 @@ function Config:get_priority_range()
 end
 
 function Config:get_priorities()
-  if self.priorities then
-    return self.priorities
-  end
+  if self.priorities then return self.priorities end
 
   local priorities = {
     [self.opts.fey_priority_highest] = { type = 'highest', hl_group = '@fey.priority.highest' },
@@ -344,14 +305,10 @@ function Config:setup_ts_predicates()
   local valid_priorities = self:get_priorities()
 
   vim.treesitter.query.add_predicate('fey-is-heading-level?', function(match, _, source, predicate)
-    if type(source) == 'number' and not vim.api.nvim_buf_is_loaded(source) then
-      return false
-    end
+    if type(source) == 'number' and not vim.api.nvim_buf_is_loaded(source) then return false end
     local node = match[predicate[2]]
     node = node and node[#node]
-    if not node then
-      return false
-    end
+    if not node then return false end
 
     local target_level = tonumber(predicate[3])
     local text = vim.treesitter.get_node_text(node, source)
@@ -379,9 +336,7 @@ function Config:setup_ts_predicates()
     local capture_id = pred[2]
     local node = match[capture_id]
     node = node and node[#node]
-    if not capture_id or not node then
-      return
-    end
+    if not capture_id or not node then return end
     metadata[capture_id] = metadata[capture_id] or {}
     local first, last = require('fey.fey.folds').body_range(node)
     if not first then
@@ -393,18 +348,12 @@ function Config:setup_ts_predicates()
   end, { force = true })
 
   vim.treesitter.query.add_directive('fey-set-fold-offset!', function(match, _, bufnr, pred, metadata)
-    if fey_cycle_separator_lines == 0 then
-      return
-    end
+    if fey_cycle_separator_lines == 0 then return end
     local capture_id = pred[2]
     local section_node = match[capture_id]
     section_node = section_node and section_node[#section_node]
-    if not capture_id or not section_node or section_node:type() ~= 'section' then
-      return
-    end
-    if not metadata[capture_id] then
-      metadata[capture_id] = {}
-    end
+    if not capture_id or not section_node or section_node:type() ~= 'section' then return end
+    if not metadata[capture_id] then metadata[capture_id] = {} end
     local range = metadata[capture_id].range or { section_node:range() }
     local start_row = range[1]
     local end_row = range[3]
@@ -412,16 +361,12 @@ function Config:setup_ts_predicates()
     local empty_lines = 0
     while end_row > start_row do
       local line = vim.api.nvim_buf_get_lines(bufnr, end_row - 1, end_row, false)[1]
-      if vim.trim(line) ~= '' then
-        break
-      end
+      if vim.trim(line) ~= '' then break end
       empty_lines = empty_lines + 1
       end_row = end_row - 1
     end
 
-    if empty_lines < fey_cycle_separator_lines then
-      return
-    end
+    if empty_lines < fey_cycle_separator_lines then return end
     range[3] = range[3] - 1
     metadata[capture_id].range = range
   end, { force = true, all = true })
@@ -430,9 +375,7 @@ function Config:setup_ts_predicates()
     ---@type TSNode | nil
     local node = match[predicate[2]]
     node = node and node[#node]
-    if not node then
-      return false
-    end
+    if not node then return false end
 
     local type = predicate[3]
     local text = vim.treesitter.get_node_text(node, source)
@@ -466,26 +409,18 @@ function Config:setup_ts_predicates()
   vim.treesitter.query.add_directive('fey-set-block-language!', function(match, _, bufnr, pred, metadata)
     local lang_node = match[pred[2]]
     lang_node = lang_node and lang_node[#lang_node]
-    if not lang_node then
-      return
-    end
+    if not lang_node then return end
     local text = vim.treesitter.get_node_text(lang_node, bufnr)
-    if not text or vim.trim(text) == '' then
-      return
-    end
+    if not text or vim.trim(text) == '' then return end
     metadata['injection.language'] = self:detect_filetype(text)
   end, { force = true, all = true })
 
   vim.treesitter.query.add_directive('fey-set-inline-block-language!', function(match, _, bufnr, pred, metadata)
     local lang_node = match[pred[2]]
     lang_node = lang_node and lang_node[#lang_node]
-    if not lang_node then
-      return
-    end
+    if not lang_node then return end
     local text = vim.treesitter.get_node_text(lang_node, bufnr)
-    if not text or vim.trim(text) == '' then
-      return
-    end
+    if not text or vim.trim(text) == '' then return end
     -- Remove `src_` part: src_lua -> lua
     text = text:sub(5)
     -- Remove opening brackend and parameters: lua[params]{ -> lua
@@ -503,9 +438,7 @@ end
 ---@param prepend_content? any
 ---@return table
 function Config:respect_blank_before_new_entry(content, option, prepend_content)
-  if self.opts.fey_blank_before_new_entry[option or 'heading'] then
-    table.insert(content, 1, prepend_content or '')
-  end
+  if self.opts.fey_blank_before_new_entry[option or 'heading'] then table.insert(content, 1, prepend_content or '') end
   return content
 end
 
@@ -513,9 +446,7 @@ end
 ---@param bufnr number
 ---@return boolean
 function Config:should_indent(bufnr)
-  if bufnr > -1 and vim.b[bufnr].fey_indent_mode then
-    return not self.opts.fey_indent_mode_turns_off_fey_adapt_indentation
-  end
+  if bufnr > -1 and vim.b[bufnr].fey_indent_mode then return not self.opts.fey_indent_mode_turns_off_fey_adapt_indentation end
 
   return self.fey_adapt_indentation
 end
@@ -524,9 +455,7 @@ end
 ---@param bufnr number
 ---@return string
 function Config:get_indent(amount, bufnr)
-  if self:should_indent(bufnr) then
-    return string.rep(' ', amount)
-  end
+  if self:should_indent(bufnr) then return string.rep(' ', amount) end
 
   return ''
 end
@@ -534,13 +463,9 @@ end
 ---@param bufnr number
 ---@return boolean
 function Config:hide_leading_signature(bufnr)
-  if self.fey_hide_leading_signature then
-    return true
-  end
+  if self.fey_hide_leading_signature then return true end
 
-  if vim.b[bufnr].fey_indent_mode and self.fey_indent_mode_turns_on_hiding_signature then
-    return true
-  end
+  if vim.b[bufnr].fey_indent_mode and self.fey_indent_mode_turns_on_hiding_signature then return true end
 
   return false
 end
@@ -576,9 +501,11 @@ function Config:use_property_inheritance(property_name)
   local use_inheritance = self.opts.fey_use_property_inheritance or false
 
   if type(use_inheritance) == 'table' then
-    return vim.tbl_contains(use_inheritance, function(value)
-      return vim.stricmp(value, property_name) == 0
-    end, { predicate = true })
+    return vim.tbl_contains(
+      use_inheritance,
+      function(value) return vim.stricmp(value, property_name) == 0 end,
+      { predicate = true }
+    )
   elseif type(use_inheritance) == 'string' then
     local regex = vim.regex(use_inheritance)
     return regex:match_str(property_name) and true or false
@@ -591,17 +518,11 @@ end
 -- If nil, repeat infinitely.
 -- @return number|nil
 function Config:get_repeat_count()
-  if self.fey_agenda_show_future_repeats == true then
-    return nil
-  end
+  if self.fey_agenda_show_future_repeats == true then return nil end
 
-  if self.fey_agenda_show_future_repeats == false then
-    return 0
-  end
+  if self.fey_agenda_show_future_repeats == false then return 0 end
 
-  if self.fey_agenda_show_future_repeats == 'next' then
-    return 1
-  end
+  if self.fey_agenda_show_future_repeats == 'next' then return 1 end
   if type(self.fey_agenda_show_future_repeats) == 'number' and self.fey_agenda_show_future_repeats >= 0 then
     return self.fey_agenda_show_future_repeats
   end
@@ -620,13 +541,9 @@ end
 function Config:detect_filetype(filetype_name, use_ftmatch)
   local name = filetype_name:lower()
 
-  if not self._ft_map then
-    self._ft_map = {}
-  end
+  if not self._ft_map then self._ft_map = {} end
 
-  if self._ft_map[name] then
-    return self._ft_map[name]
-  end
+  if self._ft_map[name] then return self._ft_map[name] end
 
   local filetype = self:_get_filetype_name(name)
 
@@ -658,13 +575,9 @@ function Config:_get_filetype_name(filetype)
     shell = 'bash',
     uxn = 'uxntal',
   }
-  if map[filetype] then
-    return map[filetype]
-  end
+  if map[filetype] then return map[filetype] end
 
-  if self.opts.fey_edit_src_filetype_map[filetype] then
-    return self.opts.fey_edit_src_filetype_map[filetype]
-  end
+  if self.opts.fey_edit_src_filetype_map[filetype] then return self.opts.fey_edit_src_filetype_map[filetype] end
 
   return filetype
 end

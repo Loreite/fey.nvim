@@ -148,8 +148,6 @@ end
 
 ---@param v any
 ---@return string glyph for a type
-function M.type_glyph(t)
-  return ({ number = '#', date = '@', boolean = '?', list = '≡', link = '→', mixed = '~' })[t] or ' '
-end
+function M.type_glyph(t) return ({ number = '#', date = '@', boolean = '?', list = '≡', link = '→', mixed = '~' })[t] or ' ' end
 
 return M

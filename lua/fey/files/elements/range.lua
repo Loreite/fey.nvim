@@ -18,9 +18,7 @@ function Range:new(data)
 end
 
 function Range.from_node(node)
-  if not node then
-    return Range.from_line(0)
-  end
+  if not node then return Range.from_line(0) end
   local start_line, start_col, end_line, end_col = node:range()
   local opts = {
     start_line = start_line + 1,
@@ -29,43 +27,29 @@ function Range.from_node(node)
     end_col = end_col,
   }
 
-  if end_col == 0 and start_line ~= end_line then
-    opts.end_line = opts.end_line - 1
-  end
+  if end_col == 0 and start_line ~= end_line then opts.end_line = opts.end_line - 1 end
   return Range:new(opts)
 end
 
 ---@param lnum number
 ---@return FeyRange
-function Range.from_line(lnum)
-  return Range:new({ start_line = lnum, end_line = lnum })
-end
+function Range.from_line(lnum) return Range:new({ start_line = lnum, end_line = lnum }) end
 
 ---@param lnum number
 ---@return FeyRange
-function Range.for_line_hl(lnum)
-  return Range:new({ start_line = lnum, end_line = lnum, end_col = 0 })
-end
+function Range.for_line_hl(lnum) return Range:new({ start_line = lnum, end_line = lnum, end_col = 0 }) end
 
 ---@return boolean
-function Range:is_same_line()
-  return self.start_line == self.end_line
-end
+function Range:is_same_line() return self.start_line == self.end_line end
 
 ---@param line number
 ---@param col number
 ---@return boolean
-function Range:is_in_range(line, col)
-  return self:is_in_line_range(line) and col >= self.start_col and col <= self.end_col
-end
+function Range:is_in_range(line, col) return self:is_in_line_range(line) and col >= self.start_col and col <= self.end_col end
 
-function Range:is_in_line_range(line)
-  return line >= self.start_line and line <= self.end_line
-end
+function Range:is_in_line_range(line) return line >= self.start_line and line <= self.end_line end
 
-function Range:is_same_line_range(range)
-  return self.start_line == range.start_line and self.end_line == range.end_line
-end
+function Range:is_same_line_range(range) return self.start_line == range.start_line and self.end_line == range.end_line end
 
 function Range:is_same(range)
   return self.start_line == range.start_line

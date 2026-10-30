@@ -11,9 +11,7 @@ local function last_line(node)
 end
 
 ---@return TSNode|nil
-local function current_section()
-  return ts_utils.closest_node(ts_utils.get_node_at_cursor(), 'section')
-end
+local function current_section() return ts_utils.closest_node(ts_utils.get_node_at_cursor(), 'section') end
 
 ---@param section TSNode
 ---@return TSNode

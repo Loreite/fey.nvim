@@ -9,9 +9,7 @@ function FeyBuffers.init()
   local valid_buffers = {}
   for _, bufnr in ipairs(all_buffers) do
     local valid_buffer_name = FeyBuffers.get_valid_buffer_name(bufnr)
-    if valid_buffer_name then
-      valid_buffers[valid_buffer_name] = bufnr
-    end
+    if valid_buffer_name then valid_buffers[valid_buffer_name] = bufnr end
   end
 
   FeyBuffers._bufs = valid_buffers
@@ -25,21 +23,15 @@ end
 function FeyBuffers.get_buffer_by_filename(filename)
   local resolved_filename = FeyBuffers._resolve_filename(filename)
 
-  if FeyBuffers._bufs[resolved_filename] then
-    return FeyBuffers._bufs[resolved_filename]
-  end
+  if FeyBuffers._bufs[resolved_filename] then return FeyBuffers._bufs[resolved_filename] end
 
   local bufnr = vim.fn.bufnr(resolved_filename)
 
-  if bufnr < 0 then
-    return -1
-  end
+  if bufnr < 0 then return -1 end
 
   -- If filename does not have an fey extension, return the buffer only if it has correct filetype
   if not FeyBuffers._is_valid_file_name(resolved_filename) then
-    if vim.bo[bufnr].filetype == 'fey' then
-      return bufnr
-    end
+    if vim.bo[bufnr].filetype == 'fey' then return bufnr end
 
     return -1
   end
@@ -52,16 +44,12 @@ function FeyBuffers.get_buffer_by_filename(filename)
   -- If not, fallback to nvim_list_bufs
   local buffer_filename = FeyBuffers._resolve_filename(vim.api.nvim_buf_get_name(bufnr))
 
-  if buffer_filename == resolved_filename then
-    return FeyBuffers.add(bufnr)
-  end
+  if buffer_filename == resolved_filename then return FeyBuffers.add(bufnr) end
 
   local all_bufs = vim.api.nvim_list_bufs()
   for _, buf in ipairs(all_bufs) do
     local valid_buffer_name = FeyBuffers.get_valid_buffer_name(buf)
-    if valid_buffer_name and valid_buffer_name == resolved_filename then
-      return FeyBuffers.add(buf)
-    end
+    if valid_buffer_name and valid_buffer_name == resolved_filename then return FeyBuffers.add(buf) end
   end
 
   return -1
@@ -86,9 +74,7 @@ end
 function FeyBuffers.remove(bufnr)
   local name = FeyBuffers.get_valid_buffer_name(bufnr)
 
-  if name and FeyBuffers._bufs[name] then
-    FeyBuffers._bufs[name] = nil
-  end
+  if name and FeyBuffers._bufs[name] then FeyBuffers._bufs[name] = nil end
 end
 
 ---Get valid buffer name if the buffer is an fey file
@@ -96,9 +82,7 @@ end
 function FeyBuffers.get_valid_buffer_name(bufnr)
   local bufname = vim.api.nvim_buf_get_name(bufnr)
 
-  if not FeyBuffers._is_valid_file_name(bufname) then
-    return nil
-  end
+  if not FeyBuffers._is_valid_file_name(bufname) then return nil end
 
   return FeyBuffers._resolve_filename(bufname)
 end
@@ -106,9 +90,7 @@ end
 ---Resolve and normalize the filename
 ---@param filename string
 ---@return string
-function FeyBuffers._resolve_filename(filename)
-  return vim.fs.normalize(vim.fn.resolve(filename))
-end
+function FeyBuffers._resolve_filename(filename) return vim.fs.normalize(vim.fn.resolve(filename)) end
 
 ---Check if given filename has valid fey extension
 ---@private

@@ -19,6 +19,8 @@ Fixes:
 
 Changes:
 
+-  import: compound emphasis, one-line spans and heading anchors for org (e32ba2f)
+-  plan XI.G: toggle for hl, page on a tag that conceals, docs rebuilt (9356366)
 -  plan XI.F: status and label tags conceal through the registry (parts, where, state) (e165d69)
 -  plan XI.F: status and label tags stay in task_tags.lua (reason in its header) (78448c5)
 -  plan XI.E: link, embed and section tags conceal through the registry (442180d)

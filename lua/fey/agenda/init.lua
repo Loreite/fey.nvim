@@ -50,25 +50,17 @@ function Agenda:open_view(type, opts)
   })
 
   local view = AgendaTypes[type]:new(view_opts)
-  if not view then
-    return
-  end
+  if not view then return end
   self.views = { view }
   return self:prepare_and_render()
 end
 
 function Agenda:prepare_and_render()
-  return Promise.map(function(view)
-    return view:prepare()
-  end, self.views):next(function(views)
-    local valid_views = vim.tbl_filter(function(view)
-      return view ~= false
-    end, views)
+  return Promise.map(function(view) return view:prepare() end, self.views):next(function(views)
+    local valid_views = vim.tbl_filter(function(view) return view ~= false end, views)
 
     -- Some of the views returned false, abort render
-    if #valid_views ~= #self.views then
-      return
-    end
+    if #valid_views ~= #self.views then return end
 
     self.views = views
     return self:render()
@@ -97,31 +89,19 @@ function Agenda:render()
   end
 end
 
-function Agenda:agenda(opts)
-  return self:open_view('agenda', opts)
-end
+function Agenda:agenda(opts) return self:open_view('agenda', opts) end
 
 -- TODO: Introduce searching ALL/DONE
-function Agenda:todos(opts)
-  return self:open_view('todo', opts)
-end
+function Agenda:todos(opts) return self:open_view('todo', opts) end
 
-function Agenda:search()
-  return self:open_view('search')
-end
+function Agenda:search() return self:open_view('search') end
 
-function Agenda:tags(opts)
-  return self:open_view('tags', opts)
-end
+function Agenda:tags(opts) return self:open_view('tags', opts) end
 
-function Agenda:tags_todo(opts)
-  return self:open_view('tags_todo', opts)
-end
+function Agenda:tags_todo(opts) return self:open_view('tags_todo', opts) end
 
 function Agenda:_build_custom_commands()
-  if not config.fey_agenda_custom_commands then
-    return {}
-  end
+  if not config.fey_agenda_custom_commands then return {} end
   local custom_commands = {}
   ---@param opts FeyAgendaCustomCommandType
   local get_type_opts = function(opts, id)
@@ -143,9 +123,7 @@ function Agenda:_build_custom_commands()
       },
     }
 
-    if not opts_by_type[opts.type] then
-      return
-    end
+    if not opts_by_type[opts.type] then return end
 
     opts_by_type[opts.type].sorting_strategy = opts.fey_agenda_sorting_strategy
     opts_by_type[opts.type].agenda_filter = self.filters
@@ -177,9 +155,7 @@ function Agenda:_build_custom_commands()
         end
         self.views = views
         return self:prepare_and_render():next(function()
-          if #self.views > 1 then
-            vim.fn.cursor({ 1, 0 })
-          end
+          if #self.views > 1 then vim.fn.cursor({ 1, 0 }) end
         end)
       end,
     })
@@ -198,37 +174,27 @@ function Agenda:_build_menu()
   menu:add_option({
     label = 'Agenda for current week or day',
     key = 'a',
-    action = function()
-      return self:agenda()
-    end,
+    action = function() return self:agenda() end,
   })
   menu:add_option({
     label = 'List of all TODO entries',
     key = 't',
-    action = function()
-      return self:todos()
-    end,
+    action = function() return self:todos() end,
   })
   menu:add_option({
     label = 'Match a TAGS/PROP/TODO query',
     key = 'm',
-    action = function()
-      return self:tags()
-    end,
+    action = function() return self:tags() end,
   })
   menu:add_option({
     label = 'Like m, but only TODO entries',
     key = 'M',
-    action = function()
-      return self:tags_todo()
-    end,
+    action = function() return self:tags_todo() end,
   })
   menu:add_option({
     label = 'Search for keywords',
     key = 's',
-    action = function()
-      return self:search()
-    end,
+    action = function() return self:search() end,
   })
 
   local custom_commands = self:_build_custom_commands()
@@ -278,9 +244,7 @@ end
 function Agenda:open_by_key(key)
   local menu = self:_build_menu()
   local item = menu:get_entry_by_key(key)
-  if not item then
-    return utils.echo_error('No agenda view with key ' .. key)
-  end
+  if not item then return utils.echo_error('No agenda view with key ' .. key) end
   return item.action()
 end
 
@@ -289,9 +253,7 @@ function Agenda:prompt()
   return menu:open()
 end
 
-function Agenda:reset()
-  return self:_call_view_and_render('reset')
-end
+function Agenda:reset() return self:_call_view_and_render('reset') end
 
 ---@param source? string
 function Agenda:redo(source, preserve_cursor_pos)
@@ -299,26 +261,18 @@ function Agenda:redo(source, preserve_cursor_pos)
   local save_view = preserve_cursor_pos and vim.fn.winsaveview()
   return Promise.resolve(true)
     :next(function()
-      if source == 'mapping' then
-        return self:_call_view_async('redraw')
-      end
+      if source == 'mapping' then return self:_call_view_async('redraw') end
       return true
     end)
     :next(function()
       self:render()
-      if save_view then
-        vim.fn.winrestview(save_view)
-      end
+      if save_view then vim.fn.winrestview(save_view) end
     end)
 end
 
-function Agenda:advance_span(direction)
-  return self:_call_view_and_render('advance_span', direction, vim.v.count1)
-end
+function Agenda:advance_span(direction) return self:_call_view_and_render('advance_span', direction, vim.v.count1) end
 
-function Agenda:change_span(span)
-  return self:_call_view_and_render('change_span', span)
-end
+function Agenda:change_span(span) return self:_call_view_and_render('change_span', span) end
 
 function Agenda:open_day(day)
   return self:open_view('agenda', {
@@ -331,19 +285,13 @@ function Agenda:goto_date()
   local views = {}
   for _, view in ipairs(self.views) do
     ---@diagnostic disable-next-line: undefined-field
-    if view.goto_date and view.view:is_in_range() then
-      table.insert(views, view)
-    end
+    if view.goto_date and view.view:is_in_range() then table.insert(views, view) end
   end
 
-  if #views == 0 then
-    return utils.echo_error('No available views to jump to date.')
-  end
+  if #views == 0 then return utils.echo_error('No available views to jump to date.') end
 
   return Calendar.new({ date = Date.now(), title = 'Go to agenda date' }):open():next(function(date)
-    if not date then
-      return nil
-    end
+    if not date then return nil end
     for _, view in ipairs(views) do
       view:goto_date(date)
     end
@@ -353,9 +301,7 @@ end
 
 function Agenda:switch_to_item()
   local item = self:_get_heading()
-  if not item then
-    return
-  end
+  if not item then return end
   utils.goto_heading(item)
 end
 
@@ -378,9 +324,7 @@ function Agenda:_clock(method)
   if method ~= 'clock_out' and method ~= 'clock_cancel' and not entry then return end
   local source = entry and { abs = entry.abs, line = entry.line } or nil
   local done = clock()[method](clock(), source)
-  return done:next(function()
-    return self:redo('remote_edit', true)
-  end, function(err)
+  return done:next(function() return self:redo('remote_edit', true) end, function(err)
     if err and err ~= '' then utils.echo_error(type(err) == 'table' and (err.message or vim.inspect(err)) or tostring(err)) end
   end)
 end
@@ -407,9 +351,7 @@ function Agenda:add_note()
   })
 end
 
-function Agenda:refile()
-  return self:_move_entry('refile')
-end
+function Agenda:refile() return self:_move_entry('refile') end
 
 ---Refile or archive the heading of the line under the cursor, then rebuild the view
 ---@private
@@ -429,17 +371,13 @@ end
 
 function Agenda:preview_item()
   local heading = self:get_heading_at_cursor()
-  if not heading then
-    return
-  end
+  if not heading then return end
 
   local lines = heading:get_lines()
   local offset = 4
   local width = lines[1]:len() + offset
 
-  vim.tbl_map(function(line)
-    width = math.max(width, line:len() + offset)
-  end, lines)
+  vim.tbl_map(function(line) width = math.max(width, line:len() + offset) end, lines)
 
   local win_opts = vim.tbl_deep_extend('force', {
     width = width,
@@ -470,9 +408,7 @@ function Agenda:priority_down()
   })
 end
 
-function Agenda:archive()
-  return self:_move_entry('archive')
-end
+function Agenda:archive() return self:_move_entry('archive') end
 
 function Agenda:toggle_archive_tag()
   return self:_remote_edit({
@@ -513,17 +449,13 @@ function Agenda:_get_heading()
   local line = vim.fn.line('.')
   for _, view in ipairs(self.views) do
     local agenda_line = view:get_line(line)
-    if agenda_line and agenda_line.heading then
-      return agenda_line.heading, agenda_line, view
-    end
+    if agenda_line and agenda_line.heading then return agenda_line.heading, agenda_line, view end
   end
 end
 
 function Agenda:goto_item()
   local item = self:_get_heading()
-  if not item then
-    return
-  end
+  if not item then return end
   return self:_goto(item)
 end
 
@@ -535,9 +467,7 @@ function Agenda:_goto(item)
     local ft = vim.api.nvim_get_option_value('filetype', {
       buf = vim.api.nvim_win_get_buf(win),
     })
-    if ft == 'fey' then
-      target_window = win
-    end
+    if ft == 'fey' then target_window = win end
   end
 
   if not target_window then
@@ -545,9 +475,7 @@ function Agenda:_goto(item)
       local buf = vim.api.nvim_win_get_buf(win)
       local ft = vim.api.nvim_get_option_value('filetype', { buf = buf })
       local modifiable = vim.api.nvim_get_option_value('modifiable', { buf = buf })
-      if ft == '' and modifiable then
-        target_window = win
-      end
+      if ft == '' and modifiable then target_window = win end
     end
   end
 
@@ -563,12 +491,12 @@ end
 function Agenda:filter()
   local this = self
   self.filters:parse_available_filters(self.views)
-  return Input.open('Filter [+cat-tag/regexp/]: ', self.filters.value, function(arg_lead)
-    return utils.prompt_autocomplete(arg_lead, this.filters:get_completion_list(), { '+', '-' })
-  end):next(function(value)
-    if not value or value == self.filters.value then
-      return false
-    end
+  return Input.open(
+    'Filter [+cat-tag/regexp/]: ',
+    self.filters.value,
+    function(arg_lead) return utils.prompt_autocomplete(arg_lead, this.filters:get_completion_list(), { '+', '-' }) end
+  ):next(function(value)
+    if not value or value == self.filters.value then return false end
     self.filters:parse(value)
     return self:redo('filter', true)
   end)
@@ -578,29 +506,19 @@ end
 function Agenda:_remote_edit(opts)
   opts = opts or {}
   local action = opts.action
-  if not action then
-    return
-  end
+  if not action then return end
   local getter = opts.getter
     or function()
       local heading, agenda_line, view = self:_get_heading()
-      if not heading then
-        return
-      end
+      if not heading then return end
       return heading, agenda_line, view
     end
   local heading, agenda_line, view = getter()
-  if not heading then
-    return
-  end
-  local edited = Edit.run(heading, function()
-    return require('fey').action(action)
-  end)
+  if not heading then return end
+  local edited = Edit.run(heading, function() return require('fey').action(action) end)
 
   -- the view is built from the index, which `Edit.run` brought up to date: a redraw shows the change
-  return edited:next(function()
-    return self:redo('remote_edit', true)
-  end, function(err)
+  return edited:next(function() return self:redo('remote_edit', true) end, function(err)
     if err and err ~= '' then utils.echo_error(type(err) == 'table' and (err.message or vim.inspect(err)) or tostring(err)) end
   end)
 end
@@ -611,9 +529,7 @@ function Agenda:get_heading_at_cursor()
 
   for _, view in ipairs(self.views) do
     local agenda_line = view:get_line(line_nr)
-    if agenda_line and agenda_line.heading then
-      return agenda_line.heading
-    end
+    if agenda_line and agenda_line.heading then return agenda_line.heading end
   end
 end
 
@@ -627,9 +543,7 @@ function Agenda:open_at_point()
   utils.echo_error('No link found in this item')
 end
 
-function Agenda:quit()
-  vim.api.nvim_win_close(0, true)
-end
+function Agenda:quit() vim.api.nvim_win_close(0, true) end
 
 function Agenda:_call_view(method, ...)
   local executed = false
@@ -646,14 +560,10 @@ end
 function Agenda:_call_view_async(method, ...)
   local args = { ... }
   return Promise.map(function(view)
-    if view[method] and view.view:is_in_range() then
-      return view[method](view, unpack(args))
-    end
+    if view[method] and view.view:is_in_range() then return view[method](view, unpack(args)) end
   end, self.views):next(function(views)
     for _, view in ipairs(views) do
-      if view then
-        return true
-      end
+      if view then return true end
     end
     return false
   end)
@@ -673,9 +583,7 @@ end
 
 function Agenda:_call_view_and_render(method, ...)
   local executed = self:_call_view(method, ...)
-  if executed then
-    return self:render()
-  end
+  if executed then return self:render() end
 end
 
 return Agenda

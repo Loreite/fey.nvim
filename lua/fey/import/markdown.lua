@@ -192,7 +192,8 @@ local function rich(ctx, text)
   return items
 end
 
-local HTML_VOID = { img = true, hr = true, input = true, meta = true, link = true, wbr = true, col = true, area = true, source = true }
+local HTML_VOID =
+  { img = true, hr = true, input = true, meta = true, link = true, wbr = true, col = true, area = true, source = true }
 
 local HTML_ENTITIES = { ['&amp;'] = '&', ['&lt;'] = '<', ['&gt;'] = '>', ['&quot;'] = '"', ['&nbsp;'] = ' ', ['&#39;'] = "'" }
 
@@ -387,7 +388,8 @@ convert = function(ctx, node, from, to)
           for n = #stack, at, -1 do
             stack[n] = nil
           end
-          out[first] = { t = 'html', name = open.name, attrs = open.attrs, children = children, raw_open = open.raw, raw_close = item.raw }
+          out[first] =
+            { t = 'html', name = open.name, attrs = open.attrs, children = children, raw_open = open.raw, raw_close = item.raw }
         else
           out[#out + 1] = { t = 'hraw', raw = item.raw }
         end
@@ -687,7 +689,9 @@ local function parse_yaml(text)
   local function value_of(v, indent, same_ok)
     if v == '' then
       local nxt = lines[i]
-      if nxt and (indent_of(nxt) > indent or same_ok and indent_of(nxt) == indent and is_dash(nxt)) then return parse_node(indent_of(nxt)) end
+      if nxt and (indent_of(nxt) > indent or same_ok and indent_of(nxt) == indent and is_dash(nxt)) then
+        return parse_node(indent_of(nxt))
+      end
       return ''
     elseif v:match('^[|>]') then
       local parts = {}
@@ -731,7 +735,9 @@ local function parse_yaml(text)
         i = i + 1
       else
         local key, v = line:match('^ *([^:]-):%s+(.*)$')
-        if not key then key, v = line:match('^ *([^:]-):$'), '' end
+        if not key then
+          key, v = line:match('^ *([^:]-):$'), ''
+        end
         i = i + 1
         if key and key ~= '' then map[#map + 1] = { unquote(vim.trim(key)), value_of(v, indent, true) } end
       end
@@ -762,15 +768,24 @@ local function parse_toml(text)
     while k <= #l do
       local ch = l:sub(k, k)
       if q then
-        if ch == '\\' and q == '"' then out[#out + 1] = l:sub(k, k + 1); k = k + 1
+        if ch == '\\' and q == '"' then
+          out[#out + 1] = l:sub(k, k + 1)
+          k = k + 1
         else
           out[#out + 1] = ch
           if ch == q then q = nil end
         end
-      elseif ch == '"' or ch == "'" then q = ch; out[#out + 1] = ch
-      elseif ch == '#' then break
+      elseif ch == '"' or ch == "'" then
+        q = ch
+        out[#out + 1] = ch
+      elseif ch == '#' then
+        break
       else
-        if ch == '[' or ch == '{' then depth = depth + 1 elseif ch == ']' or ch == '}' then depth = depth - 1 end
+        if ch == '[' or ch == '{' then
+          depth = depth + 1
+        elseif ch == ']' or ch == '}' then
+          depth = depth - 1
+        end
         out[#out + 1] = ch
       end
       k = k + 1
@@ -783,11 +798,18 @@ local function parse_toml(text)
     if first and kept:match('^%[') and depth > 0 and kept:match('^%[%[?[%w_."\' -]+%]%]?$') then depth = 0 end
     if first then
       if kept ~= '' then
-        if depth > 0 then pending = kept else lines[#lines + 1] = kept end
+        if depth > 0 then
+          pending = kept
+        else
+          lines[#lines + 1] = kept
+        end
       end
     else
       pending = pending .. ' ' .. vim.trim(kept)
-      if depth <= 0 then lines[#lines + 1] = pending; pending, depth = nil, 0 end
+      if depth <= 0 then
+        lines[#lines + 1] = pending
+        pending, depth = nil, 0
+      end
     end
   end
   if pending then lines[#lines + 1] = pending end
@@ -800,9 +822,12 @@ local function parse_toml(text)
       local ch = v:sub(k, k)
       if q then
         if ch == q then q = nil end
-      elseif ch == '"' or ch == "'" then q = ch
-      elseif ch == '[' or ch == '{' then d = d + 1
-      elseif ch == ']' or ch == '}' then d = d - 1
+      elseif ch == '"' or ch == "'" then
+        q = ch
+      elseif ch == '[' or ch == '{' then
+        d = d + 1
+      elseif ch == ']' or ch == '}' then
+        d = d - 1
       elseif ch == ',' and d == 0 then
         items[#items + 1] = v:sub(from, k - 1)
         from = k + 1

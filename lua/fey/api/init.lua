@@ -108,9 +108,7 @@ end
 function FeyApi.section_text(signature, file, n)
   local parts = { 'section, ', head_text(signature) }
   if file and file ~= '' then parts[#parts + 1] = ', ' .. head_text(file) end
-  if n then
-    parts[#parts + 1] = (file and file ~= '') and (', ' .. n) or ('; n: ' .. n)
-  end
+  if n then parts[#parts + 1] = (file and file ~= '') and (', ' .. n) or ('; n: ' .. n) end
   return '{@ ' .. table.concat(parts) .. ' @}'
 end
 

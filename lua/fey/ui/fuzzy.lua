@@ -44,8 +44,15 @@ function M.open(opts)
   vim.bo[ibuf].bufhidden = 'wipe'
   vim.bo[ibuf].filetype = 'feydb_input'
   local iwin = vim.api.nvim_open_win(ibuf, true, {
-    relative = 'editor', row = row, col = col, width = width, height = 1,
-    style = 'minimal', border = 'rounded', title = ' ' .. (opts.prompt or 'Input') .. ' ', title_pos = 'left',
+    relative = 'editor',
+    row = row,
+    col = col,
+    width = width,
+    height = 1,
+    style = 'minimal',
+    border = 'rounded',
+    title = ' ' .. (opts.prompt or 'Input') .. ' ',
+    title_pos = 'left',
     zindex = 200,
   })
   vim.wo[iwin].winhighlight = 'NormalFloat:Normal,FloatBorder:FloatBorder,FloatTitle:Title'
@@ -99,19 +106,29 @@ function M.open(opts)
     for i = first, first + shown - 1 do
       local line = i - first
       local m = matches[i]
-      if i == sel then
-        vim.api.nvim_buf_set_extmark(lbuf, ns, line, 0, { line_hl_group = 'PmenuSel', priority = 10 })
-      end
+      if i == sel then vim.api.nvim_buf_set_extmark(lbuf, ns, line, 0, { line_hl_group = 'PmenuSel', priority = 10 }) end
       if m.desc then
-        vim.api.nvim_buf_set_extmark(lbuf, ns, line, 1 + #m.text, { end_col = #lines[line + 1], hl_group = 'Comment', priority = 20 })
+        vim.api.nvim_buf_set_extmark(
+          lbuf,
+          ns,
+          line,
+          1 + #m.text,
+          { end_col = #lines[line + 1], hl_group = 'Comment', priority = 20 }
+        )
       end
       for _, p in ipairs(positions[i] or {}) do
         vim.api.nvim_buf_set_extmark(lbuf, ns, line, 1 + p, { end_col = 2 + p, hl_group = 'Special', priority = 30 })
       end
     end
     local cfg = {
-      relative = 'editor', row = row + 3, col = col, width = width, height = shown,
-      style = 'minimal', border = 'rounded', zindex = 201,
+      relative = 'editor',
+      row = row + 3,
+      col = col,
+      width = width,
+      height = shown,
+      style = 'minimal',
+      border = 'rounded',
+      zindex = 201,
     }
     if lwin and vim.api.nvim_win_is_valid(lwin) then
       vim.api.nvim_win_set_config(lwin, cfg)
@@ -142,11 +159,11 @@ function M.open(opts)
     render_list()
   end
 
-  local function map(modes, lhs, fn)
-    vim.keymap.set(modes, lhs, fn, { buffer = ibuf, nowait = true, silent = true })
-  end
+  local function map(modes, lhs, fn) vim.keymap.set(modes, lhs, fn, { buffer = ibuf, nowait = true, silent = true }) end
   map('i', '<CR>', function() confirm(false) end)
-  map('i', '<C-y>', function() if opts.allow_custom or not pick_mode then confirm(true) end end)
+  map('i', '<C-y>', function()
+    if opts.allow_custom or not pick_mode then confirm(true) end
+  end)
   map({ 'i', 'n' }, '<Esc>', cancel)
   map({ 'i', 'n' }, '<C-c>', cancel)
   map('n', '<CR>', function() confirm(false) end)
@@ -168,7 +185,11 @@ function M.open(opts)
   vim.api.nvim_create_autocmd('WinLeave', {
     buffer = ibuf,
     once = true,
-    callback = function() vim.schedule(function() if not closed then cancel() end end) end,
+    callback = function()
+      vim.schedule(function()
+        if not closed then cancel() end
+      end)
+    end,
   })
 
   render_list()

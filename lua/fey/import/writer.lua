@@ -24,8 +24,19 @@ local STYLES = { 'roman_upper', 'alpha_upper', 'roman_lower', 'alpha_lower', 'de
 local BLANK = '\1'
 
 local MARKERS = {
-  bold = '!', italic = '/', underline = '_', strike = '~',
-  red = '$', green = '*', fuscia = '%', purple = '=', orange = '^', yellow = '&', blue = '#', teal = '-', bg2 = '+',
+  bold = '!',
+  italic = '/',
+  underline = '_',
+  strike = '~',
+  red = '$',
+  green = '*',
+  fuscia = '%',
+  purple = '=',
+  orange = '^',
+  yellow = '&',
+  blue = '#',
+  teal = '-',
+  bg2 = '+',
   verbatim = '?',
 }
 
@@ -68,7 +79,10 @@ function Writer:text(s)
     local c = s:sub(i, i)
     if c == '\\' then
       out[#out + 1] = '\\\\'
-    elseif (c == '!' or c == '/' or c == '_' or c == '~' or c == '`' or c == '$' or c == '*' or c == '^' or c == '=' or c == '?') and opens_marker(s, i) then
+    elseif
+      (c == '!' or c == '/' or c == '_' or c == '~' or c == '`' or c == '$' or c == '*' or c == '^' or c == '=' or c == '?')
+      and opens_marker(s, i)
+    then
       out[#out + 1] = '\\' .. c
     else
       out[#out + 1] = c
@@ -210,7 +224,9 @@ function Writer:inlines(items)
       if head and not head:sub(1, -3):find('#]', 1, true) then
         out[#out + 1] = head:gsub('^%[#', '[', 1) .. self:inlines(item.children) .. '[# ' .. item.name .. ' ]'
       else
-        out[#out + 1] = self:inlines({ { t = 'hraw', raw = item.raw_open } }) .. self:inlines(item.children) .. self:inlines({ { t = 'hraw', raw = item.raw_close } })
+        out[#out + 1] = self:inlines({ { t = 'hraw', raw = item.raw_open } })
+          .. self:inlines(item.children)
+          .. self:inlines({ { t = 'hraw', raw = item.raw_close } })
       end
     elseif t == 'hraw' then
       out[#out + 1] = '#[ html ] ' .. item.raw:gsub(' #', ' \\#') .. ' #'

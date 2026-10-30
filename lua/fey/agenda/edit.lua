@@ -64,9 +64,7 @@ function M.run(entry, action)
     if not vim.api.nvim_buf_is_valid(buf) then return end
     local ok_write, err_write = pcall(function()
       -- only a buffer the action changed is written, and never one that had unsaved changes before
-      if not was_modified and vim.bo[buf].modified then
-        vim.api.nvim_buf_call(buf, function() vim.cmd('silent! write') end)
-      end
+      if not was_modified and vim.bo[buf].modified then vim.api.nvim_buf_call(buf, function() vim.cmd('silent! write') end) end
       reindex(buf)
     end)
     if not was_loaded and #vim.fn.win_findbuf(buf) == 0 then pcall(vim.api.nvim_buf_delete, buf, { force = true }) end

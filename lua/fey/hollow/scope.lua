@@ -93,7 +93,11 @@ function M.resolve(spec, current_root)
       end
     elseif item == 'court' then
       local root = court.ensure_dirs()
-      if root then add(root, 'court', true) else errors[#errors + 1] = 'the court is switched off' end
+      if root then
+        add(root, 'court', true)
+      else
+        errors[#errors + 1] = 'the court is switched off'
+      end
     else
       local with_children = false
       local text = item

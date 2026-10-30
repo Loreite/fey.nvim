@@ -150,6 +150,13 @@ function FeyFile:reindex_list()
 
     for _, child in ipairs(node:named_children()) do
       if child:type() == 'list' then
+        if config.fey_sublists_allow_mixed_index_types then
+          -- a sublist takes its type from its own first item and counts from its own start
+          for d = data.depth + 1, math.max(#data.counters, #data.firsts) do
+            data.counters[d] = nil
+            data.firsts[d] = nil
+          end
+        end
         for _, item in ipairs(child:named_children()) do
           update_index_rec(item, data)
         end

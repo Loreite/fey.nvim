@@ -94,9 +94,7 @@ function FeyAgendaLine:compile()
     token.highlighter = self.highlighter
     if token.virt_text_pos then
       local hl_groups = { token.hl_group }
-      if self.hl_group then
-        table.insert(hl_groups, 1, self.hl_group)
-      end
+      if self.hl_group then table.insert(hl_groups, 1, self.hl_group) end
       table.insert(result.virt_texts, {
         content = token.content,
         hl_groups = hl_groups,
@@ -106,9 +104,7 @@ function FeyAgendaLine:compile()
     else
       table.insert(result.content, token.content)
       local hl = token:get_highlights()
-      if #hl > 0 then
-        vim.list_extend(result.highlights, hl)
-      end
+      if #hl > 0 then vim.list_extend(result.highlights, hl) end
     end
   end
 

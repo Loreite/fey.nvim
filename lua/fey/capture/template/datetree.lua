@@ -50,9 +50,7 @@ local function find_target_line(headings, item, date, reversed)
       end
       if same_parent then
         local a, b = tonumber(theirs[#theirs]), tonumber(mine[#mine])
-        if (reversed and a < b) or (not reversed and a > b) then
-          return (Refile.subtree(heading)) - 1
-        end
+        if (reversed and a < b) or (not reversed and a > b) then return (Refile.subtree(heading)) - 1 end
       end
     end
   end
@@ -100,7 +98,9 @@ function Datetree.ensure(opts)
     local insert_at = before or at
     local all = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
     if not before then
-      while insert_at > 0 and all[insert_at]:match('^%s*$') do insert_at = insert_at - 1 end
+      while insert_at > 0 and all[insert_at]:match('^%s*$') do
+        insert_at = insert_at - 1
+      end
       if insert_at > 0 then table.insert(text, 1, '') end
       table.remove(text) -- no blank line at the very end of a block that ends the file
     end
@@ -201,9 +201,7 @@ function Datetree._get_tree_by_type(_, opts)
     },
   }
 
-  if opts.tree_type == 'custom' and opts.tree then
-    return opts.tree
-  end
+  if opts.tree_type == 'custom' and opts.tree then return opts.tree end
 
   return trees[opts.tree_type]
 end

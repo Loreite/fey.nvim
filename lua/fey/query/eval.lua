@@ -14,8 +14,16 @@ local M = {}
 
 -- bare words `date(today)` accepts
 local DATE_WORDS = {
-  today = true, now = true, tomorrow = true, yesterday = true,
-  sow = true, eow = true, som = true, eom = true, soy = true, eoy = true,
+  today = true,
+  now = true,
+  tomorrow = true,
+  yesterday = true,
+  sow = true,
+  eow = true,
+  som = true,
+  eom = true,
+  soy = true,
+  eoy = true,
 }
 
 ---@param ast table
@@ -27,7 +35,9 @@ local function compile(ast)
     local v = ast.v
     return function() return v end
   end
-  if t == 'null' then return function() return NULL end end
+  if t == 'null' then
+    return function() return NULL end
+  end
   if t == 'date' then
     local d = V.parse_date(ast.v)
     return function() return d == nil and NULL or d end
@@ -37,7 +47,9 @@ local function compile(ast)
     local path, sub = ast.v:match('^(.-)#(.*)$')
     local target, display = (path or ast.v), nil
     local bar_target, bar_display = target:match('^(.-)|(.*)$')
-    if bar_target then target, display = bar_target, bar_display end
+    if bar_target then
+      target, display = bar_target, bar_display
+    end
     return function() return V.link(target, display, sub) end
   end
 
@@ -70,7 +82,9 @@ local function compile(ast)
 
   if t == 'un' then
     local e = compile(ast.e)
-    if ast.op == '!' then return function(env) return not V.truthy(e(env)) end end
+    if ast.op == '!' then
+      return function(env) return not V.truthy(e(env)) end
+    end
     return function(env)
       local v = e(env)
       if type(v) == 'number' then return -v end
@@ -81,8 +95,12 @@ local function compile(ast)
 
   if t == 'bin' then
     local l, r, op = compile(ast.l), compile(ast.r), ast.op
-    if op == 'and' then return function(env) return V.truthy(l(env)) and V.truthy(r(env)) end end
-    if op == 'or' then return function(env) return V.truthy(l(env)) or V.truthy(r(env)) end end
+    if op == 'and' then
+      return function(env) return V.truthy(l(env)) and V.truthy(r(env)) end
+    end
+    if op == 'or' then
+      return function(env) return V.truthy(l(env)) or V.truthy(r(env)) end
+    end
     local binary = ops.binary
     return function(env) return binary(op, l(env), r(env)) end
   end
