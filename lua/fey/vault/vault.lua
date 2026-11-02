@@ -237,10 +237,48 @@ end
 
 -- Database ------------------------------------------------------------------
 
+---Close the database and delete its files: the index is a cache, the next `open` rebuilds it
+function Vault:_discard_db()
+  if self.db then pcall(self.db.close, self.db) end
+  self.db = nil
+  for _, suffix in ipairs({ '', '-wal', '-shm' }) do
+    os.remove(self.db_path .. suffix)
+  end
+end
+
+---Open the database; one that is damaged (a synced or copied live database, say) is discarded and rebuilt
 ---@return boolean ok
 ---@return string|nil err
 function Vault:open()
   if self.db then return true end
+  local ok, res, err = pcall(self._open, self)
+  if ok then return res, err end
+  self:_discard_db()
+  vim.notify(('fey vault: index of %s was damaged and is rebuilt (%s)'):format(self.root, tostring(res)), vim.log.levels.WARN)
+  ok, res, err = pcall(self._open, self)
+  if ok then return res, err end
+  self.state, self.last_error = 'error', tostring(res)
+  return false, self.last_error
+end
+
+---Run a write to the database; on failure the database is discarded and the write is tried once more on a rebuilt one
+---@param fn fun(db: FeyVaultDb)
+---@return boolean ok
+function Vault:_write(fn)
+  local ok, err = pcall(function() fn(assert(self.db)) end)
+  if ok then return true end
+  self.last_error = tostring(err)
+  self:_discard_db()
+  vim.notify(('fey vault: index of %s was damaged and is rebuilt (%s)'):format(self.root, self.last_error), vim.log.levels.WARN)
+  if not self:open() then return false end
+  ok, err = pcall(function() fn(assert(self.db)) end)
+  if not ok then self.last_error = tostring(err) end
+  return ok
+end
+
+---@return boolean ok
+---@return string|nil err
+function Vault:_open()
   if vim.fn.isdirectory(self.dir) == 0 then return false, self.dir .. ' does not exist' end
   local db_parent = vim.fs.dirname(self.db_path)
   if db_parent and vim.fn.isdirectory(db_parent) == 0 then vim.fn.mkdir(db_parent, 'p') end
@@ -252,6 +290,11 @@ function Vault:open()
   db:exec('PRAGMA foreign_keys = ON')
   db:exec('PRAGMA journal_mode = WAL')
   db:exec('PRAGMA synchronous = NORMAL')
+  local check = db:run('PRAGMA quick_check(1)')[1]
+  if check and check.quick_check ~= 'ok' then
+    db:close()
+    error('index failed its integrity check: ' .. tostring(check.quick_check), 0)
+  end
 
   local version = db:run('PRAGMA user_version')[1].user_version
   if version ~= SCHEMA_VERSION then
@@ -777,14 +820,15 @@ function Vault:index_path(path)
     self.revision = (self.revision or 0) + 1
     return true
   end
-  db:transaction(
-    function()
+  local written = self:_write(function(d)
+    d:transaction(function()
       self:_index_entry(rel, {
         mtime = stat.mtime.sec * 1000 + math.floor(stat.mtime.nsec / 1e6),
         size = stat.size,
       })
-    end
-  )
+    end)
+  end)
+  if not written then return false end
   fire_indexed(self, rel)
   return true
 end
@@ -803,16 +847,16 @@ function Vault:index_text(path, lines)
   local stat = uv.fs_stat(path)
   if not stat then return false end
 
-  local db = assert(self.db)
   local src = table.concat(lines, '\n') .. '\n'
-  db:transaction(
-    function()
+  local written = self:_write(function(d)
+    d:transaction(function()
       self:_index_source(rel, {
         mtime = stat.mtime.sec * 1000 + math.floor(stat.mtime.nsec / 1e6),
         size = stat.size,
       }, src)
-    end
-  )
+    end)
+  end)
+  if not written then return false end
   fire_indexed(self, rel, true)
   return true
 end
